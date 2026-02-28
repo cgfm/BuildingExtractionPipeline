@@ -1,0 +1,17 @@
+{
+  "type": "Feature",
+  "properties": {
+    "name": "Zitadelle Spandau, Berlin",
+    "description": "Renaissancefestung aus dem 16. Jahrhundert mit mehreren Gebäuden, Bastionen und dem Juliusturm."
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [[
+      [13.2075, 52.5365],
+      [13.2155, 52.5365],
+      [13.2155, 52.5415],
+      [13.2075, 52.5415],
+      [13.2075, 52.5365]
+    ]]
+  }
+}

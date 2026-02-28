@@ -1,0 +1,1708 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Building Extraction Pipeline</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+    <style>
+        /* ---- Reset ---- */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { font-size: 16px; scroll-behavior: smooth; }
+        body {
+            font-family: "Segoe UI", system-ui, -apple-system, Arial, Helvetica, sans-serif;
+            background: #d6d3c8;
+            color: #1a1a1a;
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 32px 16px 64px;
+        }
+
+        /* ---- Layout ---- */
+        .pipeline-wrap {
+            max-width: 960px;
+            margin: 0 auto;
+        }
+
+        /* ---- Card ---- */
+        .card {
+            background: #ffffff;
+            border-radius: 2px;
+            border: 1px solid #c0bda8;
+            border-left: 3px solid #4b5320;
+            padding: 28px 32px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+
+        .card-title {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #2d331a;
+            margin-bottom: 18px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        /* ---- Step badge ---- */
+        .step-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 2px;
+            background: #4b5320;
+            color: #e8e6df;
+            font-size: 0.85rem;
+            font-weight: 700;
+            flex-shrink: 0;
+            border: 1px solid #6b7530;
+        }
+
+        /* ---- Header card ---- */
+        .header-card {
+            text-align: center;
+            padding: 32px 32px 24px;
+            background: #2d331a;
+            border-left: 3px solid #2d331a;
+            border-color: #2d331a;
+        }
+        .header-card h1 {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: #e8e6df;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .header-card p {
+            color: #b0ad98;
+            font-size: 0.9rem;
+        }
+
+        /* ---- Upload zone ---- */
+        .upload-zone {
+            border: 2px dashed #b0ad98;
+            border-radius: 2px;
+            padding: 48px 24px;
+            text-align: center;
+            color: #666;
+            background: #f5f4ee;
+            cursor: pointer;
+            transition: border-color 0.15s, background-color 0.15s;
+        }
+        .upload-zone:hover {
+            border-color: #4b5320;
+            background: #eeeddf;
+            color: #3a3a2a;
+        }
+        .upload-zone.drag-over {
+            border-color: #6b7530;
+            background: #e8e7d8;
+            color: #2d331a;
+        }
+        .upload-zone .upload-icon { font-size: 2.5rem; display: block; margin-bottom: 10px; }
+        .upload-zone .upload-label { font-size: 1.05rem; font-weight: 500; }
+        .upload-zone .upload-hint { font-size: 0.82rem; margin-top: 6px; opacity: 0.6; }
+        .upload-zone .file-info {
+            margin-top: 12px;
+            font-size: 0.88rem;
+            color: #4b5320;
+            font-weight: 600;
+        }
+        .upload-zone input[type="file"] { display: none; }
+
+        /* ---- Parameter grid ---- */
+        .params-section { margin-bottom: 18px; }
+        .params-section-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #4b5320;
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #d6d3c8;
+        }
+        .params-row {
+            display: grid;
+            gap: 16px;
+            margin-bottom: 14px;
+        }
+        .params-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+        .params-row.cols-2 { grid-template-columns: 1fr 1fr; }
+
+        .param-group label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 4px;
+        }
+        .param-group .param-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .param-group input[type="range"] {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 4px;
+            border-radius: 0;
+            background: #ccc;
+            outline: none;
+            cursor: pointer;
+        }
+        .param-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px; height: 16px; border-radius: 2px;
+            background: #4b5320;
+            border: 1px solid #6b7530;
+            cursor: pointer;
+        }
+        .param-group input[type="range"]::-moz-range-thumb {
+            width: 16px; height: 16px; border-radius: 2px;
+            background: #4b5320;
+            border: 1px solid #6b7530;
+            cursor: pointer;
+        }
+        .param-group .param-value {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #2d331a;
+            min-width: 36px;
+            text-align: right;
+        }
+        .param-group input[type="number"] {
+            width: 100%;
+            padding: 8px 12px;
+            font-size: 0.9rem;
+            border: 1px solid #c0bda8;
+            border-radius: 2px;
+            background: #fff;
+            color: #1a1a1a;
+            transition: border-color 0.15s;
+        }
+        .param-group input[type="number"]:focus {
+            outline: none;
+            border-color: #4b5320;
+        }
+
+        /* Color picker row */
+        .color-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .color-group input[type="color"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 42px; height: 34px;
+            padding: 2px;
+            border: 1px solid #c0bda8;
+            border-radius: 2px;
+            cursor: pointer;
+            background: #fff;
+        }
+        .color-group input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
+        .color-group input[type="color"]::-webkit-color-swatch { border: none; border-radius: 1px; }
+        .color-group .color-text {
+            font-family: "Fira Code", "Cascadia Code", monospace;
+            font-size: 0.85rem;
+            color: #555;
+        }
+
+        /* Checkbox row */
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 4px;
+        }
+        .checkbox-row input[type="checkbox"] {
+            width: 16px; height: 16px;
+            cursor: pointer;
+            accent-color: #4b5320;
+        }
+        .checkbox-row label {
+            display: inline;
+            font-size: 0.88rem;
+            font-weight: 500;
+            color: #333;
+            cursor: pointer;
+            margin-bottom: 0;
+        }
+
+        /* ---- Buttons ---- */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 10px 22px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+            user-select: none;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            transition: background-color 0.15s;
+        }
+        .btn:hover { box-shadow: none; }
+        .btn:active { box-shadow: none; }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .btn-primary {
+            background: #4b5320;
+            color: #fff;
+            border: 1px solid #6b7530;
+        }
+        .btn-primary:hover { background: #5a6328; }
+        .btn-secondary {
+            background: #555;
+            color: #fff;
+            border: 1px solid #666;
+        }
+        .btn-secondary:hover { background: #666; }
+        .btn-success {
+            background: #3d5a1e;
+            color: #fff;
+            border: 1px solid #4d6a2e;
+        }
+        .btn-success:hover { background: #4a6a28; }
+        .btn-sm { padding: 7px 14px; font-size: 0.78rem; }
+
+        .button-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 6px;
+            align-items: center;
+        }
+
+        /* ---- Export list ---- */
+        .export-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            border-top: 1px solid #d6d3c8;
+            padding-top: 16px;
+        }
+        .export-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .export-row .btn {
+            flex-shrink: 0;
+            width: 200px;
+        }
+        .export-desc {
+            font-size: 0.82rem;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        /* ---- Progress steps ---- */
+        .progress-steps {
+            display: flex;
+            align-items: flex-start;
+            gap: 0;
+            margin: 24px 0 20px;
+            position: relative;
+        }
+        .progress-step {
+            flex: 1;
+            text-align: center;
+            position: relative;
+            padding-top: 36px;
+        }
+        .progress-step::before {
+            content: "";
+            position: absolute;
+            top: 14px;
+            left: -50%; right: 50%;
+            height: 2px;
+            background: #ccc;
+            transition: background-color 0.3s;
+        }
+        .progress-step:first-child::before { display: none; }
+        .progress-step::after {
+            content: "";
+            position: absolute;
+            top: 6px; left: 50%;
+            transform: translateX(-50%);
+            width: 18px; height: 18px;
+            border-radius: 2px;
+            background: #ccc;
+            border: 2px solid #fff;
+            transition: background-color 0.3s;
+            z-index: 1;
+        }
+        .progress-step .step-label {
+            font-size: 0.78rem;
+            color: #888;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .progress-step.active::after {
+            background: #6b7530;
+            border-color: #4b5320;
+        }
+        .progress-step.active .step-label { color: #4b5320; font-weight: 600; }
+        .progress-step.active::before { background: #6b7530; }
+        .progress-step.completed::after { background: #3d5a1e; border-color: #2d4a0e; }
+        .progress-step.completed .step-label { color: #3d5a1e; }
+        .progress-step.completed::before { background: #3d5a1e; }
+
+        /* ---- Progress bar ---- */
+        .progress-bar-wrap {
+            height: 4px;
+            background: #ddd;
+            border-radius: 0;
+            overflow: hidden;
+            margin: 16px 0;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: 0;
+            background: #6b7530;
+            transition: width 0.5s ease;
+        }
+
+        /* ---- Log console ---- */
+        .log-console {
+            background: #1a1a1a;
+            color: #b0b0a0;
+            font-family: "Fira Code", "Cascadia Code", "JetBrains Mono", "Consolas", monospace;
+            font-size: 0.82rem;
+            line-height: 1.7;
+            padding: 16px 20px;
+            border-radius: 2px;
+            border: 1px solid #333;
+            max-height: 260px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            margin: 16px 0;
+            display: none;
+        }
+        .log-console.visible { display: block; }
+        .log-console .log-info  { color: #c0bda8; }
+        .log-console .log-error { color: #e08080; }
+        .log-console .log-success { color: #a0c890; }
+
+        /* ---- Result card ---- */
+        .result-card {
+            background: #f5f4ee;
+            border: 1px solid #c0bda8;
+            border-left: 3px solid #3d5a1e;
+            border-radius: 2px;
+            padding: 24px;
+            margin-top: 20px;
+            display: none;
+        }
+        .result-card.visible { display: block; }
+        .result-card h3 {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #2d331a;
+            margin-bottom: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        /* Stats grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+        .stat-card {
+            background: #fff;
+            border-radius: 2px;
+            padding: 14px;
+            text-align: center;
+            border: 1px solid #c0bda8;
+            border-top: 3px solid #4b5320;
+        }
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #2d331a;
+        }
+        .stat-label {
+            font-size: 0.72rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-top: 2px;
+        }
+
+        /* Preview image */
+        .preview-wrap {
+            border: 1px solid #c0bda8;
+            border-radius: 2px;
+            overflow: hidden;
+            background: #f0f0f0;
+            margin-bottom: 18px;
+        }
+        .preview-wrap img {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
+        /* ---- Tabs ---- */
+        .tab-bar {
+            display: flex;
+            gap: 0;
+            margin-bottom: 16px;
+            border-bottom: 2px solid #d6d3c8;
+        }
+        .tab-btn {
+            padding: 10px 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #888;
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            transition: color 0.15s, border-color 0.15s;
+        }
+        .tab-btn:hover { color: #4b5320; }
+        .tab-btn.active {
+            color: #2d331a;
+            border-bottom-color: #4b5320;
+        }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* ---- Draw map ---- */
+        #drawMap {
+            height: 400px;
+            border-radius: 2px;
+            border: 1px solid #c0bda8;
+            z-index: 0;
+        }
+        .draw-info {
+            margin-top: 12px;
+            font-size: 0.88rem;
+            color: #4b5320;
+            font-weight: 600;
+        }
+
+        /* ---- Info tooltips ---- */
+        .info-tip {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #8a8a7a;
+            color: #fff;
+            font-size: 0.65rem;
+            font-weight: 700;
+            font-style: normal;
+            cursor: help;
+            vertical-align: middle;
+            margin-left: 5px;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+        .info-tip::before {
+            content: "i";
+        }
+        .info-tip .info-tip-text {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2d331a;
+            color: #e8e6df;
+            font-size: 0.78rem;
+            font-weight: 400;
+            line-height: 1.5;
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid #4b5320;
+            width: 240px;
+            z-index: 100;
+            pointer-events: none;
+            transition: opacity 0.15s, visibility 0.15s;
+            text-transform: none;
+            letter-spacing: normal;
+        }
+        .info-tip .info-tip-text::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: #2d331a;
+        }
+        .info-tip:hover .info-tip-text,
+        .info-tip:focus .info-tip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        /* ---- Hidden ---- */
+        .hidden { display: none !important; }
+
+        /* ---- Responsive ---- */
+        @media (max-width: 768px) {
+            body { padding: 16px 10px 48px; }
+            .card { padding: 20px 18px; }
+            .params-row.cols-3 { grid-template-columns: 1fr; }
+            .params-row.cols-2 { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: 1fr; }
+            .header-card h1 { font-size: 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="pipeline-wrap">
+
+    <!-- Header -->
+    <div class="card header-card">
+        <h1>Building Extraction Pipeline</h1>
+        <p>GeoJSON hochladen, 2.5D-Rendering erstellen, Polygone extrahieren &mdash; alles im Browser.</p>
+    </div>
+
+    <!-- Step 1: Area / Upload -->
+    <div class="card">
+        <div class="card-title">
+            <span class="step-badge">1</span>
+            Gebiet festlegen
+            <span class="info-tip" tabindex="0"><span class="info-tip-text">Zeichnen Sie ein Polygon auf der Karte oder laden Sie eine GeoJSON-Datei hoch, um das Gebiet für die Gebäude-Extraktion festzulegen.</span></span>
+        </div>
+        <div class="tab-bar">
+            <button class="tab-btn active" data-tab="tabDraw">Auf Karte zeichnen</button>
+            <button class="tab-btn" data-tab="tabUpload">Datei hochladen</button>
+        </div>
+        <!-- Tab: Draw on map -->
+        <div class="tab-panel active" id="tabDraw">
+            <div id="drawMap"></div>
+            <div class="draw-info hidden" id="drawInfo"></div>
+            <div class="button-row" style="margin-top:10px">
+                <button class="btn btn-secondary btn-sm hidden" id="btnClearPolygon">Polygon löschen</button>
+                <button class="btn btn-secondary btn-sm hidden" id="btnDownloadPolygon">GeoJSON herunterladen</button>
+            </div>
+        </div>
+        <!-- Tab: File upload -->
+        <div class="tab-panel" id="tabUpload">
+            <div class="upload-zone" id="uploadZone">
+                <span class="upload-icon">&#128194;</span>
+                <span class="upload-label">GeoJSON-Datei hierher ziehen oder klicken</span>
+                <span class="upload-hint">Unterstützte Formate: .geojson, .json</span>
+                <div class="file-info hidden" id="fileInfo"></div>
+                <input type="file" id="fileInput" accept=".geojson,.json,application/geo+json,application/json">
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 2: Parameters -->
+    <div class="card">
+        <div class="card-title">
+            <span class="step-badge">2</span>
+            Pipeline-Parameter
+        </div>
+
+        <!-- Rendering params -->
+        <div class="params-section">
+            <div class="params-section-title">Rendering</div>
+            <div class="params-row cols-3">
+                <div class="param-group">
+                    <label for="paramTilt">Neigung (Tilt) <span class="info-tip" tabindex="0"><span class="info-tip-text">Blickwinkel auf die Gebäude. 0° = Draufsicht, 90° = seitlich. Empfohlen: 30–60°</span></span></label>
+                    <div class="param-row">
+                        <input type="range" id="paramTilt" min="0" max="90" value="45">
+                        <span class="param-value" id="paramTiltVal">45</span>
+                    </div>
+                </div>
+                <div class="param-group">
+                    <label for="paramRotation">Rotation <span class="info-tip" tabindex="0"><span class="info-tip-text">Dreht die gesamte Ansicht. 0° = Norden oben.</span></span></label>
+                    <div class="param-row">
+                        <input type="range" id="paramRotation" min="0" max="360" value="0">
+                        <span class="param-value" id="paramRotationVal">0</span>
+                    </div>
+                </div>
+                <div class="param-group">
+                    <label for="paramExtrude">3D-Tiefe <span class="info-tip" tabindex="0"><span class="info-tip-text">Höhe der 3D-Extrusion der Gebäude. Höhere Werte erzeugen stärkeren Pseudo-3D-Effekt.</span></span></label>
+                    <div class="param-row">
+                        <input type="range" id="paramExtrude" min="1" max="12" value="4" step="0.5">
+                        <span class="param-value" id="paramExtrudeVal">4</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Image dimensions -->
+        <div class="params-section">
+            <div class="params-section-title">Bildgröße</div>
+            <div class="params-row cols-2">
+                <div class="param-group">
+                    <label for="paramWidth">Breite (px) <span class="info-tip" tabindex="0"><span class="info-tip-text">Breite des gerenderten Bildes in Pixeln. Größere Werte = mehr Detail, längere Ladezeit.</span></span></label>
+                    <input type="number" id="paramWidth" min="800" max="4000" value="2000">
+                </div>
+                <div class="param-group">
+                    <label for="paramHeight">Höhe (px) <span class="info-tip" tabindex="0"><span class="info-tip-text">Höhe des gerenderten Bildes in Pixeln.</span></span></label>
+                    <input type="number" id="paramHeight" min="600" max="3000" value="1150">
+                </div>
+            </div>
+        </div>
+
+        <!-- Colors -->
+        <div class="params-section">
+            <div class="params-section-title">Farben</div>
+            <div class="params-row cols-2">
+                <div class="param-group">
+                    <label>Dachfarbe <span class="info-tip" tabindex="0"><span class="info-tip-text">Farbe der Gebäudedächer in der 2.5D-Ansicht.</span></span></label>
+                    <div class="color-group">
+                        <input type="color" id="paramRoofColor" value="#cccccc">
+                        <span class="color-text" id="paramRoofColorText">#cccccc</span>
+                    </div>
+                </div>
+                <div class="param-group">
+                    <label>Kantenfarbe <span class="info-tip" tabindex="0"><span class="info-tip-text">Farbe der Gebäudekanten und Umrisse.</span></span></label>
+                    <div class="color-group">
+                        <input type="color" id="paramOutlineColor" value="#333333">
+                        <span class="color-text" id="paramOutlineColorText">#333333</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Polygon options -->
+        <div class="params-section">
+            <div class="params-section-title">Polygon-Optionen</div>
+            <div class="params-row cols-2">
+                <div class="param-group">
+                    <label for="paramMinArea">Min. Gebäudefläche (px) <span class="info-tip" tabindex="0"><span class="info-tip-text">Gebäude kleiner als dieser Wert (in Bildpixeln) werden ignoriert. Filtert sehr kleine Strukturen heraus.</span></span></label>
+                    <input type="number" id="paramMinArea" min="0" max="1000" value="25">
+                </div>
+                <div class="param-group" style="display:flex;flex-direction:column;justify-content:flex-end;">
+                    <div class="checkbox-row">
+                        <input type="checkbox" id="paramSimplify" checked>
+                        <label for="paramSimplify">Polygon-Vereinfachung <span class="info-tip" tabindex="0"><span class="info-tip-text">Vereinfacht die klickbaren Polygone zu konvexen Hüllen. Reduziert Dateigröße, kann aber bei komplexen Gebäudegrundrissen ungenau sein.</span></span></label>
+                    </div>
+                    <div class="checkbox-row" style="margin-top:8px;">
+                        <input type="checkbox" id="paramUniformHeight">
+                        <label for="paramUniformHeight">Einheitliche Höhe <span class="info-tip" tabindex="0"><span class="info-tip-text">Ignoriert Höhendaten aus OpenStreetMap (height, building:levels) und verwendet für alle Gebäude den 3D-Tiefe-Wert.</span></span></label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 3: Run + Results -->
+    <div class="card">
+        <div class="card-title">
+            <span class="step-badge">3</span>
+            Pipeline ausführen
+        </div>
+
+        <div class="button-row">
+            <button class="btn btn-primary" id="btnRun" disabled>
+                Kompletten Prozess starten
+            </button>
+            <span class="info-tip" tabindex="0"><span class="info-tip-text">Lädt Gebäude von OpenStreetMap herunter, rendert die 2.5D-Ansicht und extrahiert klickbare Polygone.</span></span>
+            <button class="btn btn-secondary hidden" id="btnRerender">
+                Nur Rendering neu starten
+            </button>
+            <span class="info-tip hidden" id="rerenderTip" tabindex="0"><span class="info-tip-text">Verwendet gecachte OSM-Daten und rendert nur neu. Bestehende Gebäude-Metadaten (Name, Gruppe, Farbe) werden per Centroid-Matching übernommen.</span></span>
+        </div>
+
+        <!-- Progress steps -->
+        <div class="progress-steps hidden" id="progressSteps">
+            <div class="progress-step" id="pStep1">
+                <span class="step-label">1. Download</span>
+            </div>
+            <div class="progress-step" id="pStep2">
+                <span class="step-label">2. Render &amp; Extract</span>
+            </div>
+            <div class="progress-step" id="pStep3">
+                <span class="step-label">3. Fertig</span>
+            </div>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="progress-bar-wrap hidden" id="progressBarWrap">
+            <div class="progress-bar-fill" id="progressBarFill"></div>
+        </div>
+
+        <!-- Log console -->
+        <div class="log-console" id="logConsole"></div>
+
+        <!-- Result card -->
+        <div class="result-card" id="resultCard">
+            <h3>Ergebnis</h3>
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card">
+                    <div class="stat-value" id="statBuildings">-</div>
+                    <div class="stat-label">Gebäude</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statResolution">-</div>
+                    <div class="stat-label">Auflösung</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statAvgPoints">-</div>
+                    <div class="stat-label">Punkte / Polygon</div>
+                </div>
+            </div>
+
+            <div class="preview-wrap" id="previewWrap">
+                <img id="previewImg" alt="Vorschau">
+            </div>
+
+            <div class="button-row" style="margin-bottom:18px;">
+                <button class="btn btn-success btn-sm" id="btnEditor" title="Öffnet den Gebäude-Editor zum Bearbeiten von Namen, Gruppen, Beschreibungen und Farben.">Editor öffnen</button>
+                <button class="btn btn-primary btn-sm" id="btnViewer" title="Öffnet die fertige interaktive Karte mit klickbaren Gebäuden im Viewer-Modus.">Karte Anzeigen</button>
+                <button class="btn btn-secondary btn-sm hidden" id="btnRerender2" title="Rendert das Bild mit den aktuellen Parametern neu. Gecachte OSM-Daten und Gebäude-Metadaten bleiben erhalten.">Neurendering</button>
+            </div>
+
+            <div class="export-list">
+                <div class="export-row">
+                    <button class="btn btn-secondary btn-sm" id="btnStandalone">Standalone HTML</button>
+                    <span class="export-desc">Einzelne HTML-Datei mit eingebettetem Bild und interaktivem Viewer</span>
+                </div>
+                <div class="export-row">
+                    <button class="btn btn-secondary btn-sm" id="btnDownloadJson">JSON herunterladen</button>
+                    <span class="export-desc">Gebäude-Polygone und Metadaten als JSON-Datei</span>
+                </div>
+                <div class="export-row">
+                    <button class="btn btn-secondary btn-sm" id="btnDownloadImage">Bild herunterladen</button>
+                    <span class="export-desc">Gerendertes 2.5D-Bild als PNG-Datei</span>
+                </div>
+                <div class="export-row">
+                    <button class="btn btn-secondary btn-sm" id="btnReset">Zurücksetzen</button>
+                    <span class="export-desc">Alle Daten und Cache löschen, Pipeline komplett neu starten</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+// ==========================================================================
+// All modules inlined — no ES module imports, works from file:// protocol
+// ==========================================================================
+
+// --------------------------------------------------------------------------
+// overpass.js
+// --------------------------------------------------------------------------
+const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+const RETRY_DELAYS = [5000, 10000, 20000];
+const BBOX_AREA_WARN_KM2 = 5;
+
+function extractPolygonCoords(geojson) {
+    let geometry = null;
+    if (!geojson || typeof geojson !== 'object') throw new Error('Invalid GeoJSON: input is not an object');
+    if (geojson.type === 'FeatureCollection') {
+        if (!geojson.features || geojson.features.length === 0) throw new Error('FeatureCollection contains no features');
+        geometry = geojson.features[0].geometry;
+    } else if (geojson.type === 'Feature') {
+        geometry = geojson.geometry;
+    } else if (geojson.type === 'Polygon') {
+        geometry = geojson;
+    } else if (geojson.type === 'MultiPolygon') {
+        geometry = { type: 'Polygon', coordinates: geojson.coordinates[0] };
+    } else {
+        throw new Error('Unsupported GeoJSON type: ' + geojson.type);
+    }
+    if (!geometry || geometry.type !== 'Polygon') throw new Error('Expected Polygon geometry, got: ' + (geometry ? geometry.type : 'null'));
+    if (!geometry.coordinates || geometry.coordinates.length === 0) throw new Error('Polygon has no coordinate rings');
+    return geometry.coordinates[0];
+}
+
+function estimateBboxAreaKm2(coords) {
+    let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+    for (const [lng, lat] of coords) { if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat; if (lng < minLng) minLng = lng; if (lng > maxLng) maxLng = lng; }
+    const latMid = (minLat + maxLat) / 2;
+    return (maxLat - minLat) * 111.32 * (maxLng - minLng) * 111.32 * Math.cos(latMid * Math.PI / 180);
+}
+
+function buildOverpassQuery(coords) {
+    const polyString = coords.map(([lng, lat]) => lat + ' ' + lng).join(' ');
+    return '[out:json][timeout:60];\n(\n  way["building"](poly:"' + polyString + '");\n  relation["building"](poly:"' + polyString + '");\n);\nout geom;\n>;\nout skel qt;';
+}
+
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+async function downloadBuildings(geojsonPolygon) {
+    const coords = extractPolygonCoords(geojsonPolygon);
+    const area = estimateBboxAreaKm2(coords);
+    if (area > BBOX_AREA_WARN_KM2) console.warn('[overpass] Large area: ' + area.toFixed(1) + ' km2');
+    const query = buildOverpassQuery(coords);
+    let lastError = null;
+    for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt++) {
+        try {
+            const response = await fetch(OVERPASS_URL, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'data=' + encodeURIComponent(query) });
+            if (response.status === 429) {
+                if (attempt < RETRY_DELAYS.length) { await sleep(RETRY_DELAYS[attempt]); continue; }
+                throw new Error('Overpass API rate limit exceeded after all retries');
+            }
+            if (!response.ok) throw new Error('Overpass API error: HTTP ' + response.status);
+            const data = await response.json();
+            if (!data.elements) throw new Error('Overpass response missing "elements" array');
+            return osmToGeojson(data);
+        } catch (err) { lastError = err; if (!err.message.includes('429')) throw err; }
+    }
+    throw lastError || new Error('Overpass API request failed');
+}
+
+function closeRing(ring) {
+    if (ring.length < 2) return ring;
+    const f = ring[0], l = ring[ring.length - 1];
+    if (f[0] !== l[0] || f[1] !== l[1]) return [...ring, [f[0], f[1]]];
+    return ring;
+}
+
+function wayGeometryToCoords(geometry) { return closeRing(geometry.map(pt => [pt.lon, pt.lat])); }
+
+function osmToGeojson(data) {
+    const features = [];
+    for (const el of data.elements) {
+        if (el.type === 'way') {
+            if (!el.geometry || el.geometry.length === 0) continue;
+            features.push({ type: 'Feature', properties: { ...(el.tags || {}), osm_id: el.id, osm_type: 'way' }, geometry: { type: 'Polygon', coordinates: [wayGeometryToCoords(el.geometry)] } });
+        } else if (el.type === 'relation') {
+            if (!el.members) continue;
+            const outerRings = [];
+            for (const m of el.members) { if (m.role === 'outer' && m.geometry && m.geometry.length > 0) outerRings.push(wayGeometryToCoords(m.geometry)); }
+            if (outerRings.length === 0) continue;
+            const geometry = outerRings.length === 1 ? { type: 'Polygon', coordinates: [outerRings[0]] } : { type: 'MultiPolygon', coordinates: outerRings.map(r => [r]) };
+            features.push({ type: 'Feature', properties: { ...(el.tags || {}), osm_id: el.id, osm_type: 'relation' }, geometry });
+        }
+    }
+    return { type: 'FeatureCollection', features };
+}
+
+// --------------------------------------------------------------------------
+// renderer.js
+// --------------------------------------------------------------------------
+const EARTH_RADIUS = 6378137;
+
+class Building25DRenderer {
+  constructor(buildingsGeojson, boundingPolygon, params = {}) {
+    this.buildingsGeojson = buildingsGeojson;
+    this.boundingPolygon = boundingPolygon;
+    const d = { tilt:45, rotation:0, extrude:4, width:2000, height:1150, roofColor:'#cccccc', outlineColor:'#333333', simplify:true, minArea:25, uniformHeight:false };
+    const m = { ...d, ...params };
+    this.tilt=m.tilt; this.rotation=m.rotation; this.extrude=m.extrude; this.width=m.width; this.height=m.height;
+    this.roofColor=m.roofColor; this.outlineColor=m.outlineColor; this.simplify=m.simplify; this.minArea=m.minArea; this.uniformHeight=m.uniformHeight;
+    this.buildingPolygons = [];
+    this.minLon=0; this.maxLon=0; this.minLat=0; this.maxLat=0; this.refLon=0; this.refLat=0;
+  }
+
+  async render() {
+    this.buildingPolygons = [];
+    this.calculateBounds();
+    const canvas = document.createElement('canvas');
+    canvas.width = this.width; canvas.height = this.height;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#f0f0f0';
+    ctx.fillRect(0, 0, this.width, this.height);
+    try { await this._drawMapBackground(ctx); } catch (e) { console.warn('[renderer] Map tiles failed:', e.message); }
+    const rotRad = (this.rotation * Math.PI) / 180;
+    const tiltRad = (this.tilt * Math.PI) / 180;
+    const isoOffsetX = -Math.sin(rotRad) * 1.5;
+    const isoOffsetY = 2.5 + Math.sin(tiltRad) * 1.5;
+    const features = [...(this.buildingsGeojson.features || [])];
+    features.sort((a, b) => this._centroidLat(b) - this._centroidLat(a));
+    features.forEach((feature, index) => { this.renderBuilding(ctx, feature, isoOffsetX, isoOffsetY, index); });
+    return canvas;
+  }
+
+  lonLatToPixel(lon, lat) {
+    return [Math.round((lon - this.minLon) / (this.maxLon - this.minLon) * this.width),
+            Math.round((this.maxLat - lat) / (this.maxLat - this.minLat) * this.height)];
+  }
+
+  calculateBounds() {
+    const lons = [], lats = [];
+    if (this.boundingPolygon) for (const [lon, lat] of this.boundingPolygon) { lons.push(lon); lats.push(lat); }
+    for (const f of (this.buildingsGeojson.features || [])) { const c = this.extractCoordinates(f.geometry); if (c) for (const [lon, lat] of c) { lons.push(lon); lats.push(lat); } }
+    if (lons.length === 0) { this.minLon=0; this.maxLon=1; this.minLat=0; this.maxLat=1; this.refLon=0.5; this.refLat=0.5; return; }
+    let mnLo=Math.min(...lons), mxLo=Math.max(...lons), mnLa=Math.min(...lats), mxLa=Math.max(...lats);
+    const lp=(mxLo-mnLo)*0.08, ap=(mxLa-mnLa)*0.08;
+    this.minLon=mnLo-lp; this.maxLon=mxLo+lp; this.minLat=mnLa-ap; this.maxLat=mxLa+ap;
+    this.refLon=(this.minLon+this.maxLon)/2; this.refLat=(this.minLat+this.maxLat)/2;
+  }
+
+  calculateBuildingArea(coords) {
+    if (!coords || coords.length < 3) return 0;
+    const p = coords.map(([lon, lat]) => this._lonLatToMeters(lon, lat));
+    let a = 0; const n = p.length;
+    for (let i = 0; i < n; i++) { const j = (i+1)%n; a += p[i][0]*p[j][1] - p[j][0]*p[i][1]; }
+    return Math.abs(a) / 2;
+  }
+
+  getBuildingHeight(props) {
+    if (this.uniformHeight) return this.extrude;
+    if (!props) return this.extrude;
+    if (props.height != null) { const v = parseFloat(String(props.height).replace(/m$/i,'')); if (!isNaN(v)) return v; }
+    if (props['building:levels'] != null) { const v = parseFloat(props['building:levels']); if (!isNaN(v)) return v * 3.0; }
+    return this.extrude;
+  }
+
+  renderBuilding(ctx, feature, isoOffsetX, isoOffsetY, index) {
+    const coords = this.extractCoordinates(feature.geometry);
+    if (!coords || coords.length < 3) return;
+    if (this.calculateBuildingArea(coords) < this.minArea) return;
+    const height = this.getBuildingHeight(feature.properties);
+    const gp = coords.map(([lon, lat]) => this.lonLatToPixel(lon, lat));
+    const rp = gp.map(([x, y]) => [x + Math.round(height * isoOffsetX), y - Math.round(height * isoOffsetY)]);
+    const wc = this.darkenColor(this.roofColor, 0.7);
+    for (let i = 0; i < gp.length; i++) {
+      const j = (i+1) % gp.length;
+      ctx.beginPath(); ctx.moveTo(gp[i][0],gp[i][1]); ctx.lineTo(gp[j][0],gp[j][1]); ctx.lineTo(rp[j][0],rp[j][1]); ctx.lineTo(rp[i][0],rp[i][1]); ctx.closePath();
+      ctx.fillStyle=wc; ctx.fill(); ctx.strokeStyle=this.outlineColor; ctx.lineWidth=1; ctx.stroke();
+    }
+    ctx.beginPath(); ctx.moveTo(rp[0][0],rp[0][1]);
+    for (let i = 1; i < rp.length; i++) ctx.lineTo(rp[i][0],rp[i][1]);
+    ctx.closePath(); ctx.fillStyle=this.roofColor; ctx.fill(); ctx.strokeStyle=this.outlineColor; ctx.lineWidth=1; ctx.stroke();
+    const all = [...gp, ...rp];
+    const cp = this.simplify ? this.convexHull(all) : all;
+    // Compute geographic centroid (lon/lat) for later migration matching
+    let cLon = 0, cLat = 0;
+    for (const [lon, lat] of coords) { cLon += lon; cLat += lat; }
+    cLon /= coords.length; cLat /= coords.length;
+    this.buildingPolygons.push({ index, polygon: cp.map(([x,y]) => [x/this.width, y/this.height]), properties: feature.properties || {}, centroid: [cLon, cLat] });
+  }
+
+  extractCoordinates(g) {
+    if (!g) return null;
+    if (g.type === 'Polygon') return g.coordinates[0] || null;
+    if (g.type === 'MultiPolygon') { const fp = g.coordinates[0]; return fp ? fp[0] || null : null; }
+    return null;
+  }
+
+  convexHull(points) {
+    if (points.length <= 1) return points.slice();
+    const s = points.slice().sort((a,b) => a[0]-b[0] || a[1]-b[1]);
+    const cross = (o,a,b) => (a[0]-o[0])*(b[1]-o[1]) - (a[1]-o[1])*(b[0]-o[0]);
+    const lo = []; for (const p of s) { while (lo.length >= 2 && cross(lo[lo.length-2],lo[lo.length-1],p) <= 0) lo.pop(); lo.push(p); }
+    const up = []; for (let i = s.length-1; i >= 0; i--) { const p = s[i]; while (up.length >= 2 && cross(up[up.length-2],up[up.length-1],p) <= 0) up.pop(); up.push(p); }
+    lo.pop(); up.pop();
+    return lo.concat(up);
+  }
+
+  darkenColor(hex, factor) {
+    let h = hex.replace('#',''); if (h.length===3) h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+    return 'rgb('+Math.round(parseInt(h.substring(0,2),16)*factor)+','+Math.round(parseInt(h.substring(2,4),16)*factor)+','+Math.round(parseInt(h.substring(4,6),16)*factor)+')';
+  }
+
+  _lonLatToTile(lon, lat, zoom) {
+    const n = 2**zoom; const latRad = lat*Math.PI/180;
+    return [Math.floor((lon+180)/360*n), Math.floor((1-Math.log(Math.tan(latRad)+1/Math.cos(latRad))/Math.PI)/2*n)];
+  }
+  _tileToLonLat(tx, ty, zoom) {
+    const n = 2**zoom; return [tx/n*360-180, Math.atan(Math.sinh(Math.PI*(1-2*ty/n)))*180/Math.PI];
+  }
+  _downloadTile(tx, ty, zoom) {
+    return new Promise((resolve, reject) => {
+      const img = new Image(); img.crossOrigin='anonymous';
+      img.onload = () => resolve(img); img.onerror = () => reject(new Error('Tile failed'));
+      img.src = 'https://tile.openstreetmap.org/'+zoom+'/'+tx+'/'+ty+'.png';
+    });
+  }
+
+  async _drawMapBackground(ctx) {
+    let zoom = 17;
+    for (let z = 18; z >= 10; z--) {
+      const [minTX] = this._lonLatToTile(this.minLon, this.minLat, z);
+      const [maxTX, minTY] = this._lonLatToTile(this.maxLon, this.maxLat, z);
+      const [, maxTY] = this._lonLatToTile(this.minLon, this.minLat, z);
+      if ((maxTX-minTX+1)*(maxTY-minTY+1) <= 64) { zoom = z; break; }
+    }
+    const [minTileX, maxTileY] = this._lonLatToTile(this.minLon, this.minLat, zoom);
+    const [maxTileX, minTileY] = this._lonLatToTile(this.maxLon, this.maxLat, zoom);
+    const tw = maxTileX-minTileX+1, th = maxTileY-minTileY+1, ts = 256;
+    const promises = [];
+    for (let ty = minTileY; ty <= maxTileY; ty++)
+      for (let tx = minTileX; tx <= maxTileX; tx++)
+        promises.push(this._downloadTile(tx,ty,zoom).then(img=>({img,tx,ty})).catch(()=>({img:null,tx,ty})));
+    const tiles = await Promise.all(promises);
+    const cW=tw*ts, cH=th*ts, comp=document.createElement('canvas'); comp.width=cW; comp.height=cH;
+    const cc=comp.getContext('2d');
+    for (const {img,tx,ty} of tiles) { if (img) cc.drawImage(img,(tx-minTileX)*ts,(ty-minTileY)*ts,ts,ts); }
+    const [cMinLon,cMaxLat]=this._tileToLonLat(minTileX,minTileY,zoom);
+    const [cMaxLon,cMinLat]=this._tileToLonLat(maxTileX+1,maxTileY+1,zoom);
+    const lr=cMaxLon-cMinLon, ar=cMaxLat-cMinLat;
+    const cl=(this.minLon-cMinLon)/lr*cW, cr=(this.maxLon-cMinLon)/lr*cW;
+    const ct=(cMaxLat-this.maxLat)/ar*cH, cb=(cMaxLat-this.minLat)/ar*cH;
+    const sw=cr-cl, sh=cb-ct;
+    if (sw>0 && sh>0) ctx.drawImage(comp,cl,ct,sw,sh,0,0,this.width,this.height);
+  }
+
+  _lonLatToMeters(lon, lat) {
+    return [EARTH_RADIUS*((lon-this.refLon)*Math.PI/180)*Math.cos(this.refLat*Math.PI/180), EARTH_RADIUS*((lat-this.refLat)*Math.PI/180)];
+  }
+  _centroidLat(f) {
+    const c = this.extractCoordinates(f.geometry); if (!c||c.length===0) return 0;
+    let s=0; for (const [,lat] of c) s+=lat; return s/c.length;
+  }
+}
+
+// --------------------------------------------------------------------------
+// polygon-extractor.js
+// --------------------------------------------------------------------------
+// Haversine distance in meters between two [lon, lat] points
+function _haversineMeters(a, b) {
+    const toRad = v => v * Math.PI / 180;
+    const dLat = toRad(b[1] - a[1]), dLon = toRad(b[0] - a[0]);
+    const lat1 = toRad(a[1]), lat2 = toRad(b[1]);
+    const h = Math.sin(dLat/2)**2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon/2)**2;
+    return 6371000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
+// Max distance in meters for centroid matching
+const MIGRATION_THRESHOLD_M = 15;
+
+function createBuildingJson(canvas, buildingPolygons, imageFilename, previousBuildings) {
+    const palette = ['#FF6B6B','#4ECDC4','#45B7D1','#FFA07A','#98D8C8','#F7DC6F','#BB8FCE','#85C1E2','#F8B739','#52B788','#E63946','#F77F00','#06D6A0','#118AB2','#073B4C','#FFB703','#FB8500','#8338EC','#3A86FF','#FF006E'];
+
+    const buildings = buildingPolygons.map(p => ({
+        id: 'building_' + p.index,
+        name: 'Gebäude ' + p.index,
+        gruppe: 'Unbekannt',
+        beschreibung: '',
+        highlightColor: palette[p.index % palette.length],
+        polygon: p.polygon,
+        centroid: p.centroid
+    }));
+
+    // Migrate metadata from previous buildings if available
+    if (previousBuildings && previousBuildings.length > 0) {
+        const used = new Set();
+        for (const bNew of buildings) {
+            if (!bNew.centroid) continue;
+            let bestMatch = null;
+            let bestDist = Infinity;
+            for (let i = 0; i < previousBuildings.length; i++) {
+                if (used.has(i)) continue;
+                const bOld = previousBuildings[i];
+                if (!bOld.centroid) continue;
+                const d = _haversineMeters(bNew.centroid, bOld.centroid);
+                if (d < bestDist) { bestDist = d; bestMatch = i; }
+            }
+            if (bestMatch !== null && bestDist <= MIGRATION_THRESHOLD_M) {
+                const old = previousBuildings[bestMatch];
+                used.add(bestMatch);
+                bNew.name = old.name;
+                bNew.gruppe = old.gruppe;
+                bNew.beschreibung = old.beschreibung;
+                bNew.highlightColor = old.highlightColor;
+            }
+        }
+        const migrated = used.size;
+        const total = buildings.length;
+        console.log('[migration] ' + migrated + '/' + total + ' Gebäude wiedererkannt (Schwelle: ' + MIGRATION_THRESHOLD_M + ' m)');
+    }
+
+    return {
+        image: { filename: imageFilename, width: canvas.width, height: canvas.height },
+        buildings
+    };
+}
+
+// --------------------------------------------------------------------------
+// export.js
+// --------------------------------------------------------------------------
+function _getViewerTemplate() {
+    return `<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geb\u00e4udekarte - Interaktive Karte</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:"Segoe UI",system-ui,-apple-system,Arial,Helvetica,sans-serif;height:100vh;overflow:hidden;background:#d6d3c8}
+        .container{display:flex;height:100vh}
+        .sidebar{width:300px;background:#ffffff;color:#1a1a1a;overflow-y:auto;border-right:1px solid #c0bda8;border-left:3px solid #4b5320}
+        .sidebar-header{padding:20px;border-bottom:1px solid #c0bda8}
+        .sidebar-header h1{font-size:1.15rem;font-weight:700;color:#2d331a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.03em}
+        .sidebar-header p{font-size:12px;color:#888}
+        .group{border-bottom:1px solid #e8e6df}
+        .group-header{padding:12px 20px;background:#f5f4ee;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:background 0.2s}
+        .group-header:hover{background:#e8e6df}
+        .group-header h2{font-size:0.85rem;font-weight:700;color:#4b5320;text-transform:uppercase;letter-spacing:0.03em}
+        .group-toggle{font-size:12px;color:#b0ad98;transition:transform 0.3s}
+        .group.collapsed .group-toggle{transform:rotate(-90deg)}
+        .group-buildings{max-height:1000px;overflow:hidden;transition:max-height 0.3s ease}
+        .group.collapsed .group-buildings{max-height:0}
+        .building-item{padding:10px 20px 10px 35px;cursor:pointer;transition:background 0.2s;border-left:3px solid transparent}
+        .building-item:hover{background:#f5f4ee;border-left-color:#6b7530}
+        .building-item.highlighted{background:#e8e6df;border-left-color:#f39c12}
+        .building-name{font-size:14px;font-weight:500;color:#1a1a1a}
+        .building-id{font-size:11px;color:#888;margin-top:2px}
+        .main-content{flex:1;overflow:auto;background:#d6d3c8;display:flex;justify-content:center;align-items:center;padding:20px}
+        .image-container{position:relative;display:inline-block;max-width:100%;max-height:100%;box-shadow:0 4px 6px rgba(0,0,0,0.15)}
+        .image-container img{display:block;width:100%;height:auto}
+        .svg-overlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+        .building-polygon{fill:rgba(255,255,0,0);stroke:rgba(255,255,0,0);stroke-width:2;pointer-events:auto;cursor:pointer;transition:fill 0.2s,stroke 0.2s}
+        .selection-circle{fill:none;stroke:#4b5320;stroke-width:4;pointer-events:none}
+        .dim-overlay{fill:rgba(0,0,0,0.6);pointer-events:none}
+        .modal-overlay{display:none;position:absolute;top:0;left:0;width:100%;height:100%;z-index:200;pointer-events:none}
+        .modal-overlay.active{display:block}
+        .modal-content{position:absolute;background:#ffffff;border-radius:2px;border:1px solid #c0bda8;border-left:3px solid #4b5320;padding:25px 30px;min-width:280px;max-width:400px;box-shadow:0 10px 40px rgba(0,0,0,0.3);pointer-events:auto}
+        .modal-close{position:absolute;top:10px;right:10px;background:none;border:none;font-size:28px;cursor:pointer;color:#b0ad98;width:35px;height:35px;display:flex;align-items:center;justify-content:center;border-radius:2px;transition:background 0.2s,color 0.2s;line-height:1}
+        .modal-close:hover{background:#e8e6df;color:#2d331a}
+        .modal-content h2{margin:0 0 20px 0;color:#2d331a;font-size:22px;padding-right:25px}
+        .modal-info{margin-bottom:15px}
+        .modal-label{font-weight:700;color:#4b5320;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px}
+        .modal-value{color:#1a1a1a;font-size:15px;line-height:1.5}
+        .loading{text-align:center;padding:40px;color:#b0ad98}
+        .error{text-align:center;padding:40px;color:#c0392b}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1 id="sidebar-title">Geb\u00e4udekarte</h1>
+                <p>Interaktive Karte</p>
+            </div>
+            <div id="sidebar-content" class="loading">Lade Geb\u00e4udedaten...</div>
+        </aside>
+        <main class="main-content">
+            <div id="image-container-wrapper" class="loading">Lade Karte...</div>
+        </main>
+    </div>
+    <script>
+        let buildingsData=null;let currentHighlighted=new Set();let selectedBuildingId=null;
+        async function init(){try{if(window.__buildingsData){buildingsData=window.__buildingsData}else if(sessionStorage.getItem('buildingsData')){buildingsData=JSON.parse(sessionStorage.getItem('buildingsData'))}else if(localStorage.getItem('editor_buildingsData')){buildingsData=JSON.parse(localStorage.getItem('editor_buildingsData'))}else if(localStorage.getItem('pipeline_result_cache')){const cached=JSON.parse(localStorage.getItem('pipeline_result_cache'));if(cached.buildingJson)buildingsData=cached.buildingJson;else throw new Error('Keine Geb\\u00e4udedaten im Cache')}else{const r=await fetch('gebaeude_polygone.json');if(!r.ok)throw new Error('Konnte gebaeude_polygone.json nicht laden');buildingsData=await r.json()}const title=buildingsData.title||'Geb\\u00e4udekarte';document.getElementById('sidebar-title').textContent=title;document.title=title+' - Interaktive Karte';renderImage();renderSidebar()}catch(e){document.getElementById('sidebar-content').innerHTML='<div class="error">Fehler: '+e.message+'</div>';document.getElementById('image-container-wrapper').innerHTML='<div class="error">Fehler beim Laden</div>';console.error(e)}}
+        function renderImage(){const w=document.getElementById('image-container-wrapper');const{filename,width,height}=buildingsData.image;const c=document.createElement('div');c.className='image-container';const img=document.createElement('img');img.src=buildingsData.image.dataUrl||filename;img.alt='Karte';c.appendChild(img);const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('class','svg-overlay');svg.setAttribute('viewBox','0 0 '+width+' '+height);svg.setAttribute('preserveAspectRatio','xMidYMid meet');buildingsData.buildings.forEach(b=>{const p=document.createElementNS('http://www.w3.org/2000/svg','polygon');p.setAttribute('points',b.polygon.map(([x,y])=>(x*width)+','+(y*height)).join(' '));p.setAttribute('class','building-polygon');p.setAttribute('data-building-id',b.id);p.addEventListener('mouseenter',()=>highlightBuilding(b.id));p.addEventListener('mouseleave',()=>unhighlightBuilding(b.id));p.addEventListener('click',()=>showPopup(b));svg.appendChild(p)});c.appendChild(svg);const mo=document.createElement('div');mo.className='modal-overlay';mo.id='modal-overlay';mo.innerHTML='<div class="modal-content"><button class="modal-close" id="modal-close">&times;</button><h2 id="modal-title"></h2><div class="modal-info" id="modal-beschreibung-container"><div class="modal-label">Beschreibung</div><div class="modal-value" id="modal-beschreibung"></div></div></div>';c.appendChild(mo);w.innerHTML='';w.appendChild(c);document.getElementById('modal-close').addEventListener('click',hidePopup)}
+        function renderSidebar(){const sidebar=document.getElementById('sidebar-content');const gh={};buildingsData.buildings.forEach(b=>{const g=b.gruppe||'Sonstige';const parts=g.split(' > ').map(p=>p.trim());let cl=gh;parts.forEach((part,i)=>{if(!cl[part])cl[part]={buildings:[],subgroups:{}};if(i===parts.length-1)cl[part].buildings.push(b);cl=cl[part].subgroups})});function sn(n){return n.sort((a,b)=>{if(a==='Unbekannt'||a==='Sonstige')return 1;if(b==='Unbekannt'||b==='Sonstige')return -1;return a.localeCompare(b)})}function gbi(gd){const ids=gd.buildings.map(b=>b.id);Object.values(gd.subgroups).forEach(sg=>{ids.push(...gbi(sg))});return ids}function rg(gn,gd,l){const g=document.createElement('div');g.className='group';g.style.marginLeft=(l*15)+'px';const bids=gbi(gd);const h=document.createElement('div');h.className='group-header';h.style.paddingLeft=(20-l*5)+'px';h.innerHTML='<h2>'+gn+'</h2><span class="group-toggle">\\u25BC</span>';h.addEventListener('click',()=>g.classList.toggle('collapsed'));h.addEventListener('mouseenter',()=>bids.forEach(id=>highlightBuilding(id)));h.addEventListener('mouseleave',()=>bids.forEach(id=>unhighlightBuilding(id)));g.appendChild(h);const ct=document.createElement('div');ct.className='group-buildings';gd.buildings.forEach(b=>{const it=document.createElement('div');it.className='building-item';it.style.paddingLeft=(35+l*15)+'px';it.setAttribute('data-building-id',b.id);it.innerHTML='<div class="building-name">'+b.name+'</div>';it.addEventListener('mouseenter',()=>highlightBuilding(b.id));it.addEventListener('mouseleave',()=>unhighlightBuilding(b.id));it.addEventListener('click',()=>showPopup(b));ct.appendChild(it)});sn(Object.keys(gd.subgroups)).forEach(sn2=>{ct.appendChild(rg(sn2,gd.subgroups[sn2],l+1))});g.appendChild(ct);return g}sidebar.innerHTML='';sn(Object.keys(gh)).forEach(gn=>{sidebar.appendChild(rg(gn,gh[gn],0))})}
+        function highlightBuilding(id){currentHighlighted.add(id);const b=buildingsData.buildings.find(x=>x.id===id);const hc=b?.highlightColor||'#FFC107';const rgb=hexToRgb(hc);const p=document.querySelector('.building-polygon[data-building-id="'+id+'"]');if(p){p.style.fill='rgba('+rgb.r+','+rgb.g+','+rgb.b+',0.35)';p.style.stroke=hc;p.style.strokeWidth='3'}const mi=document.querySelector('.building-item[data-building-id="'+id+'"]');if(mi){mi.classList.add('highlighted');mi.style.borderLeftColor=hc}}
+        function unhighlightBuilding(id){currentHighlighted.delete(id);if(id===selectedBuildingId)return;const p=document.querySelector('.building-polygon[data-building-id="'+id+'"]');if(p){p.style.fill='rgba(255,255,0,0)';p.style.stroke='rgba(255,255,0,0)';p.style.strokeWidth='2'}const mi=document.querySelector('.building-item[data-building-id="'+id+'"]');if(mi){mi.classList.remove('highlighted');mi.style.borderLeftColor=''}}
+        function hexToRgb(hex){const r=/^#?([a-f\\d]{2})([a-f\\d]{2})([a-f\\d]{2})$/i.exec(hex);return r?{r:parseInt(r[1],16),g:parseInt(r[2],16),b:parseInt(r[3],16)}:{r:255,g:193,b:7}}
+        function showPopup(building){hidePopup();selectedBuildingId=building.id;highlightBuilding(building.id);const polygon=document.querySelector('.building-polygon[data-building-id="'+building.id+'"]');if(!polygon)return;const points=building.polygon;let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;points.forEach(([x,y])=>{minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y)});const centerX=(minX+maxX)/2,centerY=(minY+maxY)/2;const bW=maxX-minX,bH=maxY-minY;const calcR=Math.max(bW,bH)/2*1.8;const radius=Math.max(calcR,0.04);const svg=polygon.closest('svg');const vb=svg.getAttribute('viewBox').split(' ');const svgW=parseFloat(vb[2]),svgH=parseFloat(vb[3]);let defs=svg.querySelector('defs');if(!defs){defs=document.createElementNS('http://www.w3.org/2000/svg','defs');svg.insertBefore(defs,svg.firstChild)}const mask=document.createElementNS('http://www.w3.org/2000/svg','mask');mask.setAttribute('id','selection-mask');const mr=document.createElementNS('http://www.w3.org/2000/svg','rect');mr.setAttribute('width',svgW);mr.setAttribute('height',svgH);mr.setAttribute('fill','white');mask.appendChild(mr);const mc=document.createElementNS('http://www.w3.org/2000/svg','circle');mc.setAttribute('cx',centerX*svgW);mc.setAttribute('cy',centerY*svgH);mc.setAttribute('r',radius*Math.max(svgW,svgH));mc.setAttribute('fill','black');mask.appendChild(mc);defs.appendChild(mask);const dr=document.createElementNS('http://www.w3.org/2000/svg','rect');dr.setAttribute('class','dim-overlay');dr.setAttribute('width',svgW);dr.setAttribute('height',svgH);dr.setAttribute('mask','url(#selection-mask)');svg.appendChild(dr);const circle=document.createElementNS('http://www.w3.org/2000/svg','circle');circle.setAttribute('class','selection-circle');circle.setAttribute('cx',centerX*svgW);circle.setAttribute('cy',centerY*svgH);circle.setAttribute('r',radius*Math.max(svgW,svgH));svg.appendChild(circle);const modal=document.getElementById('modal-overlay');const modalContent=document.querySelector('.modal-content');const gruppe=building.gruppe||'';const gruppeFlat=gruppe.replace(/\\s*>\\s*/g,' ').trim();let displayName;if(gruppeFlat&&gruppeFlat.endsWith(building.name))displayName=gruppeFlat;else if(gruppeFlat)displayName=gruppeFlat+' '+building.name;else displayName=building.name;document.getElementById('modal-title').textContent=displayName;const bc=document.getElementById('modal-beschreibung-container');const bd=document.getElementById('modal-beschreibung');if(building.beschreibung&&building.beschreibung.trim()){bd.innerHTML=building.beschreibung;bc.style.display='block'}else{bc.style.display='none'}modal.classList.add('active');requestAnimationFrame(()=>{const ic=document.querySelector('.image-container');if(!ic)return;const img=ic.querySelector('img');const iw=img.offsetWidth,ih=img.offsetHeight;const mR=modalContent.getBoundingClientRect();const bx=centerX*iw,by=centerY*ih;const crPx=radius*Math.max(iw,ih);const gap=20,margin=15;let left,top;const isRight=centerX>0.5;const cle=bx-crPx,cre=bx+crPx;if(isRight){const tl=cle-gap-mR.width;if(tl>=margin){left=tl;top=by-(mR.height/2)}else{left=bx-(mR.width/2);top=by+crPx+gap}}else{const tl=cre+gap;if(tl+mR.width<=iw-margin){left=tl;top=by-(mR.height/2)}else{left=bx-(mR.width/2);top=by+crPx+gap}}if(left===bx-(mR.width/2)&&top!==undefined){if(top+mR.height>ih-margin){const ta=by-crPx-gap-mR.height;if(ta>=margin)top=ta}}left=Math.max(margin,Math.min(left,iw-mR.width-margin));top=Math.max(margin,Math.min(top,ih-mR.height-margin));modalContent.style.left=left+'px';modalContent.style.top=top+'px'})}
+        function hidePopup(){if(selectedBuildingId){const prev=selectedBuildingId;selectedBuildingId=null;unhighlightBuilding(prev)}const c=document.querySelector('.selection-circle');const d=document.querySelector('.dim-overlay');const m=document.getElementById('selection-mask');const mo=document.getElementById('modal-overlay');if(c)c.remove();if(d)d.remove();if(m)m.remove();if(mo)mo.classList.remove('active')}
+        document.addEventListener('keydown',e=>{if(e.key==='Escape')hidePopup()});
+        document.addEventListener('click',e=>{if(!e.target.closest('.building-polygon')&&!e.target.closest('.building-item')&&!e.target.closest('.sidebar')&&!e.target.closest('.modal-content'))hidePopup()});
+        init();
+    <\/script>
+</body>
+</html>`;
+}
+
+function createStandaloneHtml(buildingsData, canvasElement) {
+    const imageDataUrl = canvasElement.toDataURL('image/png');
+    let html = _getViewerTemplate();
+    const inlineData = { ...buildingsData, image: { ...buildingsData.image, dataUrl: imageDataUrl } };
+    html = html.replace('</head>', '<script>window.__buildingsData = ' + JSON.stringify(inlineData) + ';<\/script>\n</head>');
+    return html;
+}
+
+function _triggerDownload(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function downloadHtmlFile(html, filename) { _triggerDownload(new Blob([html], {type:'text/html'}), filename || 'building-map.html'); }
+function downloadJsonFile(data, filename) { _triggerDownload(new Blob([JSON.stringify(data,null,2)], {type:'application/json'}), filename || 'gebaeude_polygone.json'); }
+function downloadImageFile(canvas, filename) { canvas.toBlob(b => _triggerDownload(b, filename || 'rendered.png'), 'image/png'); }
+
+// --------------------------------------------------------------------------
+// pipeline.js
+// --------------------------------------------------------------------------
+class Pipeline {
+    constructor(callbacks) { this.callbacks=callbacks; this.buildingsGeojson=null; this.canvas=null; this.buildingJson=null; }
+
+    async run(geojsonData, params) {
+        try {
+            this.callbacks.onProgress(1, 'Downloading...');
+            this.callbacks.onLog('[INFO] Starte Download von OpenStreetMap...');
+            this.buildingsGeojson = await downloadBuildings(geojsonData);
+            try { localStorage.setItem(BUILDINGS_CACHE_KEY, JSON.stringify(this.buildingsGeojson)); } catch(e) { console.warn('[pipeline] Gebäude-Cache zu groß für localStorage'); }
+            this.callbacks.onLog('[INFO] ' + this.buildingsGeojson.features.length + ' Gebäude gefunden');
+            await this.renderAndExtract(geojsonData, params);
+        } catch (error) { this.callbacks.onError(error.message); }
+    }
+
+    async renderAndExtract(geojsonData, params) {
+        this.callbacks.onProgress(2, 'Rendering...');
+        this.callbacks.onLog('[INFO] Lade Kartenhintergrund und starte 2.5D Rendering...');
+        const polygon = extractPolygonCoords(geojsonData);
+        const renderer = new Building25DRenderer(this.buildingsGeojson, polygon, params);
+        this.canvas = await renderer.render();
+        this.callbacks.onLog('[INFO] ' + renderer.buildingPolygons.length + ' Gebäude gerendert');
+        this.callbacks.onProgress(3, 'Extracting...');
+        this.callbacks.onLog('[INFO] Extrahiere Polygone...');
+        const prevBuildings = this.buildingJson ? this.buildingJson.buildings : null;
+        this.buildingJson = createBuildingJson(this.canvas, renderer.buildingPolygons, 'rendered.png', prevBuildings);
+        if (prevBuildings) {
+            const migrated = this.buildingJson.buildings.filter(b => b.name && !b.name.startsWith('Gebäude ')).length;
+            this.callbacks.onLog('[INFO] ' + migrated + '/' + this.buildingJson.buildings.length + ' Gebäude-Metadaten migriert');
+        }
+        this.callbacks.onLog('[INFO] ' + this.buildingJson.buildings.length + ' klickbare Polygone extrahiert');
+        this.buildingJson.image.dataUrl = this.canvas.toDataURL('image/png');
+        const avg = this.buildingJson.buildings.length > 0 ? Math.round(this.buildingJson.buildings.reduce((s,b)=>s+b.polygon.length,0)/this.buildingJson.buildings.length) : 0;
+        this.callbacks.onProgress(4, 'Complete!');
+        this.callbacks.onLog('[INFO] Pipeline abgeschlossen!');
+        this.callbacks.onComplete({ buildingCount:this.buildingJson.buildings.length, imageWidth:this.canvas.width, imageHeight:this.canvas.height, avgPoints:avg, canvas:this.canvas, buildingJson:this.buildingJson });
+    }
+
+    async rerender(geojsonData, params) {
+        if (!this.buildingsGeojson) { this.callbacks.onError('Keine gecachten Gebäudedaten. Bitte zuerst Pipeline ausführen.'); return; }
+        try { await this.renderAndExtract(geojsonData, params); } catch (error) { this.callbacks.onError(error.message); }
+    }
+
+    exportStandalone() {
+        downloadHtmlFile(createStandaloneHtml(this.buildingJson, this.canvas));
+    }
+    exportJson() { downloadJsonFile(this.buildingJson); }
+    exportImage() { downloadImageFile(this.canvas); }
+}
+
+// ==========================================================================
+// UI Controller
+// ==========================================================================
+
+const uploadZone      = document.getElementById('uploadZone');
+const fileInput       = document.getElementById('fileInput');
+const fileInfo        = document.getElementById('fileInfo');
+const btnRun          = document.getElementById('btnRun');
+const btnRerender     = document.getElementById('btnRerender');
+const progressSteps   = document.getElementById('progressSteps');
+const progressBarWrap = document.getElementById('progressBarWrap');
+const progressBarFill = document.getElementById('progressBarFill');
+const logConsole      = document.getElementById('logConsole');
+const resultCard      = document.getElementById('resultCard');
+const previewImg      = document.getElementById('previewImg');
+const btnEditor       = document.getElementById('btnEditor');
+const btnStandalone   = document.getElementById('btnStandalone');
+const btnDownloadJson = document.getElementById('btnDownloadJson');
+const btnDownloadImage= document.getElementById('btnDownloadImage');
+const btnReset        = document.getElementById('btnReset');
+const btnRerender2    = document.getElementById('btnRerender2');
+const statBuildings   = document.getElementById('statBuildings');
+const statResolution  = document.getElementById('statResolution');
+const statAvgPoints   = document.getElementById('statAvgPoints');
+const pSteps = [document.getElementById('pStep1'), document.getElementById('pStep2'), document.getElementById('pStep3')];
+
+let geojsonData = null;
+let pipeline = null;
+let pipelineResult = null;
+
+// ---- Parameter elements ----
+const paramEls = {
+    tilt:         { el: document.getElementById('paramTilt'),         valEl: document.getElementById('paramTiltVal'),         type: 'range' },
+    rotation:     { el: document.getElementById('paramRotation'),     valEl: document.getElementById('paramRotationVal'),     type: 'range' },
+    extrude:      { el: document.getElementById('paramExtrude'),      valEl: document.getElementById('paramExtrudeVal'),      type: 'range' },
+    width:        { el: document.getElementById('paramWidth'),        type: 'number' },
+    height:       { el: document.getElementById('paramHeight'),       type: 'number' },
+    roofColor:    { el: document.getElementById('paramRoofColor'),    textEl: document.getElementById('paramRoofColorText'),  type: 'color' },
+    outlineColor: { el: document.getElementById('paramOutlineColor'), textEl: document.getElementById('paramOutlineColorText'),type: 'color' },
+    minArea:      { el: document.getElementById('paramMinArea'),      type: 'number' },
+    simplify:     { el: document.getElementById('paramSimplify'),     type: 'checkbox' },
+    uniformHeight:{ el: document.getElementById('paramUniformHeight'), type: 'checkbox' },
+};
+
+// ---- localStorage persistence ----
+const PARAMS_KEY = 'pipeline_params';
+const GEOJSON_KEY = 'pipeline_geojson';
+const GEOJSON_NAME_KEY = 'pipeline_geojson_name';
+const BUILDINGS_CACHE_KEY = 'pipeline_buildings_cache';
+const RESULT_CACHE_KEY = 'pipeline_result_cache';
+
+function saveParams() {
+    const data = {};
+    for (const [key, cfg] of Object.entries(paramEls)) data[key] = cfg.type === 'checkbox' ? cfg.el.checked : cfg.el.value;
+    try { localStorage.setItem(PARAMS_KEY, JSON.stringify(data)); } catch(e) {}
+}
+
+function loadParams() {
+    try {
+        const raw = localStorage.getItem(PARAMS_KEY);
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        for (const [key, cfg] of Object.entries(paramEls)) {
+            if (data[key] === undefined) continue;
+            if (cfg.type === 'checkbox') cfg.el.checked = !!data[key];
+            else cfg.el.value = data[key];
+        }
+    } catch(e) {}
+    syncAllDisplays();
+}
+
+function syncAllDisplays() {
+    for (const [, cfg] of Object.entries(paramEls)) {
+        if (cfg.type === 'range' && cfg.valEl) cfg.valEl.textContent = cfg.el.value;
+        if (cfg.type === 'color' && cfg.textEl) cfg.textEl.textContent = cfg.el.value;
+    }
+}
+
+function getParams() {
+    return {
+        tilt: parseInt(paramEls.tilt.el.value, 10),
+        rotation: parseInt(paramEls.rotation.el.value, 10),
+        extrude: parseFloat(paramEls.extrude.el.value),
+        width: parseInt(paramEls.width.el.value, 10),
+        height: parseInt(paramEls.height.el.value, 10),
+        roofColor: paramEls.roofColor.el.value,
+        outlineColor: paramEls.outlineColor.el.value,
+        minArea: parseInt(paramEls.minArea.el.value, 10),
+        simplify: paramEls.simplify.el.checked,
+        uniformHeight: paramEls.uniformHeight.el.checked,
+    };
+}
+
+// Wire up param change events
+for (const [, cfg] of Object.entries(paramEls)) {
+    cfg.el.addEventListener(cfg.type === 'checkbox' ? 'change' : 'input', () => {
+        if (cfg.type === 'range' && cfg.valEl) cfg.valEl.textContent = cfg.el.value;
+        if (cfg.type === 'color' && cfg.textEl) cfg.textEl.textContent = cfg.el.value;
+        saveParams();
+    });
+}
+
+loadParams();
+
+// ---- GeoJSON persistence ----
+function saveGeojson(data, name) {
+    try { localStorage.setItem(GEOJSON_KEY, JSON.stringify(data)); localStorage.setItem(GEOJSON_NAME_KEY, name); } catch(e) { console.warn('GeoJSON too large for localStorage'); }
+}
+
+function loadGeojson() {
+    try {
+        const raw = localStorage.getItem(GEOJSON_KEY);
+        if (!raw) return;
+        geojsonData = JSON.parse(raw);
+        const name = localStorage.getItem(GEOJSON_NAME_KEY) || 'gespeichert';
+        fileInfo.textContent = name + ' (aus letzter Sitzung)';
+        fileInfo.classList.remove('hidden');
+        btnRun.disabled = false;
+    } catch(e) {}
+}
+
+loadGeojson();
+
+// ---- Restore cached buildings (enables re-render after reload) ----
+function loadBuildingsCache() {
+    try {
+        const raw = localStorage.getItem(BUILDINGS_CACHE_KEY);
+        if (!raw) return;
+        pipeline.buildingsGeojson = JSON.parse(raw);
+        btnRerender.classList.remove('hidden'); btnRerender2.classList.remove('hidden');        document.getElementById('rerenderTip').classList.remove('hidden');
+    } catch(e) {}
+}
+
+function loadResultCache() {
+    try {
+        const raw = localStorage.getItem(RESULT_CACHE_KEY);
+        if (!raw) return;
+        const cached = JSON.parse(raw);
+        // Restore stats
+        statBuildings.textContent = cached.buildingCount;
+        statResolution.textContent = cached.imageWidth + 'x' + cached.imageHeight;
+        statAvgPoints.textContent = cached.avgPoints;
+        // Restore preview image from buildingJson dataUrl
+        if (cached.buildingJson && cached.buildingJson.image && cached.buildingJson.image.dataUrl) {
+            previewImg.src = cached.buildingJson.image.dataUrl;
+        }
+        // Restore pipeline state so export buttons work
+        pipeline.buildingJson = cached.buildingJson;
+        // Recreate canvas from dataUrl for export functions
+        if (cached.buildingJson && cached.buildingJson.image && cached.buildingJson.image.dataUrl) {
+            const img = new Image();
+            img.onload = function() {
+                const c = document.createElement('canvas');
+                c.width = img.width; c.height = img.height;
+                c.getContext('2d').drawImage(img, 0, 0);
+                pipeline.canvas = c;
+            };
+            img.src = cached.buildingJson.image.dataUrl;
+        }
+        // Restore pipelineResult for editor button
+        pipelineResult = { buildingCount: cached.buildingCount, imageWidth: cached.imageWidth, imageHeight: cached.imageHeight, avgPoints: cached.avgPoints, buildingJson: cached.buildingJson };
+        resultCard.classList.add('visible');
+    } catch(e) { console.warn('[pipeline] Ergebnis-Cache konnte nicht geladen werden:', e.message); }
+}
+
+// ---- File upload ----
+uploadZone.addEventListener('click', () => fileInput.click());
+uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => { uploadZone.classList.remove('drag-over'); });
+uploadZone.addEventListener('drop', (e) => { e.preventDefault(); uploadZone.classList.remove('drag-over'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+
+function handleFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            geojsonData = JSON.parse(e.target.result);
+            const name = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+            fileInfo.textContent = name;
+            fileInfo.classList.remove('hidden');
+            btnRun.disabled = false;
+            saveGeojson(geojsonData, file.name);
+            try { localStorage.setItem('pipeline_geojson_source', 'upload'); } catch(e2) {}
+            showGeojsonOnMap(geojsonData);
+        } catch (err) { alert('Fehler beim Lesen der Datei: ' + err.message); }
+    };
+    reader.readAsText(file);
+}
+
+// ---- Pipeline callbacks ----
+function onProgress(step) {
+    progressSteps.classList.remove('hidden');
+    progressBarWrap.classList.remove('hidden');
+    pSteps.forEach((el, i) => { el.classList.remove('active','completed'); if (i+1<step) el.classList.add('completed'); else if (i+1===step) el.classList.add('active'); });
+    progressBarFill.style.width = ({1:15,2:50,3:75,4:100}[step]||0) + '%';
+    if (step === 4) { pSteps.forEach(el => { el.classList.remove('active'); el.classList.add('completed'); }); progressBarFill.style.background='#3d5a1e'; }
+}
+
+function onLog(message) {
+    logConsole.classList.add('visible');
+    const line = document.createElement('div');
+    if (message.includes('[ERROR]')) line.className='log-error'; else if (message.includes('[INFO]')) line.className='log-info'; else if (message.includes('[SUCCESS]')) line.className='log-success';
+    line.textContent = message;
+    logConsole.appendChild(line);
+    logConsole.scrollTop = logConsole.scrollHeight;
+}
+
+function onComplete(result) {
+    pipelineResult = result;
+    statBuildings.textContent = result.buildingCount;
+    statResolution.textContent = result.imageWidth + 'x' + result.imageHeight;
+    statAvgPoints.textContent = result.avgPoints;
+    previewImg.src = result.canvas.toDataURL('image/png');
+    resultCard.classList.add('visible');
+    btnRerender.classList.remove('hidden'); btnRerender2.classList.remove('hidden');    document.getElementById('rerenderTip').classList.remove('hidden');
+    btnRun.disabled = false;
+    btnRerender.disabled = false;
+    // Persist result for reload
+    try {
+        const cached = { buildingCount: result.buildingCount, imageWidth: result.imageWidth, imageHeight: result.imageHeight, avgPoints: result.avgPoints, buildingJson: result.buildingJson };
+        localStorage.setItem(RESULT_CACHE_KEY, JSON.stringify(cached));
+    } catch(e) { console.warn('[pipeline] Ergebnis-Cache zu groß für localStorage'); }
+}
+
+function onError(message) { onLog('[ERROR] ' + message); btnRun.disabled = false; btnRerender.disabled = false; }
+
+pipeline = new Pipeline({ onProgress, onLog, onComplete, onError });
+loadBuildingsCache();
+loadResultCache();
+
+// ---- Run buttons ----
+btnRun.addEventListener('click', () => { if (!geojsonData) return; resetUI(); btnRun.disabled=true; btnRerender.disabled=true; saveParams(); pipeline.run(geojsonData, getParams()); });
+btnRerender.addEventListener('click', () => { if (!geojsonData) return; resetUI(); btnRun.disabled=true; btnRerender.disabled=true; saveParams(); onLog('[INFO] Verwende gecachte Gebäudedaten, starte Neurendering...'); pipeline.rerender(geojsonData, getParams()); });
+btnRerender2.addEventListener('click', () => { btnRerender.click(); });
+
+function resetUI() {
+    resultCard.classList.remove('visible'); logConsole.innerHTML=''; logConsole.classList.remove('visible');
+    progressSteps.classList.add('hidden'); progressBarWrap.classList.add('hidden');
+    progressBarFill.style.width='0%'; progressBarFill.style.background='';
+    pSteps.forEach(el => el.classList.remove('active','completed'));
+}
+
+// ---- Export buttons ----
+btnEditor.addEventListener('click', () => { if (!pipelineResult) return; sessionStorage.setItem('buildingsData', JSON.stringify(pipelineResult.buildingJson)); window.open('editor.html','_blank'); });
+document.getElementById('btnViewer').addEventListener('click', () => { if (!pipelineResult) return; sessionStorage.setItem('buildingsData', JSON.stringify(pipelineResult.buildingJson)); window.open('viewer.html','_blank'); });
+btnStandalone.addEventListener('click', () => { if (pipeline) pipeline.exportStandalone(); });
+btnDownloadJson.addEventListener('click', () => { if (pipeline) pipeline.exportJson(); });
+btnDownloadImage.addEventListener('click', () => { if (pipeline) pipeline.exportImage(); });
+btnReset.addEventListener('click', () => {
+    geojsonData=null; pipelineResult=null;
+    pipeline = new Pipeline({ onProgress, onLog, onComplete, onError });
+    fileInfo.classList.add('hidden'); fileInput.value=''; btnRun.disabled=true; btnRerender.classList.add('hidden'); btnRerender2.classList.add('hidden');    try { localStorage.removeItem(GEOJSON_KEY); localStorage.removeItem(GEOJSON_NAME_KEY); localStorage.removeItem(GEOJSON_SOURCE_KEY); localStorage.removeItem(BUILDINGS_CACHE_KEY); localStorage.removeItem(RESULT_CACHE_KEY); } catch(e) {}
+    clearDrawnPolygon();
+    uploadedLayer.clearLayers();
+    resetUI();
+});
+
+// ==========================================================================
+// Tab switching
+// ==========================================================================
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).classList.add('active');
+        if (btn.dataset.tab === 'tabDraw') drawMap.invalidateSize();
+    });
+});
+
+// ==========================================================================
+// Leaflet draw map
+// ==========================================================================
+const GEOJSON_SOURCE_KEY = 'pipeline_geojson_source';
+const drawInfo = document.getElementById('drawInfo');
+const btnClearPolygon = document.getElementById('btnClearPolygon');
+const btnDownloadPolygon = document.getElementById('btnDownloadPolygon');
+
+const drawMap = L.map('drawMap').setView([51.1, 10.4], 6);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap',
+    maxZoom: 19
+}).addTo(drawMap);
+
+const drawnItems = new L.FeatureGroup();
+drawMap.addLayer(drawnItems);
+
+// Layer for displaying uploaded GeoJSON on the map
+const uploadedLayer = new L.FeatureGroup();
+drawMap.addLayer(uploadedLayer);
+
+function showGeojsonOnMap(data) {
+    uploadedLayer.clearLayers();
+    drawnItems.clearLayers();
+    drawInfo.classList.add('hidden');
+    btnClearPolygon.classList.add('hidden');
+    btnDownloadPolygon.classList.add('hidden');
+    try {
+        const layer = L.geoJSON(data, {
+            style: { color: '#6b7530', weight: 2, fillColor: '#6b7530', fillOpacity: 0.15 }
+        });
+        uploadedLayer.addLayer(layer);
+        const bounds = uploadedLayer.getBounds();
+        if (bounds.isValid()) {
+            drawMap.fitBounds(bounds.pad(0.2));
+        }
+        // Switch to map tab to show the result
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        document.querySelector('[data-tab="tabDraw"]').classList.add('active');
+        document.getElementById('tabDraw').classList.add('active');
+        setTimeout(() => drawMap.invalidateSize(), 50);
+    } catch(e) {
+        console.warn('[map] Konnte GeoJSON nicht anzeigen:', e.message);
+    }
+}
+
+const drawControl = new L.Control.Draw({
+    draw: {
+        polygon: { shapeOptions: { color: '#6b7530', weight: 2 } },
+        polyline: false,
+        rectangle: false,
+        circle: false,
+        circlemarker: false,
+        marker: false
+    },
+    edit: { featureGroup: drawnItems }
+});
+drawMap.addControl(drawControl);
+
+function setGeojsonFromDrawnLayer(layer) {
+    const latlngs = layer.getLatLngs()[0];
+    const coords = latlngs.map(ll => [ll.lng, ll.lat]);
+    // Close the ring
+    coords.push([coords[0][0], coords[0][1]]);
+    geojsonData = { type: 'Polygon', coordinates: [coords] };
+    btnRun.disabled = false;
+    drawInfo.textContent = 'Polygon mit ' + latlngs.length + ' Punkten gezeichnet';
+    drawInfo.classList.remove('hidden');
+    btnClearPolygon.classList.remove('hidden');
+    btnDownloadPolygon.classList.remove('hidden');
+    saveGeojson(geojsonData, 'Gezeichnetes Polygon');
+    try { localStorage.setItem(GEOJSON_SOURCE_KEY, 'drawn'); } catch(e) {}
+}
+
+drawMap.on(L.Draw.Event.CREATED, function(e) {
+    drawnItems.clearLayers();
+    uploadedLayer.clearLayers();
+    drawnItems.addLayer(e.layer);
+    setGeojsonFromDrawnLayer(e.layer);
+});
+
+drawMap.on(L.Draw.Event.EDITED, function() {
+    const layers = drawnItems.getLayers();
+    if (layers.length > 0) setGeojsonFromDrawnLayer(layers[0]);
+});
+
+drawMap.on(L.Draw.Event.DELETED, function() {
+    clearDrawnPolygon();
+});
+
+function clearDrawnPolygon() {
+    drawnItems.clearLayers();
+    drawInfo.classList.add('hidden');
+    btnClearPolygon.classList.add('hidden');
+    btnDownloadPolygon.classList.add('hidden');
+    // Only clear geojsonData if it came from the map
+    try {
+        if (localStorage.getItem(GEOJSON_SOURCE_KEY) === 'drawn') {
+            geojsonData = null;
+            btnRun.disabled = true;
+            localStorage.removeItem(GEOJSON_KEY);
+            localStorage.removeItem(GEOJSON_NAME_KEY);
+            localStorage.removeItem(GEOJSON_SOURCE_KEY);
+        }
+    } catch(e) {}
+}
+
+btnClearPolygon.addEventListener('click', () => {
+    clearDrawnPolygon();
+});
+
+btnDownloadPolygon.addEventListener('click', () => {
+    if (!geojsonData) return;
+    _triggerDownload(new Blob([JSON.stringify(geojsonData, null, 2)], {type: 'application/geo+json'}), 'polygon.geojson');
+});
+
+// Restore GeoJSON on map from localStorage on load
+(function restoreMapState() {
+    try {
+        const source = localStorage.getItem(GEOJSON_SOURCE_KEY);
+        const raw = localStorage.getItem(GEOJSON_KEY);
+        if (!raw) return;
+        const data = JSON.parse(raw);
+
+        if (source === 'drawn') {
+            if (!data || !data.coordinates || !data.coordinates[0]) return;
+            const coords = data.coordinates[0];
+            const latlngs = coords.slice(0, -1).map(c => L.latLng(c[1], c[0]));
+            if (latlngs.length < 3) return;
+            const polygon = L.polygon(latlngs, { color: '#6b7530', weight: 2 });
+            drawnItems.addLayer(polygon);
+            drawMap.fitBounds(polygon.getBounds().pad(0.2));
+            drawInfo.textContent = 'Polygon mit ' + latlngs.length + ' Punkten (wiederhergestellt)';
+            drawInfo.classList.remove('hidden');
+            btnClearPolygon.classList.remove('hidden');
+            btnDownloadPolygon.classList.remove('hidden');
+        } else if (source === 'upload') {
+            const layer = L.geoJSON(data, {
+                style: { color: '#6b7530', weight: 2, fillColor: '#6b7530', fillOpacity: 0.15 }
+            });
+            uploadedLayer.addLayer(layer);
+            const bounds = uploadedLayer.getBounds();
+            if (bounds.isValid()) drawMap.fitBounds(bounds.pad(0.2));
+        }
+    } catch(e) {}
+})();
+</script>
+
+</body>
+</html>

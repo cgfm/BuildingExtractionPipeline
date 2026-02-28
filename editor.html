@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gebäude Editor - Albkaserne</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Segoe UI", system-ui, -apple-system, Arial, Helvetica, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            background: #d6d3c8;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 350px;
+            background: #ffffff;
+            color: #1a1a1a;
+            overflow-y: auto;
+            border-right: 1px solid #c0bda8;
+            border-left: 3px solid #4b5320;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #c0bda8;
+        }
+
+        .sidebar-header h1 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #2d331a;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .sidebar-header p {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .toolbar {
+            padding: 15px 20px;
+            background: #f5f4ee;
+            border-bottom: 1px solid #c0bda8;
+            display: flex;
+            gap: 10px;
+        }
+
+        .toolbar .btn {
+            width: auto;
+            flex: 1;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            background: #4b5320;
+            color: #fff;
+            border: 1px solid #6b7530;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            width: 100%;
+            transition: background 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .btn:hover {
+            background: #5a6328;
+        }
+
+        .btn-success {
+            background: #3d5a1e;
+            border-color: #4d6a2e;
+        }
+
+        .btn-success:hover {
+            background: #4a6a28;
+        }
+
+        .btn-primary {
+            background: #4b5320;
+            border-color: #6b7530;
+        }
+
+        .btn-primary:hover {
+            background: #5a6328;
+        }
+
+        .btn-danger {
+            background: #8b2500;
+            border-color: #a03000;
+        }
+
+        .btn-danger:hover {
+            background: #a03000;
+        }
+
+        .btn-duplicate {
+            background: #555;
+            border-color: #666;
+        }
+
+        .btn-duplicate:hover {
+            background: #666;
+        }
+
+        .info-message {
+            background: #f5f4ee;
+            color: #2d331a;
+            padding: 12px 15px;
+            border-radius: 2px;
+            margin-bottom: 20px;
+            border: 1px solid #c0bda8;
+            border-left: 3px solid #4b5320;
+            font-size: 13px;
+        }
+
+        .info-message strong {
+            font-weight: 600;
+        }
+
+        .group {
+            border-bottom: 1px solid #e8e6df;
+        }
+
+        .group-header {
+            padding: 12px 20px;
+            background: #f5f4ee;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+
+        .group-header:hover {
+            background: #e8e6df;
+        }
+
+        .group-header h2 {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #4b5320;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .group-toggle {
+            font-size: 12px;
+            color: #b0ad98;
+            transition: transform 0.3s;
+        }
+
+        .group.collapsed .group-toggle {
+            transform: rotate(-90deg);
+        }
+
+        .group-buildings {
+            max-height: 2000px;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .group.collapsed .group-buildings {
+            max-height: 0;
+        }
+
+        .building-item {
+            padding: 10px 20px 10px 35px;
+            cursor: grab;
+            transition: background 0.2s;
+            border-left: 3px solid transparent;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+        }
+
+        .building-item:active {
+            cursor: grabbing;
+        }
+
+        .building-item:hover {
+            background: #f5f4ee;
+        }
+
+        .building-item.selected {
+            background: #e8e6df;
+            border-left-color: #4b5320;
+        }
+
+        .building-item.dragging {
+            opacity: 0.5;
+            background: #d6d3c8;
+        }
+
+        .building-item.drag-over {
+            border-top: 3px solid #4b5320;
+        }
+
+        .drag-handle {
+            position: absolute;
+            left: 10px;
+            color: #b0ad98;
+            font-size: 14px;
+            cursor: grab;
+        }
+
+        .building-item:active .drag-handle {
+            cursor: grabbing;
+        }
+
+        .building-info {
+            flex: 1;
+        }
+
+        .building-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: #1a1a1a;
+        }
+
+        .building-id {
+            font-size: 11px;
+            color: #888;
+            margin-top: 2px;
+        }
+
+        .color-indicator {
+            width: 24px;
+            height: 24px;
+            border-radius: 2px;
+            border: 2px solid #c0bda8;
+        }
+
+        /* Main content */
+        .main-content {
+            flex: 1;
+            overflow: auto;
+            background: #d6d3c8;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .map-panel {
+            background: #ffffff;
+            border-radius: 2px;
+            border: 1px solid #c0bda8;
+            border-left: 3px solid #4b5320;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .map-panel h2 {
+            color: #2d331a;
+            margin-bottom: 15px;
+            font-size: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .map-container {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            overflow: auto;
+        }
+
+        .image-container {
+            position: relative;
+            display: inline-block;
+            line-height: 0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+            max-width: 100%;
+            width: auto;
+        }
+
+        .image-container img {
+            display: block;
+            width: auto;
+            height: auto;
+            max-width: 100%;
+            max-height: 50vh;
+        }
+
+        .svg-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: visible;
+        }
+
+        .building-polygon {
+            fill: rgba(255, 193, 7, 0);
+            stroke: rgba(255, 193, 7, 0);
+            stroke-width: 2;
+            pointer-events: auto;
+            cursor: pointer;
+            transition: fill 0.2s, stroke 0.2s;
+        }
+
+        .building-polygon.selected {
+            /* Highlight styles applied via JavaScript using custom colors */
+            stroke-width: 3;
+        }
+
+        /* Dim overlay - grays out everything except selected building */
+        .dim-overlay {
+            fill: rgba(0, 0, 0, 0.6);
+            pointer-events: none;
+        }
+
+        .selection-circle {
+            fill: none;
+            stroke: #4b5320;
+            stroke-width: 3;
+            pointer-events: none;
+        }
+
+        .building-polygon:hover {
+            /* Hover styles applied via JavaScript */
+        }
+
+        .editor-panel {
+            background: #ffffff;
+            border-radius: 2px;
+            border: 1px solid #c0bda8;
+            border-left: 3px solid #4b5320;
+            padding: 30px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+
+        .editor-panel h2 {
+            color: #2d331a;
+            margin-bottom: 20px;
+            font-size: 24px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1px solid #c0bda8;
+            border-radius: 2px;
+            font-size: 14px;
+            font-family: inherit;
+            background: #fff;
+            color: #1a1a1a;
+            transition: border-color 0.15s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #4b5320;
+        }
+
+        textarea.form-input {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .color-picker-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .color-input-wrapper {
+            position: relative;
+            width: 80px;
+            height: 40px;
+        }
+
+        input[type="color"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 1px solid #c0bda8;
+            border-radius: 2px;
+            cursor: pointer;
+        }
+
+        .color-hex {
+            flex: 1;
+        }
+
+        .color-preview {
+            width: 60px;
+            height: 40px;
+            border-radius: 2px;
+            border: 1px solid #c0bda8;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+        }
+
+        .button-group button {
+            flex: 1;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #b0ad98;
+        }
+
+        .empty-state h3 {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+        }
+
+        .stats {
+            background: #f5f4ee;
+            padding: 15px;
+            border-radius: 2px;
+            margin-bottom: 20px;
+            border: 1px solid #c0bda8;
+        }
+
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .stats-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .stats-label {
+            color: #888;
+        }
+
+        .stats-value {
+            font-weight: 600;
+            color: #2d331a;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #b0ad98;
+        }
+
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #c0392b;
+        }
+
+        .success-message {
+            background: #f5f4ee;
+            color: #3d5a1e;
+            padding: 12px 15px;
+            border-radius: 2px;
+            margin-bottom: 20px;
+            border: 1px solid #6b7530;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        /* ---- Info tooltips ---- */
+        .info-tip {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #b0ad98;
+            color: #2d331a;
+            font-size: 0.65rem;
+            font-weight: 700;
+            font-style: normal;
+            cursor: help;
+            vertical-align: middle;
+            margin-left: 5px;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+        .info-tip::before {
+            content: "i";
+        }
+        .info-tip .info-tip-text {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2d331a;
+            color: #e8e6df;
+            font-size: 0.78rem;
+            font-weight: 400;
+            line-height: 1.5;
+            padding: 8px 12px;
+            border-radius: 2px;
+            border: 1px solid #3a4022;
+            width: 260px;
+            z-index: 100;
+            pointer-events: none;
+            transition: opacity 0.15s, visibility 0.15s;
+        }
+        .info-tip .info-tip-text::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: #2d331a;
+        }
+        .info-tip:hover .info-tip-text,
+        .info-tip:focus .info-tip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+        .toolbar .info-tip {
+            background: #b0ad98;
+            color: #2d331a;
+            flex: 0;
+        }
+        .toolbar .info-tip .info-tip-text {
+            width: 220px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>Gebäude Editor</h1>
+                <p>Interaktiver Gebäude-Editor</p>
+            </div>
+
+            <!-- Buildings Tab -->
+            <div class="toolbar">
+                <button class="btn btn-success" id="save-json-btn" title="Lädt eine JSON-Datei mit allen Änderungen herunter.">Änderungen Speichern</button>
+                <button class="btn btn-primary" id="export-html-btn" title="Öffnet die interaktive Karte im Viewer-Modus in einem neuen Tab.">Karte Anzeigen</button>
+            </div>
+            <div id="sidebar-content" class="loading">
+                Lade Gebäudedaten...
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Map Panel -->
+            <div class="map-panel">
+                <h2>Interaktive Karte</h2>
+                <div class="map-container" id="map-container">
+                    <div class="loading">Lade Karte...</div>
+                </div>
+            </div>
+
+            <!-- Editor Panel -->
+            <div class="editor-panel">
+                <div id="editor-content">
+                    <div class="empty-state">
+                        <h3>Kein Gebäude ausgewählt</h3>
+                        <p>Wählen Sie ein Gebäude aus der Liste oder klicken Sie auf ein Gebäude in der Karte, um es zu bearbeiten.</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Global state
+        let buildingsData = null;
+        let currentBuilding = null;
+        let hasChanges = false;
+        const EDITOR_STORAGE_KEY = 'editor_buildingsData';
+
+        // Persist current state to localStorage
+        function persistToLocalStorage() {
+            try {
+                localStorage.setItem(EDITOR_STORAGE_KEY, JSON.stringify(buildingsData));
+            } catch(e) {
+                console.warn('[editor] localStorage-Speicherung fehlgeschlagen:', e.message);
+            }
+        }
+
+        // Load and initialize
+        async function init() {
+            try {
+                // Data loading priority:
+                // 1. Embedded data (standalone HTML)
+                // 2. sessionStorage (fresh from pipeline)
+                // 3. localStorage (persisted editor session)
+                // 4. fetch from file
+                if (window.__buildingsData) {
+                    buildingsData = window.__buildingsData;
+                } else if (sessionStorage.getItem('buildingsData')) {
+                    buildingsData = JSON.parse(sessionStorage.getItem('buildingsData'));
+                    sessionStorage.removeItem('buildingsData');
+                    persistToLocalStorage();
+                } else if (localStorage.getItem(EDITOR_STORAGE_KEY)) {
+                    buildingsData = JSON.parse(localStorage.getItem(EDITOR_STORAGE_KEY));
+                } else {
+                    const response = await fetch('gebaeude_polygone.json');
+                    if (!response.ok) {
+                        throw new Error('Konnte gebaeude_polygone.json nicht laden');
+                    }
+                    buildingsData = await response.json();
+                }
+
+                // Render map first, then sidebar (so polygons exist when sidebar hover works)
+                renderMap();
+                // Small delay to ensure map is fully rendered
+                setTimeout(() => {
+                    renderSidebar();
+                }, 100);
+
+            } catch (error) {
+                document.getElementById('sidebar-content').innerHTML =
+                    '<div class="error">Fehler beim Laden der Daten: ' + error.message + '</div>';
+                console.error('Initialization error:', error);
+            }
+        }
+
+        // Render the map with SVG overlays
+        function renderMap() {
+            const mapContainer = document.getElementById('map-container');
+            const { filename, width, height, dataUrl } = buildingsData.image;
+
+            // Create container
+            const container = document.createElement('div');
+            container.className = 'image-container';
+
+            // Add image
+            const img = document.createElement('img');
+            img.src = dataUrl || filename;
+            img.alt = 'Albkaserne Karte';
+            container.appendChild(img);
+
+            // Create SVG overlay
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('class', 'svg-overlay');
+            svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+            svg.setAttribute('preserveAspectRatio', 'xMinYMin meet');
+
+            // Add polygons
+            buildingsData.buildings.forEach(building => {
+                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+
+                // Convert normalized coordinates to pixel coordinates (to match viewBox)
+                const points = building.polygon.map(([x, y]) =>
+                    `${x * width},${y * height}`
+                ).join(' ');
+
+                polygon.setAttribute('points', points);
+                polygon.setAttribute('class', 'building-polygon');
+                polygon.setAttribute('data-building-id', building.id);
+
+                // Event listeners
+                polygon.addEventListener('mouseenter', () => highlightPolygon(building.id));
+                polygon.addEventListener('mouseleave', () => unhighlightPolygon(building.id));
+                polygon.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectBuilding(building);
+                });
+
+                svg.appendChild(polygon);
+            });
+
+            container.appendChild(svg);
+            mapContainer.innerHTML = '';
+            mapContainer.appendChild(container);
+
+            // Ensure SVG matches image size after image loads
+            img.addEventListener('load', () => {
+                const imgRect = img.getBoundingClientRect();
+                svg.style.width = imgRect.width + 'px';
+                svg.style.height = imgRect.height + 'px';
+            });
+
+            // Also handle window resize
+            const resizeObserver = new ResizeObserver(() => {
+                const imgRect = img.getBoundingClientRect();
+                svg.style.width = imgRect.width + 'px';
+                svg.style.height = imgRect.height + 'px';
+            });
+            resizeObserver.observe(img);
+        }
+
+        // Highlight polygon on hover
+        function highlightPolygon(buildingId) {
+            const building = buildingsData.buildings.find(b => b.id === buildingId);
+            const highlightColor = building?.highlightColor || '#FFC107';
+
+            const polygon = document.querySelector(`.svg-overlay .building-polygon[data-building-id="${buildingId}"]`);
+            if (polygon && !polygon.classList.contains('selected')) {
+                const rgb = hexToRgb(highlightColor);
+                polygon.style.fill = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.25)`;
+                polygon.style.stroke = highlightColor;
+                polygon.style.strokeWidth = '2';
+            }
+        }
+
+        // Unhighlight polygon
+        function unhighlightPolygon(buildingId) {
+            // Don't remove highlight from selected building
+            if (currentBuilding && currentBuilding.id === buildingId) return;
+            const polygon = document.querySelector(`.svg-overlay .building-polygon[data-building-id="${buildingId}"]`);
+            if (polygon && !polygon.classList.contains('selected')) {
+                polygon.style.fill = 'rgba(255, 193, 7, 0)';
+                polygon.style.stroke = 'rgba(255, 193, 7, 0)';
+                polygon.style.strokeWidth = '2';
+            }
+        }
+
+        // Helper function to convert hex color to RGB
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : { r: 255, g: 193, b: 7 }; // Default to amber
+        }
+
+        // Render sidebar with building list
+        function renderSidebar() {
+            const sidebar = document.getElementById('sidebar-content');
+
+            // Build nested group hierarchy
+            const groupHierarchy = {};
+            buildingsData.buildings.forEach(building => {
+                const gruppe = building.gruppe || 'Sonstige';
+                const parts = gruppe.split(' > ').map(p => p.trim());
+
+                let currentLevel = groupHierarchy;
+                parts.forEach((part, index) => {
+                    if (!currentLevel[part]) {
+                        currentLevel[part] = {
+                            buildings: [],
+                            subgroups: {}
+                        };
+                    }
+
+                    // Add building to the deepest level only
+                    if (index === parts.length - 1) {
+                        currentLevel[part].buildings.push(building);
+                    }
+
+                    currentLevel = currentLevel[part].subgroups;
+                });
+            });
+
+            // Helper function to sort group names
+            function sortGroupNames(names) {
+                return names.sort((a, b) => {
+                    if (a === 'Unbekannt' || a === 'Sonstige') return 1;
+                    if (b === 'Unbekannt' || b === 'Sonstige') return -1;
+                    return a.localeCompare(b);
+                });
+            }
+
+            // Helper function to get all building IDs from a group and its subgroups
+            function getAllBuildingIds(groupData) {
+                const ids = groupData.buildings.map(b => b.id);
+                Object.values(groupData.subgroups).forEach(subgroup => {
+                    ids.push(...getAllBuildingIds(subgroup));
+                });
+                return ids;
+            }
+
+            // Recursive function to render groups
+            function renderGroup(groupName, groupData, level = 0) {
+                const group = document.createElement('div');
+                group.className = 'group';
+                group.style.marginLeft = (level * 15) + 'px';
+
+                // Collect all building IDs in this group (including subgroups)
+                const buildingIds = getAllBuildingIds(groupData);
+
+                // Group header
+                const header = document.createElement('div');
+                header.className = 'group-header';
+                header.style.paddingLeft = (20 - level * 5) + 'px';
+                header.innerHTML = `
+                    <h2>${groupName}</h2>
+                    <span class="group-toggle">\u25BC</span>
+                `;
+                header.addEventListener('click', () => {
+                    group.classList.toggle('collapsed');
+                });
+
+                // Add hover listeners to highlight all buildings in group
+                header.addEventListener('mouseenter', () => {
+                    buildingIds.forEach(id => highlightPolygon(id));
+                });
+                header.addEventListener('mouseleave', () => {
+                    buildingIds.forEach(id => unhighlightPolygon(id));
+                });
+
+                group.appendChild(header);
+
+                // Container for buildings and subgroups
+                const content = document.createElement('div');
+                content.className = 'group-buildings';
+
+                // Render buildings in this group
+                groupData.buildings.forEach((building, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'building-item';
+                    item.style.paddingLeft = (35 + level * 15) + 'px';
+                    item.setAttribute('data-building-id', building.id);
+                    item.setAttribute('draggable', 'true');
+                    item.innerHTML = `
+                        <span class="drag-handle">\u22EE\u22EE</span>
+                        <div class="building-info">
+                            <div class="building-name">${building.name}</div>
+                            <div class="building-id">${building.id}</div>
+                        </div>
+                        <div class="color-indicator" style="background-color: ${building.highlightColor || '#FFC107'}"></div>
+                    `;
+
+                    // Click event listener
+                    item.addEventListener('click', (e) => {
+                        // Don't select if clicking on drag handle
+                        if (e.target.classList.contains('drag-handle')) return;
+                        selectBuilding(building);
+                    });
+
+                    // Hover event listeners
+                    item.addEventListener('mouseenter', () => highlightPolygon(building.id));
+                    item.addEventListener('mouseleave', () => unhighlightPolygon(building.id));
+
+                    // Drag and drop event listeners
+                    item.addEventListener('dragstart', handleDragStart);
+                    item.addEventListener('dragend', handleDragEnd);
+                    item.addEventListener('dragover', handleDragOver);
+                    item.addEventListener('drop', handleDrop);
+                    item.addEventListener('dragleave', handleDragLeave);
+
+                    content.appendChild(item);
+                });
+
+                // Render subgroups recursively
+                const subgroupNames = sortGroupNames(Object.keys(groupData.subgroups));
+                subgroupNames.forEach(subgroupName => {
+                    const subgroupElement = renderGroup(subgroupName, groupData.subgroups[subgroupName], level + 1);
+                    content.appendChild(subgroupElement);
+                });
+
+                group.appendChild(content);
+                return group;
+            }
+
+            // Render all top-level groups
+            sidebar.innerHTML = '';
+            const topLevelGroups = sortGroupNames(Object.keys(groupHierarchy));
+            topLevelGroups.forEach(groupName => {
+                const groupElement = renderGroup(groupName, groupHierarchy[groupName], 0);
+                sidebar.appendChild(groupElement);
+            });
+        }
+
+        // Select a building for editing
+        function selectBuilding(building) {
+            currentBuilding = building;
+
+            // Update selection in sidebar
+            document.querySelectorAll('.building-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            const item = document.querySelector(`.building-item[data-building-id="${building.id}"]`);
+            if (item) {
+                item.classList.add('selected');
+                // Scroll the selected item into view
+                item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+
+            // Update selection on map
+            document.querySelectorAll('.svg-overlay .building-polygon').forEach(polygon => {
+                polygon.classList.remove('selected');
+                polygon.style.fill = 'rgba(255, 193, 7, 0)';
+                polygon.style.stroke = 'rgba(255, 193, 7, 0)';
+                polygon.style.strokeWidth = '2';
+            });
+
+            // Remove any existing selection elements (circle, dim overlay, mask)
+            const existingCircle = document.querySelector('.selection-circle');
+            const existingDim = document.querySelector('.dim-overlay');
+            const existingMask = document.getElementById('selection-mask');
+            if (existingCircle) existingCircle.remove();
+            if (existingDim) existingDim.remove();
+            if (existingMask) existingMask.remove();
+
+            const mapPolygon = document.querySelector(`.svg-overlay .building-polygon[data-building-id="${building.id}"]`);
+            if (mapPolygon) {
+                // Apply highlight color to the selected polygon
+                const highlightColor = building.highlightColor || '#FFC107';
+                const rgb = hexToRgb(highlightColor);
+                mapPolygon.classList.add('selected');
+                mapPolygon.style.fill = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.35)`;
+                mapPolygon.style.stroke = highlightColor;
+                mapPolygon.style.strokeWidth = '3';
+            }
+
+            // Add selection circle and dim overlay around the building
+            if (mapPolygon) {
+                const svg = mapPolygon.closest('svg');
+                const viewBox = svg.getAttribute('viewBox').split(' ');
+                const svgWidth = parseFloat(viewBox[2]);
+                const svgHeight = parseFloat(viewBox[3]);
+
+                // Calculate polygon center (bounding box center)
+                const points = building.polygon;
+                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                points.forEach(([x, y]) => {
+                    minX = Math.min(minX, x);
+                    maxX = Math.max(maxX, x);
+                    minY = Math.min(minY, y);
+                    maxY = Math.max(maxY, y);
+                });
+
+                const centerX = (minX + maxX) / 2;
+                const centerY = (minY + maxY) / 2;
+                const bWidth = maxX - minX;
+                const bHeight = maxY - minY;
+                const calculatedRadius = Math.max(bWidth, bHeight) / 2 * 1.8;
+                const radius = Math.max(calculatedRadius, 0.04);
+
+                // Create or get defs element
+                let defs = svg.querySelector('defs');
+                if (!defs) {
+                    defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+                    svg.insertBefore(defs, svg.firstChild);
+                }
+
+                // Create mask with circle cutout
+                const mask = document.createElementNS('http://www.w3.org/2000/svg', 'mask');
+                mask.setAttribute('id', 'selection-mask');
+                const maskRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                maskRect.setAttribute('width', svgWidth);
+                maskRect.setAttribute('height', svgHeight);
+                maskRect.setAttribute('fill', 'white');
+                mask.appendChild(maskRect);
+                const maskCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                maskCircle.setAttribute('cx', centerX * svgWidth);
+                maskCircle.setAttribute('cy', centerY * svgHeight);
+                maskCircle.setAttribute('r', radius * Math.max(svgWidth, svgHeight));
+                maskCircle.setAttribute('fill', 'black');
+                mask.appendChild(maskCircle);
+                defs.appendChild(mask);
+
+                // Create dimming overlay
+                const dimRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                dimRect.setAttribute('class', 'dim-overlay');
+                dimRect.setAttribute('width', svgWidth);
+                dimRect.setAttribute('height', svgHeight);
+                dimRect.setAttribute('mask', 'url(#selection-mask)');
+                svg.appendChild(dimRect);
+
+                // Create selection circle
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('class', 'selection-circle');
+                circle.setAttribute('cx', centerX * svgWidth);
+                circle.setAttribute('cy', centerY * svgHeight);
+                circle.setAttribute('r', radius * Math.max(svgWidth, svgHeight));
+                svg.appendChild(circle);
+            }
+
+            // Render editor form
+            renderEditor();
+        }
+
+        // Render editor form
+        function renderEditor() {
+            const container = document.getElementById('editor-content');
+
+            container.innerHTML = `
+                <div class="success-message" id="success-message">
+                    Änderungen gespeichert!
+                </div>
+
+                <h2>Gebäude bearbeiten</h2>
+
+                <div class="stats">
+                    <div class="stats-row">
+                        <span class="stats-label">ID:</span>
+                        <span class="stats-value">${currentBuilding.id}</span>
+                    </div>
+                    <div class="stats-row">
+                        <span class="stats-label">Polygon-Punkte:</span>
+                        <span class="stats-value">${currentBuilding.polygon.length}</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="building-name">Name <span class="info-tip" tabindex="0"><span class="info-tip-text">Anzeigename des Gebäudes. Wird in der Karte und Seitenleiste angezeigt.</span></span></label>
+                    <input type="text" id="building-name" class="form-input"
+                           value="${currentBuilding.name}"
+                           placeholder="z.B. Hauptgebäude">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="building-gruppe">Gruppe <span class="info-tip" tabindex="0"><span class="info-tip-text">Ordnet das Gebäude einer Kategorie zu. Verschachtelte Gruppen mit &quot; &gt; &quot; trennen (z.B. &quot;Verwaltung &gt; Hauptgebäude&quot;).</span></span></label>
+                    <input type="text" id="building-gruppe" class="form-input"
+                           value="${currentBuilding.gruppe}"
+                           placeholder="Verwaltung > Hauptgebäude">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="building-beschreibung">Beschreibung <span class="info-tip" tabindex="0"><span class="info-tip-text">Optionaler Freitext. Wird beim Klick auf das Gebäude in der fertigen Karte angezeigt.</span></span></label>
+                    <textarea id="building-beschreibung" class="form-input"
+                              placeholder="Optionale Beschreibung des Gebäudes">${currentBuilding.beschreibung}</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Highlight-Farbe <span class="info-tip" tabindex="0"><span class="info-tip-text">Farbe, mit der das Gebäude beim Überfahren oder Auswählen hervorgehoben wird.</span></span></label>
+                    <div class="color-picker-group">
+                        <div class="color-input-wrapper">
+                            <input type="color" id="building-color"
+                                   value="${currentBuilding.highlightColor || '#FFC107'}">
+                        </div>
+                        <input type="text" id="building-color-hex" class="form-input color-hex"
+                               value="${currentBuilding.highlightColor || '#FFC107'}"
+                               placeholder="#FFC107">
+                        <div class="color-preview" id="color-preview"
+                             style="background-color: ${currentBuilding.highlightColor || '#FFC107'}"></div>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-success" id="save-btn">Änderungen speichern</button>
+                    <button class="btn" id="cancel-btn">Abbrechen</button>
+                </div>
+
+                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #c0bda8;">
+                    <button class="btn btn-duplicate" id="duplicate-btn" style="width: 100%; margin-bottom: 10px;">
+                        Gebäude duplizieren
+                    </button>
+                    <span class="info-tip" tabindex="0" style="margin-bottom: 10px;"><span class="info-tip-text">Erstellt eine Kopie dieses Gebäudes mit gleichem Polygon. Nützlich um ein Gebäude in mehrere Bereiche aufzuteilen.</span></span>
+                    <button class="btn btn-danger" id="delete-btn" style="width: 100%;">
+                        Gebäude löschen
+                    </button>
+                    <span class="info-tip" tabindex="0"><span class="info-tip-text">Entfernt das Gebäude unwiderruflich aus der Liste.</span></span>
+                </div>
+            `;
+
+            // Attach event listeners
+            document.getElementById('building-color').addEventListener('input', (e) => {
+                const color = e.target.value;
+                document.getElementById('building-color-hex').value = color;
+                document.getElementById('color-preview').style.backgroundColor = color;
+            });
+
+            document.getElementById('building-color-hex').addEventListener('input', (e) => {
+                const color = e.target.value;
+                if (/^#[0-9A-F]{6}$/i.test(color)) {
+                    document.getElementById('building-color').value = color;
+                    document.getElementById('color-preview').style.backgroundColor = color;
+                }
+            });
+
+            document.getElementById('save-btn').addEventListener('click', saveBuilding);
+            document.getElementById('cancel-btn').addEventListener('click', () => renderEditor());
+            document.getElementById('duplicate-btn').addEventListener('click', duplicateBuilding);
+            document.getElementById('delete-btn').addEventListener('click', deleteBuilding);
+        }
+
+        // Save building changes
+        function saveBuilding() {
+            const name = document.getElementById('building-name').value.trim();
+            const gruppe = document.getElementById('building-gruppe').value.trim();
+            const beschreibung = document.getElementById('building-beschreibung').value.trim();
+            const highlightColor = document.getElementById('building-color').value;
+
+            // Update the building in the data
+            const buildingIndex = buildingsData.buildings.findIndex(b => b.id === currentBuilding.id);
+            if (buildingIndex !== -1) {
+                buildingsData.buildings[buildingIndex].name = name;
+                buildingsData.buildings[buildingIndex].gruppe = gruppe;
+                buildingsData.buildings[buildingIndex].beschreibung = beschreibung;
+                buildingsData.buildings[buildingIndex].highlightColor = highlightColor;
+
+                currentBuilding = buildingsData.buildings[buildingIndex];
+                hasChanges = true;
+                persistToLocalStorage();
+
+                // Show success message
+                const successMsg = document.getElementById('success-message');
+                successMsg.classList.add('show');
+                setTimeout(() => {
+                    successMsg.classList.remove('show');
+                }, 3000);
+
+                // Re-render map and sidebar to reflect changes
+                renderMap();
+                setTimeout(() => {
+                    renderSidebar();
+
+                    // Re-select the current building
+                    const item = document.querySelector(`.building-item[data-building-id="${currentBuilding.id}"]`);
+                    if (item) {
+                        item.classList.add('selected');
+                    }
+                }, 100);
+            }
+        }
+
+        // Duplicate building
+        function duplicateBuilding() {
+            if (!currentBuilding) return;
+
+            // Create a copy of the current building
+            const buildingIndex = buildingsData.buildings.findIndex(b => b.id === currentBuilding.id);
+            if (buildingIndex === -1) return;
+
+            // Generate a new unique ID
+            const maxId = buildingsData.buildings.reduce((max, b) => {
+                const match = b.id.match(/building_(\d+)/);
+                if (match) {
+                    const num = parseInt(match[1]);
+                    return num > max ? num : max;
+                }
+                return max;
+            }, 0);
+
+            const newId = `building_${maxId + 1}`;
+
+            // Create the duplicate
+            const duplicate = {
+                id: newId,
+                name: `${currentBuilding.name} (Kopie)`,
+                gruppe: currentBuilding.gruppe,
+                beschreibung: currentBuilding.beschreibung,
+                highlightColor: currentBuilding.highlightColor,
+                polygon: JSON.parse(JSON.stringify(currentBuilding.polygon)) // Deep copy
+            };
+
+            // Insert the duplicate right after the original
+            buildingsData.buildings.splice(buildingIndex + 1, 0, duplicate);
+            hasChanges = true;
+            persistToLocalStorage();
+
+            // Re-render everything
+            renderMap();
+            setTimeout(() => {
+                renderSidebar();
+
+                // Select the newly created duplicate
+                selectBuilding(duplicate);
+            }, 100);
+        }
+
+        // Delete building
+        function deleteBuilding() {
+            if (!currentBuilding) return;
+
+            // Confirm deletion
+            const confirmDelete = confirm(
+                `Möchten Sie das Gebäude "${currentBuilding.name}" (${currentBuilding.id}) wirklich löschen?\n\n` +
+                `Diese Aktion kann nicht rückgängig gemacht werden!`
+            );
+
+            if (!confirmDelete) return;
+
+            // Find and remove the building from the array
+            const buildingIndex = buildingsData.buildings.findIndex(b => b.id === currentBuilding.id);
+            if (buildingIndex !== -1) {
+                buildingsData.buildings.splice(buildingIndex, 1);
+                hasChanges = true;
+                persistToLocalStorage();
+
+                // Clear current building
+                currentBuilding = null;
+
+                // Re-render everything
+                renderMap();
+                setTimeout(() => {
+                    renderSidebar();
+
+                    // Show empty state
+                    const editorContent = document.getElementById('editor-content');
+                    editorContent.innerHTML = `
+                        <div class="empty-state">
+                            <h3>Gebäude gelöscht</h3>
+                            <p>Das Gebäude wurde erfolgreich entfernt.</p>
+                            <p style="margin-top: 10px;">Wählen Sie ein anderes Gebäude aus der Liste, um es zu bearbeiten.</p>
+                        </div>
+                    `;
+                }, 100);
+            }
+        }
+
+        // Drag and Drop functionality
+        let draggedElement = null;
+        let draggedBuildingId = null;
+
+        function handleDragStart(e) {
+            draggedElement = e.currentTarget;
+            draggedBuildingId = draggedElement.getAttribute('data-building-id');
+            draggedElement.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', draggedElement.innerHTML);
+        }
+
+        function handleDragEnd(e) {
+            e.currentTarget.classList.remove('dragging');
+            // Remove all drag-over indicators
+            document.querySelectorAll('.building-item').forEach(item => {
+                item.classList.remove('drag-over');
+            });
+        }
+
+        function handleDragOver(e) {
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            e.dataTransfer.dropEffect = 'move';
+
+            // Add visual feedback
+            const target = e.currentTarget;
+            if (target !== draggedElement) {
+                target.classList.add('drag-over');
+            }
+
+            return false;
+        }
+
+        function handleDrop(e) {
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+            e.preventDefault();
+
+            const dropTarget = e.currentTarget;
+            const dropBuildingId = dropTarget.getAttribute('data-building-id');
+
+            // Don't do anything if dropping on itself
+            if (draggedBuildingId === dropBuildingId) {
+                return false;
+            }
+
+            // Find the indices of the dragged and drop target buildings
+            const draggedIndex = buildingsData.buildings.findIndex(b => b.id === draggedBuildingId);
+            const dropIndex = buildingsData.buildings.findIndex(b => b.id === dropBuildingId);
+
+            if (draggedIndex !== -1 && dropIndex !== -1) {
+                // Remove the dragged building from its original position
+                const [draggedBuilding] = buildingsData.buildings.splice(draggedIndex, 1);
+
+                // Calculate new index (adjust if dragging downward)
+                const newIndex = draggedIndex < dropIndex ? dropIndex : dropIndex;
+
+                // Insert at the new position
+                buildingsData.buildings.splice(newIndex, 0, draggedBuilding);
+
+                hasChanges = true;
+                persistToLocalStorage();
+
+                // Re-render sidebar to show new order
+                renderSidebar();
+
+                // Re-select the current building if it exists
+                if (currentBuilding) {
+                    const item = document.querySelector(`.building-item[data-building-id="${currentBuilding.id}"]`);
+                    if (item) {
+                        item.classList.add('selected');
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        function handleDragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        // Client-side JSON download (replaces server-side save)
+        function downloadJson(data, filename = 'gebaeude_polygone.json') {
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Save JSON via client-side download
+        function saveJSONToFile() {
+            downloadJson(buildingsData);
+            hasChanges = false;
+        }
+
+        // Open viewer in new tab
+        function exportStandaloneHTML() {
+            sessionStorage.setItem('buildingsData', JSON.stringify(buildingsData));
+            window.open('viewer.html', '_blank');
+        }
+
+        // Event listeners
+        document.getElementById('save-json-btn').addEventListener('click', saveJSONToFile);
+        document.getElementById('export-html-btn').addEventListener('click', exportStandaloneHTML);
+
+        // Warn before leaving if there are unsaved changes
+        window.addEventListener('beforeunload', (e) => {
+            if (hasChanges) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
+
+        // Initialize
+        init();
+    </script>
+</body>
+</html>
