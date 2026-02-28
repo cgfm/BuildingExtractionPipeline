@@ -113,3 +113,4 @@ Beim "Nur Rendering neu starten" werden Metadaten bestehender Gebäude per Centr
 - Gebäude-Daten werden zwischen Pipeline und Editor via `sessionStorage` übergeben
 - Kartenhintergrund: OpenStreetMap-Tiles
 - Gebäude-Daten: Overpass API (mit automatischem Retry bei Rate-Limiting)
+- Tooltips: Einheitliches JS-basiertes Tooltip-System (`#tooltip`) für Info-Icons (`.info-tip`) und Button-Tooltips (`data-tooltip`), das sich automatisch innerhalb des Viewports positioniert

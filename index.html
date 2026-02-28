@@ -533,12 +533,14 @@
             content: "i";
         }
         .info-tip .info-tip-text {
+            display: none;
+        }
+
+        /* ---- Shared tooltip (JS-positioned) ---- */
+        #tooltip {
+            position: fixed;
             visibility: hidden;
             opacity: 0;
-            position: absolute;
-            bottom: calc(100% + 8px);
-            left: 50%;
-            transform: translateX(-50%);
             background: #2d331a;
             color: #e8e6df;
             font-size: 0.78rem;
@@ -547,26 +549,33 @@
             padding: 8px 12px;
             border-radius: 4px;
             border: 1px solid #4b5320;
-            width: 240px;
-            z-index: 100;
+            max-width: 260px;
+            z-index: 10000;
             pointer-events: none;
-            transition: opacity 0.15s, visibility 0.15s;
+            transition: opacity 0.15s;
             text-transform: none;
             letter-spacing: normal;
         }
-        .info-tip .info-tip-text::after {
-            content: "";
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            border: 6px solid transparent;
-            border-top-color: #2d331a;
-        }
-        .info-tip:hover .info-tip-text,
-        .info-tip:focus .info-tip-text {
+        #tooltip.visible {
             visibility: visible;
             opacity: 1;
+        }
+        #tooltip::after {
+            content: "";
+            position: absolute;
+            border: 6px solid transparent;
+        }
+        #tooltip.arrow-bottom::after {
+            top: 100%;
+            left: var(--arrow-left, 50%);
+            transform: translateX(-50%);
+            border-top-color: #2d331a;
+        }
+        #tooltip.arrow-top::after {
+            bottom: 100%;
+            left: var(--arrow-left, 50%);
+            transform: translateX(-50%);
+            border-bottom-color: #2d331a;
         }
 
         /* ---- Hidden ---- */
@@ -780,9 +789,9 @@
             </div>
 
             <div class="button-row" style="margin-bottom:18px;">
-                <button class="btn btn-success btn-sm" id="btnEditor" title="Öffnet den Gebäude-Editor zum Bearbeiten von Namen, Gruppen, Beschreibungen und Farben.">Editor öffnen</button>
-                <button class="btn btn-primary btn-sm" id="btnViewer" title="Öffnet die fertige interaktive Karte mit klickbaren Gebäuden im Viewer-Modus.">Karte Anzeigen</button>
-                <button class="btn btn-secondary btn-sm hidden" id="btnRerender2" title="Rendert das Bild mit den aktuellen Parametern neu. Gecachte OSM-Daten und Gebäude-Metadaten bleiben erhalten.">Neurendering</button>
+                <button class="btn btn-success btn-sm" id="btnEditor" data-tooltip="Öffnet den Gebäude-Editor zum Bearbeiten von Namen, Gruppen, Beschreibungen und Farben.">Editor öffnen</button>
+                <button class="btn btn-primary btn-sm" id="btnViewer" data-tooltip="Öffnet die fertige interaktive Karte mit klickbaren Gebäuden im Viewer-Modus.">Karte Anzeigen</button>
+                <button class="btn btn-secondary btn-sm hidden" id="btnRerender2" data-tooltip="Rendert das Bild mit den aktuellen Parametern neu. Gecachte OSM-Daten und Gebäude-Metadaten bleiben erhalten.">Neurendering</button>
             </div>
 
             <div class="export-list">
@@ -807,6 +816,55 @@
     </div>
 
 </div>
+
+<div id="tooltip"></div>
+<script>
+(function() {
+    var tip = document.getElementById('tooltip');
+    function showTip(el) {
+        var text = el.dataset.tooltip || (el.querySelector('.info-tip-text') || {}).textContent || '';
+        if (!text.trim()) return;
+        tip.textContent = text.trim();
+        tip.className = '';
+        tip.style.left = '-9999px';
+        tip.style.top = '0';
+        tip.style.visibility = 'hidden';
+        tip.style.display = 'block';
+        tip.style.opacity = '0';
+        var tipRect = tip.getBoundingClientRect();
+        var rect = el.getBoundingClientRect();
+        var pad = 8;
+        var top, arrowClass;
+        if (rect.top - tipRect.height - pad > 0) {
+            top = rect.top - tipRect.height - pad;
+            arrowClass = 'arrow-bottom';
+        } else {
+            top = rect.bottom + pad;
+            arrowClass = 'arrow-top';
+        }
+        var left = rect.left + rect.width / 2 - tipRect.width / 2;
+        left = Math.max(pad, Math.min(left, window.innerWidth - tipRect.width - pad));
+        var arrowLeft = rect.left + rect.width / 2 - left;
+        arrowLeft = Math.max(10, Math.min(arrowLeft, tipRect.width - 10));
+        tip.style.left = left + 'px';
+        tip.style.top = top + 'px';
+        tip.style.setProperty('--arrow-left', arrowLeft + 'px');
+        tip.style.visibility = '';
+        tip.style.display = '';
+        tip.style.opacity = '';
+        tip.className = arrowClass + ' visible';
+    }
+    function hideTip() { tip.className = ''; }
+    document.addEventListener('mouseenter', function(e) {
+        var el = e.target.closest('[data-tooltip], .info-tip');
+        if (el) showTip(el);
+    }, true);
+    document.addEventListener('mouseleave', function(e) {
+        var el = e.target.closest('[data-tooltip], .info-tip');
+        if (el) hideTip();
+    }, true);
+})();
+</script>
 
 <script>
 // ==========================================================================
