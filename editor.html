@@ -429,16 +429,6 @@
             border: 1px solid #c0bda8;
         }
 
-        .button-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 30px;
-        }
-
-        .button-group button {
-            flex: 1;
-        }
-
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -492,20 +482,6 @@
             text-align: center;
             padding: 40px;
             color: #c0392b;
-        }
-
-        .success-message {
-            background: #f5f4ee;
-            color: #3d5a1e;
-            padding: 12px 15px;
-            border-radius: 2px;
-            margin-bottom: 20px;
-            border: 1px solid #6b7530;
-            display: none;
-        }
-
-        .success-message.show {
-            display: block;
         }
 
         /* ---- Info tooltips ---- */
@@ -832,10 +808,15 @@
         function renderSidebar() {
             const sidebar = document.getElementById('sidebar-content');
 
-            // Build nested group hierarchy
+            // Build nested group hierarchy and collect ungrouped buildings
             const groupHierarchy = {};
+            const ungroupedBuildings = [];
             buildingsData.buildings.forEach(building => {
-                const gruppe = building.gruppe || 'Sonstige';
+                const gruppe = (building.gruppe || '').trim();
+                if (!gruppe) {
+                    ungroupedBuildings.push(building);
+                    return;
+                }
                 const parts = gruppe.split(' > ').map(p => p.trim());
 
                 let currentLevel = groupHierarchy;
@@ -859,8 +840,8 @@
             // Helper function to sort group names
             function sortGroupNames(names) {
                 return names.sort((a, b) => {
-                    if (a === 'Unbekannt' || a === 'Sonstige') return 1;
-                    if (b === 'Unbekannt' || b === 'Sonstige') return -1;
+                    if (a === 'Unbekannt') return 1;
+                    if (b === 'Unbekannt') return -1;
                     return a.localeCompare(b);
                 });
             }
@@ -872,6 +853,35 @@
                     ids.push(...getAllBuildingIds(subgroup));
                 });
                 return ids;
+            }
+
+            // Helper to create a building item element
+            function createBuildingItem(building, paddingLeft) {
+                const item = document.createElement('div');
+                item.className = 'building-item';
+                item.style.paddingLeft = paddingLeft + 'px';
+                item.setAttribute('data-building-id', building.id);
+                item.setAttribute('draggable', 'true');
+                item.innerHTML = `
+                    <span class="drag-handle">\u22EE\u22EE</span>
+                    <div class="building-info">
+                        <div class="building-name">${building.name}</div>
+                        <div class="building-id">${building.id}</div>
+                    </div>
+                    <div class="color-indicator" style="background-color: ${building.highlightColor || '#FFC107'}"></div>
+                `;
+                item.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('drag-handle')) return;
+                    selectBuilding(building);
+                });
+                item.addEventListener('mouseenter', () => highlightPolygon(building.id));
+                item.addEventListener('mouseleave', () => unhighlightPolygon(building.id));
+                item.addEventListener('dragstart', handleDragStart);
+                item.addEventListener('dragend', handleDragEnd);
+                item.addEventListener('dragover', handleDragOver);
+                item.addEventListener('drop', handleDrop);
+                item.addEventListener('dragleave', handleDragLeave);
+                return item;
             }
 
             // Recursive function to render groups
@@ -910,40 +920,8 @@
                 content.className = 'group-buildings';
 
                 // Render buildings in this group
-                groupData.buildings.forEach((building, index) => {
-                    const item = document.createElement('div');
-                    item.className = 'building-item';
-                    item.style.paddingLeft = (35 + level * 15) + 'px';
-                    item.setAttribute('data-building-id', building.id);
-                    item.setAttribute('draggable', 'true');
-                    item.innerHTML = `
-                        <span class="drag-handle">\u22EE\u22EE</span>
-                        <div class="building-info">
-                            <div class="building-name">${building.name}</div>
-                            <div class="building-id">${building.id}</div>
-                        </div>
-                        <div class="color-indicator" style="background-color: ${building.highlightColor || '#FFC107'}"></div>
-                    `;
-
-                    // Click event listener
-                    item.addEventListener('click', (e) => {
-                        // Don't select if clicking on drag handle
-                        if (e.target.classList.contains('drag-handle')) return;
-                        selectBuilding(building);
-                    });
-
-                    // Hover event listeners
-                    item.addEventListener('mouseenter', () => highlightPolygon(building.id));
-                    item.addEventListener('mouseleave', () => unhighlightPolygon(building.id));
-
-                    // Drag and drop event listeners
-                    item.addEventListener('dragstart', handleDragStart);
-                    item.addEventListener('dragend', handleDragEnd);
-                    item.addEventListener('dragover', handleDragOver);
-                    item.addEventListener('drop', handleDrop);
-                    item.addEventListener('dragleave', handleDragLeave);
-
-                    content.appendChild(item);
+                groupData.buildings.forEach(building => {
+                    content.appendChild(createBuildingItem(building, 35 + level * 15));
                 });
 
                 // Render subgroups recursively
@@ -957,8 +935,11 @@
                 return group;
             }
 
-            // Render all top-level groups
+            // Render all: ungrouped buildings first, then groups
             sidebar.innerHTML = '';
+            ungroupedBuildings.forEach(building => {
+                sidebar.appendChild(createBuildingItem(building, 20));
+            });
             const topLevelGroups = sortGroupNames(Object.keys(groupHierarchy));
             topLevelGroups.forEach(groupName => {
                 const groupElement = renderGroup(groupName, groupHierarchy[groupName], 0);
@@ -1081,10 +1062,6 @@
             const container = document.getElementById('editor-content');
 
             container.innerHTML = `
-                <div class="success-message" id="success-message">
-                    Änderungen gespeichert!
-                </div>
-
                 <h2>Gebäude bearbeiten</h2>
 
                 <div class="stats">
@@ -1133,11 +1110,6 @@
                     </div>
                 </div>
 
-                <div class="button-group">
-                    <button class="btn btn-success" id="save-btn">Änderungen speichern</button>
-                    <button class="btn" id="cancel-btn">Abbrechen</button>
-                </div>
-
                 <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #c0bda8;">
                     <button class="btn btn-duplicate" id="duplicate-btn" style="width: 100%; margin-bottom: 10px;">
                         Gebäude duplizieren
@@ -1151,10 +1123,21 @@
             `;
 
             // Attach event listeners
+            let saveTimeout = null;
+            function debouncedSave() {
+                clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(saveBuilding, 400);
+            }
+
+            document.getElementById('building-name').addEventListener('input', debouncedSave);
+            document.getElementById('building-gruppe').addEventListener('input', debouncedSave);
+            document.getElementById('building-beschreibung').addEventListener('input', debouncedSave);
+
             document.getElementById('building-color').addEventListener('input', (e) => {
                 const color = e.target.value;
                 document.getElementById('building-color-hex').value = color;
                 document.getElementById('color-preview').style.backgroundColor = color;
+                saveBuilding();
             });
 
             document.getElementById('building-color-hex').addEventListener('input', (e) => {
@@ -1162,11 +1145,10 @@
                 if (/^#[0-9A-F]{6}$/i.test(color)) {
                     document.getElementById('building-color').value = color;
                     document.getElementById('color-preview').style.backgroundColor = color;
+                    saveBuilding();
                 }
             });
 
-            document.getElementById('save-btn').addEventListener('click', saveBuilding);
-            document.getElementById('cancel-btn').addEventListener('click', () => renderEditor());
             document.getElementById('duplicate-btn').addEventListener('click', duplicateBuilding);
             document.getElementById('delete-btn').addEventListener('click', deleteBuilding);
         }
@@ -1189,13 +1171,6 @@
                 currentBuilding = buildingsData.buildings[buildingIndex];
                 hasChanges = true;
                 persistToLocalStorage();
-
-                // Show success message
-                const successMsg = document.getElementById('success-message');
-                successMsg.classList.add('show');
-                setTimeout(() => {
-                    successMsg.classList.remove('show');
-                }, 3000);
 
                 // Re-render map and sidebar to reflect changes
                 renderMap();

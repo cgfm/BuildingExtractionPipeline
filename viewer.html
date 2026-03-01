@@ -242,26 +242,32 @@
         }
 
         .modal-content h2 {
-            margin: 0 0 20px 0;
+            margin: 0;
             color: #2d331a;
             font-size: 22px;
             padding-right: 25px;
         }
 
-        .modal-info {
-            margin-bottom: 15px;
+        .modal-breadcrumb {
+            font-size: 12px;
+            color: #6b7530;
+            margin: 4px 0 0 0;
         }
 
-        .modal-label {
-            font-weight: 700;
-            color: #4b5320;
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 5px;
+        .modal-breadcrumb span::after {
+            content: ' \203A ';
+            margin: 0 2px;
         }
 
-        .modal-value {
+        .modal-breadcrumb span:last-child::after {
+            content: '';
+        }
+
+        .modal-header {
+            margin-bottom: 20px;
+        }
+
+        .modal-beschreibung {
             color: #1a1a1a;
             font-size: 15px;
             line-height: 1.5;
@@ -398,11 +404,11 @@
             modalOverlay.innerHTML = `
                 <div class="modal-content">
                     <button class="modal-close" id="modal-close">&times;</button>
-                    <h2 id="modal-title"></h2>
-                    <div class="modal-info" id="modal-beschreibung-container">
-                        <div class="modal-label">Beschreibung</div>
-                        <div class="modal-value" id="modal-beschreibung"></div>
+                    <div class="modal-header">
+                        <h2 id="modal-title"></h2>
+                        <div class="modal-breadcrumb" id="modal-breadcrumb"></div>
                     </div>
+                    <div class="modal-beschreibung" id="modal-beschreibung" style="display: none;"></div>
                 </div>
             `;
             container.appendChild(modalOverlay);
@@ -681,30 +687,26 @@
             const modal = document.getElementById('modal-overlay');
             const modalContent = document.querySelector('.modal-content');
 
-            // Create display name: concatenate group (without >) and name
-            const gruppe = building.gruppe || '';
-            const gruppeFlat = gruppe.replace(/\s*>\s*/g, ' ').trim();
+            // Populate modal content
+            document.getElementById('modal-title').textContent = building.name;
 
-            // Check if group already ends with the building name
-            let displayName;
-            if (gruppeFlat && gruppeFlat.endsWith(building.name)) {
-                displayName = gruppeFlat;
-            } else if (gruppeFlat) {
-                displayName = `${gruppeFlat} ${building.name}`;
+            // Build breadcrumb from gruppe
+            const breadcrumb = document.getElementById('modal-breadcrumb');
+            const gruppe = (building.gruppe || '').trim();
+            if (gruppe) {
+                const parts = gruppe.split(/\s*>\s*/);
+                breadcrumb.innerHTML = parts.map(p => `<span>${p}</span>`).join('');
+                breadcrumb.style.display = 'block';
             } else {
-                displayName = building.name;
+                breadcrumb.style.display = 'none';
             }
 
-            // Populate modal content
-            document.getElementById('modal-title').textContent = displayName;
-
-            const beschreibungContainer = document.getElementById('modal-beschreibung-container');
-            const beschreibung = document.getElementById('modal-beschreibung');
+            const beschreibungEl = document.getElementById('modal-beschreibung');
             if (building.beschreibung && building.beschreibung.trim()) {
-                beschreibung.innerHTML = building.beschreibung;
-                beschreibungContainer.style.display = 'block';
+                beschreibungEl.innerHTML = building.beschreibung;
+                beschreibungEl.style.display = 'block';
             } else {
-                beschreibungContainer.style.display = 'none';
+                beschreibungEl.style.display = 'none';
             }
 
             // Show modal
