@@ -58,11 +58,13 @@
             border-bottom: 1px solid #c0bda8;
             display: flex;
             gap: 10px;
+            flex-wrap: wrap;
         }
 
         .toolbar .btn {
             width: auto;
             flex: 1;
+            min-width: 0;
         }
 
         .btn {
@@ -82,6 +84,47 @@
 
         .btn:hover {
             background: #5a6328;
+        }
+
+        .btn:disabled {
+            background: #999;
+            border-color: #aaa;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        /* Floating undo/redo */
+        .undo-redo-float {
+            position: fixed;
+            top: 12px;
+            right: 12px;
+            z-index: 400;
+            display: flex;
+            gap: 6px;
+        }
+        .undo-redo-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 2px;
+            border: 1px solid #6b7530;
+            background: #4b5320;
+            color: #fff;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .undo-redo-btn:hover:not(:disabled) {
+            background: #5a6328;
+        }
+        .undo-redo-btn:disabled {
+            background: #999;
+            border-color: #aaa;
+            cursor: not-allowed;
+            opacity: 0.5;
         }
 
         .btn-success {
@@ -179,6 +222,30 @@
 
         .group.collapsed .group-buildings {
             max-height: 0;
+        }
+
+        .search-bar {
+            padding: 10px 20px;
+            border-bottom: 1px solid #c0bda8;
+            background: #fff;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 7px 10px;
+            border: 1px solid #c0bda8;
+            border-radius: 2px;
+            font-size: 0.85rem;
+            background: #f5f4ee;
+            font-family: inherit;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #4b5320;
         }
 
         .building-item {
@@ -493,16 +560,51 @@
         /* ---- Viewer overlay ---- */
         .viewer-overlay {
             display: none;
-            position: absolute;
+            position: fixed;
             top: 0;
             left: 0;
             right: 0;
             bottom: 0;
             z-index: 500;
-            background: #d6d3c8;
+            background: rgba(0, 0, 0, 0.6);
+            justify-content: center;
+            align-items: center;
         }
         .viewer-overlay.active {
             display: flex;
+        }
+        .viewer-overlay .vo-dialog {
+            display: flex;
+            background: #d6d3c8;
+            border-radius: 2px;
+            box-shadow: 0 10px 60px rgba(0,0,0,0.4);
+            width: 92vw;
+            height: 88vh;
+            max-width: 1600px;
+            overflow: hidden;
+            position: relative;
+        }
+        .viewer-overlay .vo-close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 10;
+            background: #4b5320;
+            color: #fff;
+            border: 1px solid #6b7530;
+            border-radius: 2px;
+            width: 36px;
+            height: 36px;
+            font-size: 22px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+            line-height: 1;
+        }
+        .viewer-overlay .vo-close-btn:hover {
+            background: #5a6328;
         }
         .viewer-overlay .vo-sidebar {
             width: 300px;
@@ -527,25 +629,6 @@
         .viewer-overlay .vo-sidebar-header p {
             font-size: 12px;
             color: #888;
-        }
-        .viewer-overlay .vo-back-btn {
-            display: block;
-            width: calc(100% - 40px);
-            margin: 15px 20px;
-            padding: 10px 20px;
-            background: #4b5320;
-            color: #fff;
-            border: 1px solid #6b7530;
-            border-radius: 2px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-            transition: background 0.2s;
-        }
-        .viewer-overlay .vo-back-btn:hover {
-            background: #5a6328;
         }
         .viewer-overlay .vo-main {
             flex: 1;
@@ -621,6 +704,27 @@
         }
         .viewer-overlay .vo-group.collapsed .vo-group-buildings {
             max-height: 0;
+        }
+        .viewer-overlay .vo-search-bar {
+            padding: 10px 20px;
+            border-bottom: 1px solid #c0bda8;
+            background: #fff;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .viewer-overlay .vo-search-input {
+            width: 100%;
+            padding: 7px 10px;
+            border: 1px solid #c0bda8;
+            border-radius: 2px;
+            font-size: 0.85rem;
+            background: #f5f4ee;
+            font-family: inherit;
+        }
+        .viewer-overlay .vo-search-input:focus {
+            outline: none;
+            border-color: #4b5320;
         }
         .viewer-overlay .vo-building-item {
             padding: 10px 20px 10px 35px;
@@ -826,6 +930,9 @@
                 <button class="btn btn-success" id="save-json-btn" data-tooltip="Lädt eine JSON-Datei mit allen Änderungen herunter.">Änderungen Speichern</button>
                 <button class="btn btn-primary" id="preview-btn" data-tooltip="Zeigt eine interaktive Vorschau der Karte mit klickbaren Gebäuden.">Vorschau</button>
             </div>
+            <div class="search-bar">
+                <input type="text" class="search-input" id="search-input" placeholder="Gebäude suchen...">
+            </div>
             <div id="sidebar-content" class="loading">
                 Lade Gebäudedaten...
             </div>
@@ -843,9 +950,12 @@
 
             <!-- Viewer overlay (hidden by default) -->
             <div class="viewer-overlay" id="viewerOverlay">
-                <div class="vo-sidebar" id="voSidebar"></div>
-                <div class="vo-main">
-                    <div class="vo-image-container" id="voImageContainer"></div>
+                <div class="vo-dialog">
+                    <button class="vo-close-btn" id="vo-close-btn" title="Schließen">&times;</button>
+                    <div class="vo-sidebar" id="voSidebar"></div>
+                    <div class="vo-main">
+                        <div class="vo-image-container" id="voImageContainer"></div>
+                    </div>
                 </div>
             </div>
 
@@ -859,6 +969,12 @@
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- Floating undo/redo -->
+    <div class="undo-redo-float">
+        <button class="undo-redo-btn" id="undo-btn" disabled data-tooltip="Rückgängig (Strg+Z)">&#x21B6;</button>
+        <button class="undo-redo-btn" id="redo-btn" disabled data-tooltip="Wiederholen (Strg+Umschalt+Z)">&#x21B7;</button>
     </div>
 
     <div id="tooltip"></div>
@@ -911,44 +1027,247 @@
     </script>
 
     <script>
+        // ==========================================================================
+        // PipelineDB — IndexedDB wrapper (async key-value store)
+        // ==========================================================================
+        const PipelineDB = (() => {
+            const DB_NAME = 'BuildingPipelineDB';
+            const DB_VERSION = 1;
+            const STORES = ['meta', 'geojson', 'buildings_cache', 'result', 'images', 'editor'];
+            let _db = null;
+
+            function open() {
+                if (_db) return Promise.resolve(_db);
+                return new Promise((resolve, reject) => {
+                    const req = indexedDB.open(DB_NAME, DB_VERSION);
+                    req.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        STORES.forEach(name => { if (!db.objectStoreNames.contains(name)) db.createObjectStore(name); });
+                    };
+                    req.onsuccess = (e) => { _db = e.target.result; resolve(_db); };
+                    req.onerror = (e) => reject(e.target.error);
+                });
+            }
+
+            function _tx(store, mode) { return _db.transaction(store, mode).objectStore(store); }
+
+            function get(store, key) {
+                return new Promise((resolve, reject) => {
+                    const req = _tx(store, 'readonly').get(key);
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = (e) => reject(e.target.error);
+                });
+            }
+
+            function put(store, key, value) {
+                return new Promise((resolve, reject) => {
+                    const req = _tx(store, 'readwrite').put(value, key);
+                    req.onsuccess = () => resolve();
+                    req.onerror = (e) => reject(e.target.error);
+                });
+            }
+
+            function remove(store, key) {
+                return new Promise((resolve, reject) => {
+                    const req = _tx(store, 'readwrite').delete(key);
+                    req.onsuccess = () => resolve();
+                    req.onerror = (e) => reject(e.target.error);
+                });
+            }
+
+            function clearAll() {
+                return new Promise((resolve, reject) => {
+                    const tx = _db.transaction(STORES, 'readwrite');
+                    STORES.forEach(name => tx.objectStore(name).clear());
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = (e) => reject(e.target.error);
+                });
+            }
+
+            return { open, get, put, remove, clearAll };
+        })();
+
+        function dataUrlToBlob(dataUrl) {
+            const [header, b64] = dataUrl.split(',');
+            const mime = header.match(/:(.*?);/)[1];
+            const bin = atob(b64);
+            const arr = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+            return new Blob([arr], { type: mime });
+        }
+
+        function blobToDataUrl(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        async function migrateFromLocalStorage() {
+            try {
+                const migrated = await PipelineDB.get('meta', '_migrated');
+                if (migrated) return;
+
+                const editorRaw = localStorage.getItem('editor_buildingsData');
+                if (editorRaw) {
+                    const editorData = JSON.parse(editorRaw);
+                    let imageBlob = null;
+                    if (editorData.image && editorData.image.dataUrl) {
+                        imageBlob = dataUrlToBlob(editorData.image.dataUrl);
+                        delete editorData.image.dataUrl;
+                    }
+                    await PipelineDB.put('editor', 'buildingsData', editorData);
+                    if (imageBlob) await PipelineDB.put('images', 'rendered_map', imageBlob);
+                }
+
+                await PipelineDB.put('meta', '_migrated', true);
+                try { localStorage.removeItem('editor_buildingsData'); } catch(e) {}
+            } catch(e) { console.warn('[migration] Fehler bei localStorage-Migration:', e); }
+        }
+
         // Global state
         let buildingsData = null;
         let currentBuilding = null;
         let hasChanges = false;
-        const EDITOR_STORAGE_KEY = 'editor_buildingsData';
 
-        // Persist current state to localStorage
-        function persistToLocalStorage() {
+        // Persist current state to IndexedDB (strips dataUrl to save as Blob separately)
+        function persistToIDB() {
             try {
-                localStorage.setItem(EDITOR_STORAGE_KEY, JSON.stringify(buildingsData));
+                const copy = JSON.parse(JSON.stringify(buildingsData));
+                if (copy.image) delete copy.image.dataUrl;
+                PipelineDB.put('editor', 'buildingsData', copy).catch(e => {
+                    console.warn('[editor] IDB-Speicherung fehlgeschlagen:', e.message);
+                });
             } catch(e) {
-                console.warn('[editor] localStorage-Speicherung fehlgeschlagen:', e.message);
+                console.warn('[editor] IDB-Speicherung fehlgeschlagen:', e.message);
             }
         }
+
+        // ==========================================================================
+        // Undo/Redo Manager
+        // ==========================================================================
+        const UndoManager = (() => {
+            const MAX_ENTRIES = 50;
+            let undoStack = [];
+            let redoStack = [];
+            let debounceTimer = null;
+            let debounceStateCaptured = false;
+
+            function snapshot() {
+                return JSON.parse(JSON.stringify(buildingsData.buildings));
+            }
+
+            function pushState() {
+                undoStack.push(snapshot());
+                if (undoStack.length > MAX_ENTRIES) undoStack.shift();
+                redoStack = [];
+                debounceStateCaptured = false;
+                updateButtons();
+            }
+
+            function pushStateDebounced() {
+                if (!debounceStateCaptured) {
+                    undoStack.push(snapshot());
+                    if (undoStack.length > MAX_ENTRIES) undoStack.shift();
+                    redoStack = [];
+                    debounceStateCaptured = true;
+                    updateButtons();
+                }
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    debounceStateCaptured = false;
+                }, 500);
+            }
+
+            function undo() {
+                if (undoStack.length === 0) return;
+                redoStack.push(snapshot());
+                buildingsData.buildings = undoStack.pop();
+                afterRestore();
+            }
+
+            function redo() {
+                if (redoStack.length === 0) return;
+                undoStack.push(snapshot());
+                buildingsData.buildings = redoStack.pop();
+                afterRestore();
+            }
+
+            function afterRestore() {
+                persistToIDB();
+                renderMap();
+                setTimeout(() => {
+                    renderSidebar();
+                    if (currentBuilding) {
+                        const still = buildingsData.buildings.find(b => b.id === currentBuilding.id);
+                        if (still) {
+                            selectBuilding(still);
+                        } else {
+                            currentBuilding = null;
+                            const editorContent = document.getElementById('editor-content');
+                            editorContent.innerHTML = '<div class="empty-state"><h3>Gebäude nicht mehr vorhanden</h3><p>Wählen Sie ein Gebäude aus der Liste.</p></div>';
+                        }
+                    }
+                    updateButtons();
+                }, 100);
+            }
+
+            function clear() {
+                undoStack = [];
+                redoStack = [];
+                debounceStateCaptured = false;
+                updateButtons();
+            }
+
+            function updateButtons() {
+                const undoBtn = document.getElementById('undo-btn');
+                const redoBtn = document.getElementById('redo-btn');
+                if (undoBtn) undoBtn.disabled = undoStack.length === 0;
+                if (redoBtn) redoBtn.disabled = redoStack.length === 0;
+            }
+
+            return { pushState, pushStateDebounced, undo, redo, clear, updateButtons };
+        })();
 
         // Load and initialize
         async function init() {
             try {
+                await PipelineDB.open();
+                await migrateFromLocalStorage();
+
+                // Check if pipeline sent fresh data
+                const freshData = sessionStorage.getItem('editor_freshData');
+                if (freshData) sessionStorage.removeItem('editor_freshData');
+
                 // Data loading priority:
                 // 1. Embedded data (standalone HTML)
-                // 2. sessionStorage (fresh from pipeline)
-                // 3. localStorage (persisted editor session)
-                // 4. fetch from file
+                // 2. IDB (persisted editor session / pipeline handoff)
+                // 3. fetch from file
                 if (window.__buildingsData) {
                     buildingsData = window.__buildingsData;
-                } else if (sessionStorage.getItem('buildingsData')) {
-                    buildingsData = JSON.parse(sessionStorage.getItem('buildingsData'));
-                    sessionStorage.removeItem('buildingsData');
-                    persistToLocalStorage();
-                } else if (localStorage.getItem(EDITOR_STORAGE_KEY)) {
-                    buildingsData = JSON.parse(localStorage.getItem(EDITOR_STORAGE_KEY));
                 } else {
-                    const response = await fetch('gebaeude_polygone.json');
-                    if (!response.ok) {
-                        throw new Error('Konnte gebaeude_polygone.json nicht laden');
+                    const editorData = await PipelineDB.get('editor', 'buildingsData');
+                    if (editorData) {
+                        buildingsData = editorData;
+                        // Reconstruct dataUrl from Blob
+                        const imageBlob = await PipelineDB.get('images', 'rendered_map');
+                        if (imageBlob) {
+                            buildingsData.image = buildingsData.image || {};
+                            buildingsData.image.dataUrl = await blobToDataUrl(imageBlob);
+                        }
+                    } else {
+                        const response = await fetch('gebaeude_polygone.json');
+                        if (!response.ok) {
+                            throw new Error('Konnte gebaeude_polygone.json nicht laden');
+                        }
+                        buildingsData = await response.json();
                     }
-                    buildingsData = await response.json();
                 }
+
+                // Reset undo history
+                UndoManager.clear();
 
                 // Render map first, then sidebar (so polygons exist when sidebar hover works)
                 renderMap();
@@ -1122,11 +1441,12 @@
                 item.className = 'building-item';
                 item.style.paddingLeft = paddingLeft + 'px';
                 item.setAttribute('data-building-id', building.id);
+                item.setAttribute('data-search-text', [building.name, building.nummer, building.gruppe].filter(Boolean).join(' ').toLowerCase());
                 item.setAttribute('draggable', 'true');
                 item.innerHTML = `
                     <span class="drag-handle">\u22EE\u22EE</span>
                     <div class="building-info">
-                        <div class="building-name">${building.nummer ? '<span class="building-nummer">' + building.nummer + '</span> ' : ''}${building.name}</div>
+                        <div class="building-name">${building.name}</div>
                         <div class="building-id">${building.nummer || ''}</div>
                     </div>
                     <div class="color-indicator" style="background-color: ${building.highlightColor || '#FFC107'}"></div>
@@ -1206,7 +1526,28 @@
                 const groupElement = renderGroup(groupName, groupHierarchy[groupName], 0);
                 sidebar.appendChild(groupElement);
             });
+
+            // Reset search
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) {
+                searchInput.value = '';
+            }
         }
+
+        function filterEditorSidebar(query) {
+            const q = query.toLowerCase().trim();
+            const container = document.getElementById('sidebar-content');
+            container.querySelectorAll('.building-item').forEach(it => {
+                it.style.display = (!q || it.getAttribute('data-search-text').includes(q)) ? '' : 'none';
+            });
+            container.querySelectorAll('.group').forEach(g => {
+                g.style.display = Array.from(g.querySelectorAll('.building-item')).some(it => it.style.display !== 'none') ? '' : 'none';
+            });
+        }
+
+        document.getElementById('search-input').addEventListener('input', function() {
+            filterEditorSidebar(this.value);
+        });
 
         // Select a building for editing
         function selectBuilding(building) {
@@ -1386,7 +1727,7 @@
                     <button class="btn btn-danger" id="delete-btn" style="width: 100%;">
                         Gebäude löschen
                     </button>
-                    <span class="info-tip" tabindex="0"><span class="info-tip-text">Entfernt das Gebäude unwiderruflich aus der Liste.</span></span>
+                    <span class="info-tip" tabindex="0"><span class="info-tip-text">Entfernt das Gebäude aus der Liste. Kann mit Rückgängig (Strg+Z) wiederhergestellt werden.</span></span>
                 </div>
             `;
 
@@ -1433,6 +1774,7 @@
             // Update the building in the data
             const buildingIndex = buildingsData.buildings.findIndex(b => b.id === currentBuilding.id);
             if (buildingIndex !== -1) {
+                UndoManager.pushStateDebounced();
                 buildingsData.buildings[buildingIndex].nummer = nummer;
                 buildingsData.buildings[buildingIndex].name = name;
                 buildingsData.buildings[buildingIndex].gruppe = gruppe;
@@ -1441,7 +1783,7 @@
 
                 currentBuilding = buildingsData.buildings[buildingIndex];
                 hasChanges = true;
-                persistToLocalStorage();
+                persistToIDB();
 
                 // Re-render map and sidebar to reflect changes
                 renderMap();
@@ -1489,9 +1831,10 @@
             };
 
             // Insert the duplicate right after the original
+            UndoManager.pushState();
             buildingsData.buildings.splice(buildingIndex + 1, 0, duplicate);
             hasChanges = true;
-            persistToLocalStorage();
+            persistToIDB();
 
             // Re-render everything
             renderMap();
@@ -1509,8 +1852,7 @@
 
             // Confirm deletion
             const confirmDelete = confirm(
-                `Möchten Sie das Gebäude "${currentBuilding.name}" (${currentBuilding.id}) wirklich löschen?\n\n` +
-                `Diese Aktion kann nicht rückgängig gemacht werden!`
+                `Möchten Sie das Gebäude "${currentBuilding.name}" (${currentBuilding.id}) wirklich löschen?`
             );
 
             if (!confirmDelete) return;
@@ -1518,9 +1860,10 @@
             // Find and remove the building from the array
             const buildingIndex = buildingsData.buildings.findIndex(b => b.id === currentBuilding.id);
             if (buildingIndex !== -1) {
+                UndoManager.pushState();
                 buildingsData.buildings.splice(buildingIndex, 1);
                 hasChanges = true;
-                persistToLocalStorage();
+                persistToIDB();
 
                 // Clear current building
                 currentBuilding = null;
@@ -1597,6 +1940,7 @@
             const dropIndex = buildingsData.buildings.findIndex(b => b.id === dropBuildingId);
 
             if (draggedIndex !== -1 && dropIndex !== -1) {
+                UndoManager.pushState();
                 // Remove the dragged building from its original position
                 const [draggedBuilding] = buildingsData.buildings.splice(draggedIndex, 1);
 
@@ -1607,7 +1951,7 @@
                 buildingsData.buildings.splice(newIndex, 0, draggedBuilding);
 
                 hasChanges = true;
-                persistToLocalStorage();
+                persistToIDB();
 
                 // Re-render sidebar to show new order
                 renderSidebar();
@@ -1767,17 +2111,26 @@
             const sidebar = document.getElementById('voSidebar');
             sidebar.innerHTML = '';
 
-            // Header + back button
+            // Header
             const header = document.createElement('div');
             header.className = 'vo-sidebar-header';
             header.innerHTML = '<h3>' + (buildingsData.title || 'Gebäudekarte') + '</h3><p>Interaktive Vorschau</p>';
             sidebar.appendChild(header);
 
-            const backBtn = document.createElement('button');
-            backBtn.className = 'vo-back-btn';
-            backBtn.textContent = 'Zurück zum Editor';
-            backBtn.addEventListener('click', hideViewerOverlay);
-            sidebar.appendChild(backBtn);
+            // Search bar
+            const searchBar = document.createElement('div');
+            searchBar.className = 'vo-search-bar';
+            searchBar.innerHTML = '<input type="text" class="vo-search-input" placeholder="Gebäude suchen...">';
+            sidebar.appendChild(searchBar);
+            searchBar.querySelector('.vo-search-input').addEventListener('input', function() {
+                const q = this.value.toLowerCase().trim();
+                sidebar.querySelectorAll('.vo-building-item').forEach(it => {
+                    it.style.display = (!q || it.getAttribute('data-search-text').includes(q)) ? '' : 'none';
+                });
+                sidebar.querySelectorAll('.vo-group').forEach(g => {
+                    g.style.display = Array.from(g.querySelectorAll('.vo-building-item')).some(it => it.style.display !== 'none') ? '' : 'none';
+                });
+            });
 
             // Build group hierarchy
             const groupHierarchy = {};
@@ -1808,7 +2161,8 @@
                 gd.buildings.forEach(b => {
                     const it = document.createElement('div'); it.className = 'vo-building-item'; it.style.paddingLeft = (35 + level * 15) + 'px';
                     it.setAttribute('data-building-id', b.id);
-                    it.innerHTML = '<div class="vo-building-name">' + (b.nummer ? '<span class="vo-building-nummer">' + b.nummer + '</span> ' : '') + b.name + '</div>';
+                    it.setAttribute('data-search-text', [b.name, b.nummer, b.gruppe].filter(Boolean).join(' ').toLowerCase());
+                    it.innerHTML = '<div class="vo-building-name">' + b.name + '</div>';
                     it.addEventListener('mouseenter', () => voHighlight(b.id));
                     it.addEventListener('mouseleave', () => voUnhighlight(b.id));
                     it.addEventListener('click', () => voShowPopup(b));
@@ -1875,16 +2229,36 @@
             }
         });
 
-        // Click outside buildings in viewer overlay closes popup
+        // Click outside buildings in viewer overlay closes popup; click on backdrop closes overlay
         document.addEventListener('click', (e) => {
             if (!document.getElementById('viewerOverlay').classList.contains('active')) return;
+            // Click on backdrop (outside dialog) closes the overlay
+            if (e.target.id === 'viewerOverlay') { hideViewerOverlay(); return; }
             if (e.target.closest('.vo-building-polygon') || e.target.closest('.vo-building-item') || e.target.closest('.vo-sidebar') || e.target.closest('.vo-modal-content')) return;
-            if (e.target.closest('.viewer-overlay')) voHidePopup();
+            if (e.target.closest('.vo-dialog')) voHidePopup();
         });
 
         // Event listeners
         document.getElementById('save-json-btn').addEventListener('click', saveJSONToFile);
         document.getElementById('preview-btn').addEventListener('click', showViewerOverlay);
+        document.getElementById('vo-close-btn').addEventListener('click', hideViewerOverlay);
+        document.getElementById('undo-btn').addEventListener('click', () => UndoManager.undo());
+        document.getElementById('redo-btn').addEventListener('click', () => UndoManager.redo());
+
+        // Keyboard shortcuts for undo/redo
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                // Only handle Ctrl+Z/Y in text fields, not regular typing
+                if (!e.ctrlKey && !e.metaKey) return;
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                UndoManager.undo();
+            } else if ((e.ctrlKey || e.metaKey) && (e.key === 'Z' || e.key === 'y')) {
+                e.preventDefault();
+                UndoManager.redo();
+            }
+        });
 
         // Warn before leaving if there are unsaved changes
         window.addEventListener('beforeunload', (e) => {

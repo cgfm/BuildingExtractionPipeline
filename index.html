@@ -685,6 +685,27 @@
         .viewer-preview .vp-group.collapsed .vp-group-buildings {
             max-height: 0;
         }
+        .viewer-preview .vp-search-bar {
+            padding: 10px 20px;
+            border-bottom: 1px solid #c0bda8;
+            background: #fff;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .viewer-preview .vp-search-input {
+            width: 100%;
+            padding: 7px 10px;
+            border: 1px solid #c0bda8;
+            border-radius: 2px;
+            font-size: 0.85rem;
+            background: #f5f4ee;
+            font-family: inherit;
+        }
+        .viewer-preview .vp-search-input:focus {
+            outline: none;
+            border-color: #4b5320;
+        }
         .viewer-preview .vp-building-item {
             padding: 8px 16px 8px 28px;
             cursor: pointer;
@@ -1098,6 +1119,140 @@
 
 <script>
 // ==========================================================================
+// PipelineDB — IndexedDB wrapper (async key-value store)
+// ==========================================================================
+const PipelineDB = (() => {
+    const DB_NAME = 'BuildingPipelineDB';
+    const DB_VERSION = 1;
+    const STORES = ['meta', 'geojson', 'buildings_cache', 'result', 'images', 'editor'];
+    let _db = null;
+
+    function open() {
+        if (_db) return Promise.resolve(_db);
+        return new Promise((resolve, reject) => {
+            const req = indexedDB.open(DB_NAME, DB_VERSION);
+            req.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                STORES.forEach(name => { if (!db.objectStoreNames.contains(name)) db.createObjectStore(name); });
+            };
+            req.onsuccess = (e) => { _db = e.target.result; resolve(_db); };
+            req.onerror = (e) => reject(e.target.error);
+        });
+    }
+
+    function _tx(store, mode) { return _db.transaction(store, mode).objectStore(store); }
+
+    function get(store, key) {
+        return new Promise((resolve, reject) => {
+            const req = _tx(store, 'readonly').get(key);
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = (e) => reject(e.target.error);
+        });
+    }
+
+    function put(store, key, value) {
+        return new Promise((resolve, reject) => {
+            const req = _tx(store, 'readwrite').put(value, key);
+            req.onsuccess = () => resolve();
+            req.onerror = (e) => reject(e.target.error);
+        });
+    }
+
+    function remove(store, key) {
+        return new Promise((resolve, reject) => {
+            const req = _tx(store, 'readwrite').delete(key);
+            req.onsuccess = () => resolve();
+            req.onerror = (e) => reject(e.target.error);
+        });
+    }
+
+    function clearAll() {
+        return new Promise((resolve, reject) => {
+            const tx = _db.transaction(STORES, 'readwrite');
+            STORES.forEach(name => tx.objectStore(name).clear());
+            tx.oncomplete = () => resolve();
+            tx.onerror = (e) => reject(e.target.error);
+        });
+    }
+
+    return { open, get, put, remove, clearAll };
+})();
+
+function dataUrlToBlob(dataUrl) {
+    const [header, b64] = dataUrl.split(',');
+    const mime = header.match(/:(.*?);/)[1];
+    const bin = atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: mime });
+}
+
+function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+}
+
+function canvasToBlob(canvas) {
+    return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+}
+
+async function migrateFromLocalStorage() {
+    try {
+        const migrated = await PipelineDB.get('meta', '_migrated');
+        if (migrated) return;
+
+        const params = localStorage.getItem('pipeline_params');
+        if (params) await PipelineDB.put('meta', 'params', JSON.parse(params));
+
+        const geojsonName = localStorage.getItem('pipeline_geojson_name');
+        if (geojsonName) await PipelineDB.put('meta', 'geojson_name', geojsonName);
+
+        const geojsonSource = localStorage.getItem('pipeline_geojson_source');
+        if (geojsonSource) await PipelineDB.put('meta', 'geojson_source', geojsonSource);
+
+        const geojson = localStorage.getItem('pipeline_geojson');
+        if (geojson) await PipelineDB.put('geojson', 'input', JSON.parse(geojson));
+
+        const buildingsCache = localStorage.getItem('pipeline_buildings_cache');
+        if (buildingsCache) await PipelineDB.put('buildings_cache', 'osm', JSON.parse(buildingsCache));
+
+        const resultRaw = localStorage.getItem('pipeline_result_cache');
+        if (resultRaw) {
+            const cached = JSON.parse(resultRaw);
+            let imageBlob = null;
+            if (cached.buildingJson && cached.buildingJson.image && cached.buildingJson.image.dataUrl) {
+                imageBlob = dataUrlToBlob(cached.buildingJson.image.dataUrl);
+                delete cached.buildingJson.image.dataUrl;
+            }
+            await PipelineDB.put('result', 'latest', cached);
+            if (imageBlob) await PipelineDB.put('images', 'rendered_map', imageBlob);
+        }
+
+        const editorRaw = localStorage.getItem('editor_buildingsData');
+        if (editorRaw) {
+            const editorData = JSON.parse(editorRaw);
+            if (editorData.image && editorData.image.dataUrl) {
+                delete editorData.image.dataUrl;
+            }
+            await PipelineDB.put('editor', 'buildingsData', editorData);
+        }
+
+        await PipelineDB.put('meta', '_migrated', true);
+
+        // Remove old localStorage keys
+        ['pipeline_params', 'pipeline_geojson', 'pipeline_geojson_name',
+         'pipeline_geojson_source', 'pipeline_buildings_cache',
+         'pipeline_result_cache', 'editor_buildingsData'].forEach(k => {
+            try { localStorage.removeItem(k); } catch(e) {}
+        });
+    } catch(e) { console.warn('[migration] Fehler bei localStorage-Migration:', e); }
+}
+
+// ==========================================================================
 // All modules inlined — no ES module imports, works from file:// protocol
 // ==========================================================================
 
@@ -1462,6 +1617,9 @@ function _getViewerTemplate() {
         .building-item{padding:10px 20px 10px 35px;cursor:pointer;transition:background 0.2s;border-left:3px solid transparent}
         .building-item:hover{background:#f5f4ee;border-left-color:#6b7530}
         .building-item.highlighted{background:#e8e6df;border-left-color:#f39c12}
+        .search-bar{padding:10px 20px;border-bottom:1px solid #c0bda8;background:#fff;position:sticky;top:0;z-index:10}
+        .search-input{width:100%;padding:7px 10px;border:1px solid #c0bda8;border-radius:2px;font-size:0.85rem;background:#f5f4ee;font-family:inherit}
+        .search-input:focus{outline:none;border-color:#4b5320}
         .building-name{font-size:14px;font-weight:500;color:#1a1a1a}
         .building-nummer{font-weight:700;color:#4b5320}
         .building-id{font-size:11px;color:#888;margin-top:2px}
@@ -1495,6 +1653,7 @@ function _getViewerTemplate() {
                 <h1 id="sidebar-title">Geb\u00e4udekarte</h1>
                 <p>Interaktive Karte</p>
             </div>
+            <div class="search-bar"><input type="text" class="search-input" id="search-input" placeholder="Geb\u00e4ude suchen..."></div>
             <div id="sidebar-content" class="loading">Lade Geb\u00e4udedaten...</div>
         </aside>
         <main class="main-content">
@@ -1505,7 +1664,7 @@ function _getViewerTemplate() {
         let buildingsData=null;let currentHighlighted=new Set();let selectedBuildingId=null;
         async function init(){try{if(window.__buildingsData){buildingsData=window.__buildingsData}else if(sessionStorage.getItem('buildingsData')){buildingsData=JSON.parse(sessionStorage.getItem('buildingsData'))}else if(localStorage.getItem('editor_buildingsData')){buildingsData=JSON.parse(localStorage.getItem('editor_buildingsData'))}else if(localStorage.getItem('pipeline_result_cache')){const cached=JSON.parse(localStorage.getItem('pipeline_result_cache'));if(cached.buildingJson)buildingsData=cached.buildingJson;else throw new Error('Keine Geb\\u00e4udedaten im Cache')}else{const r=await fetch('gebaeude_polygone.json');if(!r.ok)throw new Error('Konnte gebaeude_polygone.json nicht laden');buildingsData=await r.json()}const title=buildingsData.title||'Geb\\u00e4udekarte';document.getElementById('sidebar-title').textContent=title;document.title=title+' - Interaktive Karte';renderImage();renderSidebar()}catch(e){document.getElementById('sidebar-content').innerHTML='<div class="error">Fehler: '+e.message+'</div>';document.getElementById('image-container-wrapper').innerHTML='<div class="error">Fehler beim Laden</div>';console.error(e)}}
         function renderImage(){const w=document.getElementById('image-container-wrapper');const{filename,width,height}=buildingsData.image;const c=document.createElement('div');c.className='image-container';const img=document.createElement('img');img.src=buildingsData.image.dataUrl||filename;img.alt='Karte';c.appendChild(img);const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('class','svg-overlay');svg.setAttribute('viewBox','0 0 '+width+' '+height);svg.setAttribute('preserveAspectRatio','xMidYMid meet');buildingsData.buildings.forEach(b=>{const p=document.createElementNS('http://www.w3.org/2000/svg','polygon');p.setAttribute('points',b.polygon.map(([x,y])=>(x*width)+','+(y*height)).join(' '));p.setAttribute('class','building-polygon');p.setAttribute('data-building-id',b.id);p.addEventListener('mouseenter',()=>highlightBuilding(b.id));p.addEventListener('mouseleave',()=>unhighlightBuilding(b.id));p.addEventListener('click',()=>showPopup(b));svg.appendChild(p)});c.appendChild(svg);const mo=document.createElement('div');mo.className='modal-overlay';mo.id='modal-overlay';mo.innerHTML='<div class="modal-content"><button class="modal-close" id="modal-close">&times;</button><div class="modal-header"><div class="modal-nummer" id="modal-nummer" style="display:none"></div><h2 id="modal-title"></h2><div class="modal-breadcrumb" id="modal-breadcrumb"></div></div><div class="modal-beschreibung" id="modal-beschreibung" style="display:none"></div></div>';c.appendChild(mo);w.innerHTML='';w.appendChild(c);document.getElementById('modal-close').addEventListener('click',hidePopup)}
-        function renderSidebar(){const sidebar=document.getElementById('sidebar-content');const gh={};buildingsData.buildings.forEach(b=>{const g=b.gruppe||'Sonstige';const parts=g.split(' > ').map(p=>p.trim());let cl=gh;parts.forEach((part,i)=>{if(!cl[part])cl[part]={buildings:[],subgroups:{}};if(i===parts.length-1)cl[part].buildings.push(b);cl=cl[part].subgroups})});function sn(n){return n.sort((a,b)=>{if(a==='Unbekannt'||a==='Sonstige')return 1;if(b==='Unbekannt'||b==='Sonstige')return -1;return a.localeCompare(b)})}function gbi(gd){const ids=gd.buildings.map(b=>b.id);Object.values(gd.subgroups).forEach(sg=>{ids.push(...gbi(sg))});return ids}function rg(gn,gd,l){const g=document.createElement('div');g.className='group';g.style.marginLeft=(l*15)+'px';const bids=gbi(gd);const h=document.createElement('div');h.className='group-header';h.style.paddingLeft=(20-l*5)+'px';h.innerHTML='<h2>'+gn+'</h2><span class="group-toggle">\\u25BC</span>';h.addEventListener('click',()=>g.classList.toggle('collapsed'));h.addEventListener('mouseenter',()=>bids.forEach(id=>highlightBuilding(id)));h.addEventListener('mouseleave',()=>bids.forEach(id=>unhighlightBuilding(id)));g.appendChild(h);const ct=document.createElement('div');ct.className='group-buildings';gd.buildings.forEach(b=>{const it=document.createElement('div');it.className='building-item';it.style.paddingLeft=(35+l*15)+'px';it.setAttribute('data-building-id',b.id);it.innerHTML='<div class="building-name">'+(b.nummer?'<span class="building-nummer">'+b.nummer+'</span> ':'')+b.name+'</div>';it.addEventListener('mouseenter',()=>highlightBuilding(b.id));it.addEventListener('mouseleave',()=>unhighlightBuilding(b.id));it.addEventListener('click',()=>showPopup(b));ct.appendChild(it)});sn(Object.keys(gd.subgroups)).forEach(sn2=>{ct.appendChild(rg(sn2,gd.subgroups[sn2],l+1))});g.appendChild(ct);return g}sidebar.innerHTML='';sn(Object.keys(gh)).forEach(gn=>{sidebar.appendChild(rg(gn,gh[gn],0))})}
+        function renderSidebar(){const sidebar=document.getElementById('sidebar-content');const gh={};buildingsData.buildings.forEach(b=>{const g=b.gruppe||'Sonstige';const parts=g.split(' > ').map(p=>p.trim());let cl=gh;parts.forEach((part,i)=>{if(!cl[part])cl[part]={buildings:[],subgroups:{}};if(i===parts.length-1)cl[part].buildings.push(b);cl=cl[part].subgroups})});function sn(n){return n.sort((a,b)=>{if(a==='Unbekannt'||a==='Sonstige')return 1;if(b==='Unbekannt'||b==='Sonstige')return -1;return a.localeCompare(b)})}function gbi(gd){const ids=gd.buildings.map(b=>b.id);Object.values(gd.subgroups).forEach(sg=>{ids.push(...gbi(sg))});return ids}function rg(gn,gd,l){const g=document.createElement('div');g.className='group';g.style.marginLeft=(l*15)+'px';const bids=gbi(gd);const h=document.createElement('div');h.className='group-header';h.style.paddingLeft=(20-l*5)+'px';h.innerHTML='<h2>'+gn+'</h2><span class="group-toggle">\\u25BC</span>';h.addEventListener('click',()=>g.classList.toggle('collapsed'));h.addEventListener('mouseenter',()=>bids.forEach(id=>highlightBuilding(id)));h.addEventListener('mouseleave',()=>bids.forEach(id=>unhighlightBuilding(id)));g.appendChild(h);const ct=document.createElement('div');ct.className='group-buildings';gd.buildings.forEach(b=>{const it=document.createElement('div');it.className='building-item';it.style.paddingLeft=(35+l*15)+'px';it.setAttribute('data-building-id',b.id);it.setAttribute('data-search-text',[b.name,b.nummer,b.gruppe].filter(Boolean).join(' ').toLowerCase());it.innerHTML='<div class="building-name">'+b.name+'</div>';it.addEventListener('mouseenter',()=>highlightBuilding(b.id));it.addEventListener('mouseleave',()=>unhighlightBuilding(b.id));it.addEventListener('click',()=>showPopup(b));ct.appendChild(it)});sn(Object.keys(gd.subgroups)).forEach(sn2=>{ct.appendChild(rg(sn2,gd.subgroups[sn2],l+1))});g.appendChild(ct);return g}sidebar.innerHTML='';sn(Object.keys(gh)).forEach(gn=>{sidebar.appendChild(rg(gn,gh[gn],0))})}
         function highlightBuilding(id){currentHighlighted.add(id);const b=buildingsData.buildings.find(x=>x.id===id);const hc=b?.highlightColor||'#FFC107';const rgb=hexToRgb(hc);const p=document.querySelector('.building-polygon[data-building-id="'+id+'"]');if(p){p.style.fill='rgba('+rgb.r+','+rgb.g+','+rgb.b+',0.35)';p.style.stroke=hc;p.style.strokeWidth='3'}const mi=document.querySelector('.building-item[data-building-id="'+id+'"]');if(mi){mi.classList.add('highlighted');mi.style.borderLeftColor=hc}}
         function unhighlightBuilding(id){currentHighlighted.delete(id);if(id===selectedBuildingId)return;const p=document.querySelector('.building-polygon[data-building-id="'+id+'"]');if(p){p.style.fill='rgba(255,255,0,0)';p.style.stroke='rgba(255,255,0,0)';p.style.strokeWidth='2'}const mi=document.querySelector('.building-item[data-building-id="'+id+'"]');if(mi){mi.classList.remove('highlighted');mi.style.borderLeftColor=''}}
         function hexToRgb(hex){const r=/^#?([a-f\\d]{2})([a-f\\d]{2})([a-f\\d]{2})$/i.exec(hex);return r?{r:parseInt(r[1],16),g:parseInt(r[2],16),b:parseInt(r[3],16)}:{r:255,g:193,b:7}}
@@ -1513,6 +1672,7 @@ function _getViewerTemplate() {
         function hidePopup(){if(selectedBuildingId){const prev=selectedBuildingId;selectedBuildingId=null;unhighlightBuilding(prev)}const c=document.querySelector('.selection-circle');const d=document.querySelector('.dim-overlay');const m=document.getElementById('selection-mask');const mo=document.getElementById('modal-overlay');if(c)c.remove();if(d)d.remove();if(m)m.remove();if(mo)mo.classList.remove('active')}
         document.addEventListener('keydown',e=>{if(e.key==='Escape')hidePopup()});
         document.addEventListener('click',e=>{if(!e.target.closest('.building-polygon')&&!e.target.closest('.building-item')&&!e.target.closest('.sidebar')&&!e.target.closest('.modal-content'))hidePopup()});
+        document.getElementById('search-input').addEventListener('input',function(){const q=this.value.toLowerCase().trim();const sc=document.getElementById('sidebar-content');sc.querySelectorAll('.building-item').forEach(it=>{it.style.display=(!q||it.getAttribute('data-search-text').includes(q))?'':'none'});sc.querySelectorAll('.group').forEach(g=>{g.style.display=Array.from(g.querySelectorAll('.building-item')).some(it=>it.style.display!=='none')?'':'none'})});
         init();
     <\/script>
 </body>
@@ -1551,7 +1711,7 @@ class Pipeline {
             this.callbacks.onProgress(1, 'Downloading...');
             this.callbacks.onLog('[INFO] Starte Download von OpenStreetMap...');
             this.buildingsGeojson = await downloadBuildings(geojsonData);
-            try { localStorage.setItem(BUILDINGS_CACHE_KEY, JSON.stringify(this.buildingsGeojson)); } catch(e) { console.warn('[pipeline] Gebäude-Cache zu groß für localStorage'); }
+            PipelineDB.put('buildings_cache', 'osm', this.buildingsGeojson).catch(e => console.warn('[pipeline] Gebäude-Cache konnte nicht gespeichert werden:', e));
             this.callbacks.onLog('[INFO] ' + this.buildingsGeojson.features.length + ' Gebäude gefunden');
             await this.renderAndExtract(geojsonData, params);
         } catch (error) { this.callbacks.onError(error.message); }
@@ -1585,15 +1745,22 @@ class Pipeline {
         try { await this.renderAndExtract(geojsonData, params); } catch (error) { this.callbacks.onError(error.message); }
     }
 
-    _getExportBuildingJson() {
+    async _getExportBuildingJson() {
         try {
-            const editorRaw = localStorage.getItem('editor_buildingsData');
-            if (editorRaw) return JSON.parse(editorRaw);
+            const editorData = await PipelineDB.get('editor', 'buildingsData');
+            if (editorData) {
+                const imageBlob = await PipelineDB.get('images', 'rendered_map');
+                if (imageBlob) {
+                    editorData.image = editorData.image || {};
+                    editorData.image.dataUrl = await blobToDataUrl(imageBlob);
+                }
+                return editorData;
+            }
         } catch(e) {}
         return this.buildingJson;
     }
-    exportStandalone(sourcePolygon, params) {
-        downloadHtmlFile(createStandaloneHtml(this._getExportBuildingJson(), this.canvas, sourcePolygon, params));
+    async exportStandalone(sourcePolygon, params) {
+        downloadHtmlFile(createStandaloneHtml(await this._getExportBuildingJson(), this.canvas, sourcePolygon, params));
     }
     exportGeojson() { if (this.buildingsGeojson) downloadJsonFile(this.buildingsGeojson, 'buildings.geojson'); }
     exportImage() { downloadImageFile(this.canvas); }
@@ -1732,6 +1899,21 @@ function renderViewerPreview(buildingJson) {
     const sidebar = document.getElementById('vpSidebar');
     sidebar.innerHTML = '<div class="vp-sidebar-header"><h3>' + (buildingJson.title || 'Gebäudekarte') + '</h3><p>Interaktive Vorschau</p></div>';
 
+    // Search bar
+    const vpSearchBar = document.createElement('div');
+    vpSearchBar.className = 'vp-search-bar';
+    vpSearchBar.innerHTML = '<input type="text" class="vp-search-input" placeholder="Gebäude suchen...">';
+    sidebar.appendChild(vpSearchBar);
+    vpSearchBar.querySelector('.vp-search-input').addEventListener('input', function() {
+        const q = this.value.toLowerCase().trim();
+        sidebar.querySelectorAll('.vp-building-item').forEach(it => {
+            it.style.display = (!q || it.getAttribute('data-search-text').includes(q)) ? '' : 'none';
+        });
+        sidebar.querySelectorAll('.vp-group').forEach(g => {
+            g.style.display = Array.from(g.querySelectorAll('.vp-building-item')).some(it => it.style.display !== 'none') ? '' : 'none';
+        });
+    });
+
     const sidebarContent = document.createElement('div');
 
     const groupHierarchy = {};
@@ -1762,7 +1944,8 @@ function renderViewerPreview(buildingJson) {
         gd.buildings.forEach(b => {
             const it = document.createElement('div'); it.className = 'vp-building-item'; it.style.paddingLeft = (28 + level * 12) + 'px';
             it.setAttribute('data-building-id', b.id);
-            it.innerHTML = '<div class="vp-building-name">' + (b.nummer ? '<span class="vp-building-nummer">' + b.nummer + '</span> ' : '') + b.name + '</div>';
+            it.setAttribute('data-search-text', [b.name, b.nummer, b.gruppe].filter(Boolean).join(' ').toLowerCase());
+            it.innerHTML = '<div class="vp-building-name">' + b.name + '</div>';
             it.addEventListener('mouseenter', () => vpHighlight(b.id));
             it.addEventListener('mouseleave', () => vpUnhighlight(b.id));
             it.addEventListener('click', () => vpShowPopup(b));
@@ -1862,17 +2045,12 @@ const paramEls = {
     uniformHeight:{ el: document.getElementById('paramUniformHeight'), type: 'checkbox' },
 };
 
-// ---- localStorage persistence ----
-const PARAMS_KEY = 'pipeline_params';
-const GEOJSON_KEY = 'pipeline_geojson';
-const GEOJSON_NAME_KEY = 'pipeline_geojson_name';
-const BUILDINGS_CACHE_KEY = 'pipeline_buildings_cache';
-const RESULT_CACHE_KEY = 'pipeline_result_cache';
+// ---- IndexedDB persistence ----
 
 function saveParams() {
     const data = {};
     for (const [key, cfg] of Object.entries(paramEls)) data[key] = cfg.type === 'checkbox' ? cfg.el.checked : cfg.el.value;
-    try { localStorage.setItem(PARAMS_KEY, JSON.stringify(data)); } catch(e) {}
+    PipelineDB.put('meta', 'params', data).catch(() => {});
 }
 
 function applyParams(data) {
@@ -1885,11 +2063,11 @@ function applyParams(data) {
     saveParams();
 }
 
-function loadParams() {
+async function loadParams() {
     try {
-        const raw = localStorage.getItem(PARAMS_KEY);
-        if (!raw) return;
-        applyParams(JSON.parse(raw));
+        const data = await PipelineDB.get('meta', 'params');
+        if (!data) return;
+        applyParams(data);
     } catch(e) {}
 }
 
@@ -1924,46 +2102,51 @@ for (const [, cfg] of Object.entries(paramEls)) {
     });
 }
 
-loadParams();
-
 // ---- GeoJSON persistence ----
 function saveGeojson(data, name) {
-    try { localStorage.setItem(GEOJSON_KEY, JSON.stringify(data)); localStorage.setItem(GEOJSON_NAME_KEY, name); } catch(e) { console.warn('GeoJSON too large for localStorage'); }
+    PipelineDB.put('geojson', 'input', data).catch(() => {});
+    PipelineDB.put('meta', 'geojson_name', name).catch(() => {});
 }
 
-function loadGeojson() {
+async function loadGeojson() {
     try {
-        const raw = localStorage.getItem(GEOJSON_KEY);
-        if (!raw) return;
-        geojsonData = JSON.parse(raw);
-        const name = localStorage.getItem(GEOJSON_NAME_KEY) || 'gespeichert';
+        const data = await PipelineDB.get('geojson', 'input');
+        if (!data) return;
+        geojsonData = data;
+        const name = (await PipelineDB.get('meta', 'geojson_name')) || 'gespeichert';
         fileInfo.textContent = name + ' (aus letzter Sitzung)';
         fileInfo.classList.remove('hidden');
         btnRun.disabled = false;
     } catch(e) {}
 }
 
-loadGeojson();
-
 // ---- Restore cached buildings (enables re-render after reload) ----
-function loadBuildingsCache() {
+async function loadBuildingsCache() {
     try {
-        const raw = localStorage.getItem(BUILDINGS_CACHE_KEY);
-        if (!raw) return;
-        pipeline.buildingsGeojson = JSON.parse(raw);
+        const data = await PipelineDB.get('buildings_cache', 'osm');
+        if (!data) return;
+        pipeline.buildingsGeojson = data;
         btnRerender.classList.remove('hidden'); btnRerender2.classList.remove('hidden');        document.getElementById('rerenderTip').classList.remove('hidden');
     } catch(e) {}
 }
 
-function loadResultCache() {
+async function loadResultCache() {
     try {
-        const raw = localStorage.getItem(RESULT_CACHE_KEY);
-        if (!raw) return;
-        const cached = JSON.parse(raw);
+        const cached = await PipelineDB.get('result', 'latest');
+        if (!cached) return;
         // Restore stats
         statBuildings.textContent = cached.buildingCount;
         statResolution.textContent = cached.imageWidth + 'x' + cached.imageHeight;
         statAvgPoints.textContent = cached.avgPoints;
+        // Reconstruct dataUrl from Blob for in-memory use
+        const imageBlob = await PipelineDB.get('images', 'rendered_map');
+        if (imageBlob) {
+            const imageDataUrl = await blobToDataUrl(imageBlob);
+            if (cached.buildingJson) {
+                cached.buildingJson.image = cached.buildingJson.image || {};
+                cached.buildingJson.image.dataUrl = imageDataUrl;
+            }
+        }
         // Restore pipeline state so export buttons work
         pipeline.buildingJson = cached.buildingJson;
         // Recreate canvas from dataUrl for export functions
@@ -2010,7 +2193,7 @@ function handleFile(file) {
             fileInfo.classList.remove('hidden');
             btnRun.disabled = false;
             saveGeojson(geojsonData, file.name);
-            try { localStorage.setItem('pipeline_geojson_source', 'upload'); } catch(e2) {}
+            PipelineDB.put('meta', 'geojson_source', 'upload').catch(() => {});
             showGeojsonOnMap(geojsonData);
         } catch (err) { alert('Fehler beim Lesen der Datei: ' + err.message); }
     };
@@ -2050,13 +2233,17 @@ function handleMetadataImport(metadata, file) {
     }
     // Update pipelineResult and caches
     if (pipelineResult) pipelineResult.buildingJson = pipeline.buildingJson;
-    try {
-        localStorage.setItem('editor_buildingsData', JSON.stringify(pipeline.buildingJson));
-    } catch(e) {}
-    try {
-        const cached = { buildingCount: target.length, imageWidth: pipeline.buildingJson.image.width, imageHeight: pipeline.buildingJson.image.height, avgPoints: pipelineResult ? pipelineResult.avgPoints : 0, buildingJson: pipeline.buildingJson };
-        localStorage.setItem(RESULT_CACHE_KEY, JSON.stringify(cached));
-    } catch(e) {}
+    {
+        const editorCopy = JSON.parse(JSON.stringify(pipeline.buildingJson));
+        if (editorCopy.image) delete editorCopy.image.dataUrl;
+        PipelineDB.put('editor', 'buildingsData', editorCopy).catch(() => {});
+    }
+    {
+        const rCopy = JSON.parse(JSON.stringify(pipeline.buildingJson));
+        if (rCopy.image) delete rCopy.image.dataUrl;
+        const cached = { buildingCount: target.length, imageWidth: pipeline.buildingJson.image.width, imageHeight: pipeline.buildingJson.image.height, avgPoints: pipelineResult ? pipelineResult.avgPoints : 0, buildingJson: rCopy };
+        PipelineDB.put('result', 'latest', cached).catch(() => {});
+    }
     alert(merged + ' von ' + target.length + ' Gebäuden aktualisiert (' + source.length + ' in Quelldatei).');
 }
 
@@ -2130,18 +2317,42 @@ function onComplete(result) {
     btnRun.disabled = false;
     btnRerender.disabled = false;
     // Persist result for reload and sync editor cache
-    try {
-        const cached = { buildingCount: result.buildingCount, imageWidth: result.imageWidth, imageHeight: result.imageHeight, avgPoints: result.avgPoints, buildingJson: result.buildingJson };
-        localStorage.setItem(RESULT_CACHE_KEY, JSON.stringify(cached));
-        localStorage.setItem('editor_buildingsData', JSON.stringify(result.buildingJson));
-    } catch(e) { console.warn('[pipeline] Ergebnis-Cache zu groß für localStorage'); }
+    (async () => {
+        try {
+            // Store image as Blob
+            let imageBlob = null;
+            if (pipeline.canvas) {
+                imageBlob = await canvasToBlob(pipeline.canvas);
+                await PipelineDB.put('images', 'rendered_map', imageBlob);
+            }
+            // Store result metadata without dataUrl
+            const rCopy = JSON.parse(JSON.stringify(result.buildingJson));
+            if (rCopy.image) delete rCopy.image.dataUrl;
+            const cached = { buildingCount: result.buildingCount, imageWidth: result.imageWidth, imageHeight: result.imageHeight, avgPoints: result.avgPoints, buildingJson: rCopy };
+            await PipelineDB.put('result', 'latest', cached);
+            // Store editor data without dataUrl
+            const editorCopy = JSON.parse(JSON.stringify(result.buildingJson));
+            if (editorCopy.image) delete editorCopy.image.dataUrl;
+            await PipelineDB.put('editor', 'buildingsData', editorCopy);
+            // Signal editor to reset undo history
+            try { sessionStorage.setItem('editor_freshData', 'true'); } catch(e2) {}
+        } catch(e) { console.warn('[pipeline] Ergebnis-Cache konnte nicht gespeichert werden:', e); }
+    })();
 }
 
 function onError(message) { onLog('[ERROR] ' + message); btnRun.disabled = false; btnRerender.disabled = false; }
 
-pipeline = new Pipeline({ onProgress, onLog, onComplete, onError });
-loadBuildingsCache();
-loadResultCache();
+// Async init flow
+(async function initApp() {
+    await PipelineDB.open();
+    await migrateFromLocalStorage();
+    await loadParams();
+    await loadGeojson();
+    pipeline = new Pipeline({ onProgress, onLog, onComplete, onError });
+    await loadBuildingsCache();
+    await loadResultCache();
+    await restoreMapState();
+})();
 
 // ---- Run buttons ----
 btnRun.addEventListener('click', () => { if (!geojsonData) return; resetUI(); btnRun.disabled=true; btnRerender.disabled=true; saveParams(); pipeline.run(geojsonData, getParams()); });
@@ -2156,14 +2367,14 @@ function resetUI() {
 }
 
 // ---- Export buttons ----
-btnEditor.addEventListener('click', () => { if (!pipelineResult) return; sessionStorage.setItem('buildingsData', JSON.stringify(pipelineResult.buildingJson)); window.open('editor.html','_blank'); });
+btnEditor.addEventListener('click', () => { if (!pipelineResult) return; window.open('editor.html','_blank'); });
 btnStandalone.addEventListener('click', () => { if (pipeline) pipeline.exportStandalone(geojsonData, getParams()); });
 btnDownloadGeojson.addEventListener('click', () => { if (pipeline) pipeline.exportGeojson(); });
 btnDownloadImage.addEventListener('click', () => { if (pipeline) pipeline.exportImage(); });
 btnReset.addEventListener('click', () => {
     geojsonData=null; pipelineResult=null;
     pipeline = new Pipeline({ onProgress, onLog, onComplete, onError });
-    fileInfo.classList.add('hidden'); fileInput.value=''; btnRun.disabled=true; btnRerender.classList.add('hidden'); btnRerender2.classList.add('hidden');    try { localStorage.removeItem(GEOJSON_KEY); localStorage.removeItem(GEOJSON_NAME_KEY); localStorage.removeItem(GEOJSON_SOURCE_KEY); localStorage.removeItem(BUILDINGS_CACHE_KEY); localStorage.removeItem(RESULT_CACHE_KEY); localStorage.removeItem('editor_buildingsData'); } catch(e) {}
+    fileInfo.classList.add('hidden'); fileInput.value=''; btnRun.disabled=true; btnRerender.classList.add('hidden'); btnRerender2.classList.add('hidden');    PipelineDB.clearAll().catch(() => {});
     clearDrawnPolygon();
     uploadedLayer.clearLayers();
     resetUI();
@@ -2185,7 +2396,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 // ==========================================================================
 // Leaflet draw map
 // ==========================================================================
-const GEOJSON_SOURCE_KEY = 'pipeline_geojson_source';
+
 const drawInfo = document.getElementById('drawInfo');
 const btnClearPolygon = document.getElementById('btnClearPolygon');
 const btnDownloadPolygon = document.getElementById('btnDownloadPolygon');
@@ -2254,7 +2465,7 @@ function setGeojsonFromDrawnLayer(layer) {
     btnClearPolygon.classList.remove('hidden');
     btnDownloadPolygon.classList.remove('hidden');
     saveGeojson(geojsonData, 'Gezeichnetes Polygon');
-    try { localStorage.setItem(GEOJSON_SOURCE_KEY, 'drawn'); } catch(e) {}
+    PipelineDB.put('meta', 'geojson_source', 'drawn').catch(() => {});
 }
 
 drawMap.on(L.Draw.Event.CREATED, function(e) {
@@ -2279,15 +2490,15 @@ function clearDrawnPolygon() {
     btnClearPolygon.classList.add('hidden');
     btnDownloadPolygon.classList.add('hidden');
     // Only clear geojsonData if it came from the map
-    try {
-        if (localStorage.getItem(GEOJSON_SOURCE_KEY) === 'drawn') {
+    PipelineDB.get('meta', 'geojson_source').then(source => {
+        if (source === 'drawn') {
             geojsonData = null;
             btnRun.disabled = true;
-            localStorage.removeItem(GEOJSON_KEY);
-            localStorage.removeItem(GEOJSON_NAME_KEY);
-            localStorage.removeItem(GEOJSON_SOURCE_KEY);
+            PipelineDB.remove('geojson', 'input').catch(() => {});
+            PipelineDB.remove('meta', 'geojson_name').catch(() => {});
+            PipelineDB.remove('meta', 'geojson_source').catch(() => {});
         }
-    } catch(e) {}
+    }).catch(() => {});
 }
 
 btnClearPolygon.addEventListener('click', () => {
@@ -2299,13 +2510,12 @@ btnDownloadPolygon.addEventListener('click', () => {
     _triggerDownload(new Blob([JSON.stringify(geojsonData, null, 2)], {type: 'application/geo+json'}), 'polygon.geojson');
 });
 
-// Restore GeoJSON on map from localStorage on load
-(function restoreMapState() {
+// Restore GeoJSON on map from IDB on load
+async function restoreMapState() {
     try {
-        const source = localStorage.getItem(GEOJSON_SOURCE_KEY);
-        const raw = localStorage.getItem(GEOJSON_KEY);
-        if (!raw) return;
-        const data = JSON.parse(raw);
+        const source = await PipelineDB.get('meta', 'geojson_source');
+        const data = await PipelineDB.get('geojson', 'input');
+        if (!data) return;
 
         if (source === 'drawn') {
             if (!data || !data.coordinates || !data.coordinates[0]) return;
@@ -2328,7 +2538,7 @@ btnDownloadPolygon.addEventListener('click', () => {
             if (bounds.isValid()) drawMap.fitBounds(bounds.pad(0.2));
         }
     } catch(e) {}
-})();
+}
 </script>
 
 </body>
