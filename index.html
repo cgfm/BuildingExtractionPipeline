@@ -460,20 +460,6 @@
             margin-top: 2px;
         }
 
-        /* Preview image */
-        .preview-wrap {
-            border: 1px solid #c0bda8;
-            border-radius: 2px;
-            overflow: hidden;
-            background: #f0f0f0;
-            margin-bottom: 18px;
-        }
-        .preview-wrap img {
-            display: block;
-            width: 100%;
-            height: auto;
-        }
-
         /* ---- Tabs ---- */
         .tab-bar {
             display: flex;
@@ -589,6 +575,231 @@
         /* ---- Hidden ---- */
         .hidden { display: none !important; }
 
+        /* ---- Embedded viewer preview ---- */
+        .viewer-preview {
+            display: flex;
+            border: 1px solid #c0bda8;
+            border-radius: 2px;
+            height: 500px;
+            overflow: hidden;
+            margin-bottom: 18px;
+            background: #d6d3c8;
+        }
+        .viewer-preview .vp-sidebar {
+            width: 250px;
+            min-width: 250px;
+            background: #ffffff;
+            overflow-y: auto;
+            border-right: 1px solid #c0bda8;
+            border-left: 3px solid #4b5320;
+        }
+        .viewer-preview .vp-sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid #c0bda8;
+        }
+        .viewer-preview .vp-sidebar-header h3 {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #2d331a;
+            margin-bottom: 3px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .viewer-preview .vp-sidebar-header p {
+            font-size: 11px;
+            color: #888;
+        }
+        .viewer-preview .vp-main {
+            flex: 1;
+            overflow: auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+            position: relative;
+        }
+        .viewer-preview .vp-image-container {
+            position: relative;
+            display: inline-block;
+            max-width: 100%;
+            max-height: 100%;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+        }
+        .viewer-preview .vp-image-container img {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+        .viewer-preview .vp-svg-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .viewer-preview .vp-building-polygon {
+            fill: rgba(255, 255, 0, 0);
+            stroke: rgba(255, 255, 0, 0);
+            stroke-width: 2;
+            pointer-events: auto;
+            cursor: pointer;
+            transition: fill 0.2s, stroke 0.2s;
+        }
+        .viewer-preview .vp-group {
+            border-bottom: 1px solid #e8e6df;
+        }
+        .viewer-preview .vp-group-header {
+            padding: 10px 16px;
+            background: #f5f4ee;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+        .viewer-preview .vp-group-header:hover {
+            background: #e8e6df;
+        }
+        .viewer-preview .vp-group-header h4 {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #4b5320;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin: 0;
+        }
+        .viewer-preview .vp-group-toggle {
+            font-size: 11px;
+            color: #b0ad98;
+            transition: transform 0.3s;
+        }
+        .viewer-preview .vp-group.collapsed .vp-group-toggle {
+            transform: rotate(-90deg);
+        }
+        .viewer-preview .vp-group-buildings {
+            max-height: 1000px;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        .viewer-preview .vp-group.collapsed .vp-group-buildings {
+            max-height: 0;
+        }
+        .viewer-preview .vp-building-item {
+            padding: 8px 16px 8px 28px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-left: 3px solid transparent;
+        }
+        .viewer-preview .vp-building-item:hover {
+            background: #f5f4ee;
+            border-left-color: #6b7530;
+        }
+        .viewer-preview .vp-building-item.highlighted {
+            background: #e8e6df;
+            border-left-color: #f39c12;
+        }
+        .viewer-preview .vp-building-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: #1a1a1a;
+        }
+        .viewer-preview .vp-building-nummer {
+            font-weight: 700;
+            color: #4b5320;
+        }
+        .viewer-preview .vp-selection-circle {
+            fill: none;
+            stroke: #4b5320;
+            stroke-width: 4;
+            pointer-events: none;
+        }
+        .viewer-preview .vp-dim-overlay {
+            fill: rgba(0, 0, 0, 0.6);
+            pointer-events: none;
+        }
+        .viewer-preview .vp-modal-overlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 200;
+            pointer-events: none;
+        }
+        .viewer-preview .vp-modal-overlay.active {
+            display: block;
+        }
+        .viewer-preview .vp-modal-content {
+            position: absolute;
+            background: #ffffff;
+            border-radius: 2px;
+            border: 1px solid #c0bda8;
+            border-left: 3px solid #4b5320;
+            padding: 20px 24px;
+            min-width: 240px;
+            max-width: 340px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            pointer-events: auto;
+        }
+        .viewer-preview .vp-modal-close {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #b0ad98;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 2px;
+            transition: background 0.2s, color 0.2s;
+            line-height: 1;
+        }
+        .viewer-preview .vp-modal-close:hover {
+            background: #e8e6df;
+            color: #2d331a;
+        }
+        .viewer-preview .vp-modal-content h5 {
+            margin: 0;
+            color: #2d331a;
+            font-size: 18px;
+            padding-right: 20px;
+        }
+        .viewer-preview .vp-modal-breadcrumb {
+            font-size: 11px;
+            color: #6b7530;
+            margin: 3px 0 0 0;
+        }
+        .viewer-preview .vp-modal-breadcrumb span::after {
+            content: ' \203A ';
+            margin: 0 2px;
+        }
+        .viewer-preview .vp-modal-breadcrumb span:last-child::after {
+            content: '';
+        }
+        .viewer-preview .vp-modal-header {
+            margin-bottom: 14px;
+        }
+        .viewer-preview .vp-modal-nummer {
+            font-size: 12px;
+            font-weight: 700;
+            color: #4b5320;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-bottom: 2px;
+        }
+        .viewer-preview .vp-modal-beschreibung {
+            color: #1a1a1a;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
         /* ---- Responsive ---- */
         @media (max-width: 768px) {
             body { padding: 16px 10px 48px; }
@@ -597,6 +808,8 @@
             .params-row.cols-2 { grid-template-columns: 1fr; }
             .stats-grid { grid-template-columns: 1fr; }
             .header-card h1 { font-size: 1.2rem; }
+            .viewer-preview { height: 400px; flex-direction: column; }
+            .viewer-preview .vp-sidebar { width: 100%; min-width: 100%; height: 150px; border-right: none; border-bottom: 1px solid #c0bda8; }
         }
     </style>
 </head>
@@ -795,13 +1008,15 @@
                 </div>
             </div>
 
-            <div class="preview-wrap" id="previewWrap">
-                <img id="previewImg" alt="Vorschau">
+            <div class="viewer-preview" id="viewerPreview" style="display:none;">
+                <div class="vp-sidebar" id="vpSidebar"></div>
+                <div class="vp-main">
+                    <div class="vp-image-container" id="vpImageContainer"></div>
+                </div>
             </div>
 
             <div class="button-row" style="margin-bottom:18px;">
                 <button class="btn btn-success btn-sm" id="btnEditor" data-tooltip="Öffnet den Gebäude-Editor zum Bearbeiten von Namen, Gruppen, Beschreibungen und Farben.">Editor öffnen</button>
-                <button class="btn btn-primary btn-sm" id="btnViewer" data-tooltip="Öffnet die fertige interaktive Karte mit klickbaren Gebäuden im Viewer-Modus.">Karte Anzeigen</button>
                 <button class="btn btn-secondary btn-sm hidden" id="btnRerender2" data-tooltip="Rendert das Bild mit den aktuellen Parametern neu. Gecachte OSM-Daten und Gebäude-Metadaten bleiben erhalten.">Neurendering</button>
             </div>
 
@@ -1164,6 +1379,7 @@ function createBuildingJson(canvas, buildingPolygons, imageFilename, previousBui
     const buildings = buildingPolygons.map(p => {
         const tags = p.properties || {};
         const name = tags.name || tags['name:de'] || tags.short_name || '';
+        const nummer = tags['addr:housenumber'] || tags.ref || '';
         const buildingType = tags.building !== 'yes' ? tags.building || '' : '';
         const amenity = tags.amenity || '';
         const descParts = [];
@@ -1172,6 +1388,7 @@ function createBuildingJson(canvas, buildingPolygons, imageFilename, previousBui
         if (tags.description) descParts.push(tags.description);
         return {
             id: 'building_' + p.index,
+            nummer: nummer,
             name: name || 'Gebäude ' + p.index,
             gruppe: '',
             beschreibung: descParts.join('\n'),
@@ -1198,6 +1415,7 @@ function createBuildingJson(canvas, buildingPolygons, imageFilename, previousBui
             if (bestMatch !== null && bestDist <= MIGRATION_THRESHOLD_M) {
                 const old = previousBuildings[bestMatch];
                 used.add(bestMatch);
+                bNew.nummer = old.nummer;
                 bNew.name = old.name;
                 bNew.gruppe = old.gruppe;
                 bNew.beschreibung = old.beschreibung;
@@ -1245,6 +1463,7 @@ function _getViewerTemplate() {
         .building-item:hover{background:#f5f4ee;border-left-color:#6b7530}
         .building-item.highlighted{background:#e8e6df;border-left-color:#f39c12}
         .building-name{font-size:14px;font-weight:500;color:#1a1a1a}
+        .building-nummer{font-weight:700;color:#4b5320}
         .building-id{font-size:11px;color:#888;margin-top:2px}
         .main-content{flex:1;overflow:auto;background:#d6d3c8;display:flex;justify-content:center;align-items:center;padding:20px}
         .image-container{position:relative;display:inline-block;max-width:100%;max-height:100%;box-shadow:0 4px 6px rgba(0,0,0,0.15)}
@@ -1263,6 +1482,7 @@ function _getViewerTemplate() {
         .modal-breadcrumb span::after{content:' \\203A ';margin:0 2px}
         .modal-breadcrumb span:last-child::after{content:''}
         .modal-header{margin-bottom:20px}
+        .modal-nummer{font-size:13px;font-weight:700;color:#4b5320;text-transform:uppercase;letter-spacing:0.03em;margin-bottom:2px}
         .modal-beschreibung{color:#1a1a1a;font-size:15px;line-height:1.5}
         .loading{text-align:center;padding:40px;color:#b0ad98}
         .error{text-align:center;padding:40px;color:#c0392b}
@@ -1284,12 +1504,12 @@ function _getViewerTemplate() {
     <script>
         let buildingsData=null;let currentHighlighted=new Set();let selectedBuildingId=null;
         async function init(){try{if(window.__buildingsData){buildingsData=window.__buildingsData}else if(sessionStorage.getItem('buildingsData')){buildingsData=JSON.parse(sessionStorage.getItem('buildingsData'))}else if(localStorage.getItem('editor_buildingsData')){buildingsData=JSON.parse(localStorage.getItem('editor_buildingsData'))}else if(localStorage.getItem('pipeline_result_cache')){const cached=JSON.parse(localStorage.getItem('pipeline_result_cache'));if(cached.buildingJson)buildingsData=cached.buildingJson;else throw new Error('Keine Geb\\u00e4udedaten im Cache')}else{const r=await fetch('gebaeude_polygone.json');if(!r.ok)throw new Error('Konnte gebaeude_polygone.json nicht laden');buildingsData=await r.json()}const title=buildingsData.title||'Geb\\u00e4udekarte';document.getElementById('sidebar-title').textContent=title;document.title=title+' - Interaktive Karte';renderImage();renderSidebar()}catch(e){document.getElementById('sidebar-content').innerHTML='<div class="error">Fehler: '+e.message+'</div>';document.getElementById('image-container-wrapper').innerHTML='<div class="error">Fehler beim Laden</div>';console.error(e)}}
-        function renderImage(){const w=document.getElementById('image-container-wrapper');const{filename,width,height}=buildingsData.image;const c=document.createElement('div');c.className='image-container';const img=document.createElement('img');img.src=buildingsData.image.dataUrl||filename;img.alt='Karte';c.appendChild(img);const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('class','svg-overlay');svg.setAttribute('viewBox','0 0 '+width+' '+height);svg.setAttribute('preserveAspectRatio','xMidYMid meet');buildingsData.buildings.forEach(b=>{const p=document.createElementNS('http://www.w3.org/2000/svg','polygon');p.setAttribute('points',b.polygon.map(([x,y])=>(x*width)+','+(y*height)).join(' '));p.setAttribute('class','building-polygon');p.setAttribute('data-building-id',b.id);p.addEventListener('mouseenter',()=>highlightBuilding(b.id));p.addEventListener('mouseleave',()=>unhighlightBuilding(b.id));p.addEventListener('click',()=>showPopup(b));svg.appendChild(p)});c.appendChild(svg);const mo=document.createElement('div');mo.className='modal-overlay';mo.id='modal-overlay';mo.innerHTML='<div class="modal-content"><button class="modal-close" id="modal-close">&times;</button><div class="modal-header"><h2 id="modal-title"></h2><div class="modal-breadcrumb" id="modal-breadcrumb"></div></div><div class="modal-beschreibung" id="modal-beschreibung" style="display:none"></div></div>';c.appendChild(mo);w.innerHTML='';w.appendChild(c);document.getElementById('modal-close').addEventListener('click',hidePopup)}
-        function renderSidebar(){const sidebar=document.getElementById('sidebar-content');const gh={};buildingsData.buildings.forEach(b=>{const g=b.gruppe||'Sonstige';const parts=g.split(' > ').map(p=>p.trim());let cl=gh;parts.forEach((part,i)=>{if(!cl[part])cl[part]={buildings:[],subgroups:{}};if(i===parts.length-1)cl[part].buildings.push(b);cl=cl[part].subgroups})});function sn(n){return n.sort((a,b)=>{if(a==='Unbekannt'||a==='Sonstige')return 1;if(b==='Unbekannt'||b==='Sonstige')return -1;return a.localeCompare(b)})}function gbi(gd){const ids=gd.buildings.map(b=>b.id);Object.values(gd.subgroups).forEach(sg=>{ids.push(...gbi(sg))});return ids}function rg(gn,gd,l){const g=document.createElement('div');g.className='group';g.style.marginLeft=(l*15)+'px';const bids=gbi(gd);const h=document.createElement('div');h.className='group-header';h.style.paddingLeft=(20-l*5)+'px';h.innerHTML='<h2>'+gn+'</h2><span class="group-toggle">\\u25BC</span>';h.addEventListener('click',()=>g.classList.toggle('collapsed'));h.addEventListener('mouseenter',()=>bids.forEach(id=>highlightBuilding(id)));h.addEventListener('mouseleave',()=>bids.forEach(id=>unhighlightBuilding(id)));g.appendChild(h);const ct=document.createElement('div');ct.className='group-buildings';gd.buildings.forEach(b=>{const it=document.createElement('div');it.className='building-item';it.style.paddingLeft=(35+l*15)+'px';it.setAttribute('data-building-id',b.id);it.innerHTML='<div class="building-name">'+b.name+'</div>';it.addEventListener('mouseenter',()=>highlightBuilding(b.id));it.addEventListener('mouseleave',()=>unhighlightBuilding(b.id));it.addEventListener('click',()=>showPopup(b));ct.appendChild(it)});sn(Object.keys(gd.subgroups)).forEach(sn2=>{ct.appendChild(rg(sn2,gd.subgroups[sn2],l+1))});g.appendChild(ct);return g}sidebar.innerHTML='';sn(Object.keys(gh)).forEach(gn=>{sidebar.appendChild(rg(gn,gh[gn],0))})}
+        function renderImage(){const w=document.getElementById('image-container-wrapper');const{filename,width,height}=buildingsData.image;const c=document.createElement('div');c.className='image-container';const img=document.createElement('img');img.src=buildingsData.image.dataUrl||filename;img.alt='Karte';c.appendChild(img);const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('class','svg-overlay');svg.setAttribute('viewBox','0 0 '+width+' '+height);svg.setAttribute('preserveAspectRatio','xMidYMid meet');buildingsData.buildings.forEach(b=>{const p=document.createElementNS('http://www.w3.org/2000/svg','polygon');p.setAttribute('points',b.polygon.map(([x,y])=>(x*width)+','+(y*height)).join(' '));p.setAttribute('class','building-polygon');p.setAttribute('data-building-id',b.id);p.addEventListener('mouseenter',()=>highlightBuilding(b.id));p.addEventListener('mouseleave',()=>unhighlightBuilding(b.id));p.addEventListener('click',()=>showPopup(b));svg.appendChild(p)});c.appendChild(svg);const mo=document.createElement('div');mo.className='modal-overlay';mo.id='modal-overlay';mo.innerHTML='<div class="modal-content"><button class="modal-close" id="modal-close">&times;</button><div class="modal-header"><div class="modal-nummer" id="modal-nummer" style="display:none"></div><h2 id="modal-title"></h2><div class="modal-breadcrumb" id="modal-breadcrumb"></div></div><div class="modal-beschreibung" id="modal-beschreibung" style="display:none"></div></div>';c.appendChild(mo);w.innerHTML='';w.appendChild(c);document.getElementById('modal-close').addEventListener('click',hidePopup)}
+        function renderSidebar(){const sidebar=document.getElementById('sidebar-content');const gh={};buildingsData.buildings.forEach(b=>{const g=b.gruppe||'Sonstige';const parts=g.split(' > ').map(p=>p.trim());let cl=gh;parts.forEach((part,i)=>{if(!cl[part])cl[part]={buildings:[],subgroups:{}};if(i===parts.length-1)cl[part].buildings.push(b);cl=cl[part].subgroups})});function sn(n){return n.sort((a,b)=>{if(a==='Unbekannt'||a==='Sonstige')return 1;if(b==='Unbekannt'||b==='Sonstige')return -1;return a.localeCompare(b)})}function gbi(gd){const ids=gd.buildings.map(b=>b.id);Object.values(gd.subgroups).forEach(sg=>{ids.push(...gbi(sg))});return ids}function rg(gn,gd,l){const g=document.createElement('div');g.className='group';g.style.marginLeft=(l*15)+'px';const bids=gbi(gd);const h=document.createElement('div');h.className='group-header';h.style.paddingLeft=(20-l*5)+'px';h.innerHTML='<h2>'+gn+'</h2><span class="group-toggle">\\u25BC</span>';h.addEventListener('click',()=>g.classList.toggle('collapsed'));h.addEventListener('mouseenter',()=>bids.forEach(id=>highlightBuilding(id)));h.addEventListener('mouseleave',()=>bids.forEach(id=>unhighlightBuilding(id)));g.appendChild(h);const ct=document.createElement('div');ct.className='group-buildings';gd.buildings.forEach(b=>{const it=document.createElement('div');it.className='building-item';it.style.paddingLeft=(35+l*15)+'px';it.setAttribute('data-building-id',b.id);it.innerHTML='<div class="building-name">'+(b.nummer?'<span class="building-nummer">'+b.nummer+'</span> ':'')+b.name+'</div>';it.addEventListener('mouseenter',()=>highlightBuilding(b.id));it.addEventListener('mouseleave',()=>unhighlightBuilding(b.id));it.addEventListener('click',()=>showPopup(b));ct.appendChild(it)});sn(Object.keys(gd.subgroups)).forEach(sn2=>{ct.appendChild(rg(sn2,gd.subgroups[sn2],l+1))});g.appendChild(ct);return g}sidebar.innerHTML='';sn(Object.keys(gh)).forEach(gn=>{sidebar.appendChild(rg(gn,gh[gn],0))})}
         function highlightBuilding(id){currentHighlighted.add(id);const b=buildingsData.buildings.find(x=>x.id===id);const hc=b?.highlightColor||'#FFC107';const rgb=hexToRgb(hc);const p=document.querySelector('.building-polygon[data-building-id="'+id+'"]');if(p){p.style.fill='rgba('+rgb.r+','+rgb.g+','+rgb.b+',0.35)';p.style.stroke=hc;p.style.strokeWidth='3'}const mi=document.querySelector('.building-item[data-building-id="'+id+'"]');if(mi){mi.classList.add('highlighted');mi.style.borderLeftColor=hc}}
         function unhighlightBuilding(id){currentHighlighted.delete(id);if(id===selectedBuildingId)return;const p=document.querySelector('.building-polygon[data-building-id="'+id+'"]');if(p){p.style.fill='rgba(255,255,0,0)';p.style.stroke='rgba(255,255,0,0)';p.style.strokeWidth='2'}const mi=document.querySelector('.building-item[data-building-id="'+id+'"]');if(mi){mi.classList.remove('highlighted');mi.style.borderLeftColor=''}}
         function hexToRgb(hex){const r=/^#?([a-f\\d]{2})([a-f\\d]{2})([a-f\\d]{2})$/i.exec(hex);return r?{r:parseInt(r[1],16),g:parseInt(r[2],16),b:parseInt(r[3],16)}:{r:255,g:193,b:7}}
-        function showPopup(building){hidePopup();selectedBuildingId=building.id;highlightBuilding(building.id);const polygon=document.querySelector('.building-polygon[data-building-id="'+building.id+'"]');if(!polygon)return;const points=building.polygon;let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;points.forEach(([x,y])=>{minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y)});const centerX=(minX+maxX)/2,centerY=(minY+maxY)/2;const bW=maxX-minX,bH=maxY-minY;const calcR=Math.max(bW,bH)/2*1.8;const radius=Math.max(calcR,0.04);const svg=polygon.closest('svg');const vb=svg.getAttribute('viewBox').split(' ');const svgW=parseFloat(vb[2]),svgH=parseFloat(vb[3]);let defs=svg.querySelector('defs');if(!defs){defs=document.createElementNS('http://www.w3.org/2000/svg','defs');svg.insertBefore(defs,svg.firstChild)}const mask=document.createElementNS('http://www.w3.org/2000/svg','mask');mask.setAttribute('id','selection-mask');const mr=document.createElementNS('http://www.w3.org/2000/svg','rect');mr.setAttribute('width',svgW);mr.setAttribute('height',svgH);mr.setAttribute('fill','white');mask.appendChild(mr);const mc=document.createElementNS('http://www.w3.org/2000/svg','circle');mc.setAttribute('cx',centerX*svgW);mc.setAttribute('cy',centerY*svgH);mc.setAttribute('r',radius*Math.max(svgW,svgH));mc.setAttribute('fill','black');mask.appendChild(mc);defs.appendChild(mask);const dr=document.createElementNS('http://www.w3.org/2000/svg','rect');dr.setAttribute('class','dim-overlay');dr.setAttribute('width',svgW);dr.setAttribute('height',svgH);dr.setAttribute('mask','url(#selection-mask)');svg.appendChild(dr);const circle=document.createElementNS('http://www.w3.org/2000/svg','circle');circle.setAttribute('class','selection-circle');circle.setAttribute('cx',centerX*svgW);circle.setAttribute('cy',centerY*svgH);circle.setAttribute('r',radius*Math.max(svgW,svgH));svg.appendChild(circle);const modal=document.getElementById('modal-overlay');const modalContent=document.querySelector('.modal-content');document.getElementById('modal-title').textContent=building.name;const bc=document.getElementById('modal-breadcrumb');const gruppe=(building.gruppe||'').trim();if(gruppe){const parts=gruppe.split(/\s*>\s*/);bc.innerHTML=parts.map(p=>'<span>'+p+'</span>').join('');bc.style.display='block'}else{bc.style.display='none'}const bd=document.getElementById('modal-beschreibung');if(building.beschreibung&&building.beschreibung.trim()){bd.innerHTML=building.beschreibung;bd.style.display='block'}else{bd.style.display='none'}modal.classList.add('active');requestAnimationFrame(()=>{const ic=document.querySelector('.image-container');if(!ic)return;const img=ic.querySelector('img');const iw=img.offsetWidth,ih=img.offsetHeight;const mR=modalContent.getBoundingClientRect();const bx=centerX*iw,by=centerY*ih;const crPx=radius*Math.max(iw,ih);const gap=20,margin=15;let left,top;const isRight=centerX>0.5;const cle=bx-crPx,cre=bx+crPx;if(isRight){const tl=cle-gap-mR.width;if(tl>=margin){left=tl;top=by-(mR.height/2)}else{left=bx-(mR.width/2);top=by+crPx+gap}}else{const tl=cre+gap;if(tl+mR.width<=iw-margin){left=tl;top=by-(mR.height/2)}else{left=bx-(mR.width/2);top=by+crPx+gap}}if(left===bx-(mR.width/2)&&top!==undefined){if(top+mR.height>ih-margin){const ta=by-crPx-gap-mR.height;if(ta>=margin)top=ta}}left=Math.max(margin,Math.min(left,iw-mR.width-margin));top=Math.max(margin,Math.min(top,ih-mR.height-margin));modalContent.style.left=left+'px';modalContent.style.top=top+'px'})}
+        function showPopup(building){hidePopup();selectedBuildingId=building.id;highlightBuilding(building.id);const polygon=document.querySelector('.building-polygon[data-building-id="'+building.id+'"]');if(!polygon)return;const points=building.polygon;let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;points.forEach(([x,y])=>{minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y)});const centerX=(minX+maxX)/2,centerY=(minY+maxY)/2;const bW=maxX-minX,bH=maxY-minY;const calcR=Math.max(bW,bH)/2*1.8;const radius=Math.max(calcR,0.04);const svg=polygon.closest('svg');const vb=svg.getAttribute('viewBox').split(' ');const svgW=parseFloat(vb[2]),svgH=parseFloat(vb[3]);let defs=svg.querySelector('defs');if(!defs){defs=document.createElementNS('http://www.w3.org/2000/svg','defs');svg.insertBefore(defs,svg.firstChild)}const mask=document.createElementNS('http://www.w3.org/2000/svg','mask');mask.setAttribute('id','selection-mask');const mr=document.createElementNS('http://www.w3.org/2000/svg','rect');mr.setAttribute('width',svgW);mr.setAttribute('height',svgH);mr.setAttribute('fill','white');mask.appendChild(mr);const mc=document.createElementNS('http://www.w3.org/2000/svg','circle');mc.setAttribute('cx',centerX*svgW);mc.setAttribute('cy',centerY*svgH);mc.setAttribute('r',radius*Math.max(svgW,svgH));mc.setAttribute('fill','black');mask.appendChild(mc);defs.appendChild(mask);const dr=document.createElementNS('http://www.w3.org/2000/svg','rect');dr.setAttribute('class','dim-overlay');dr.setAttribute('width',svgW);dr.setAttribute('height',svgH);dr.setAttribute('mask','url(#selection-mask)');svg.appendChild(dr);const circle=document.createElementNS('http://www.w3.org/2000/svg','circle');circle.setAttribute('class','selection-circle');circle.setAttribute('cx',centerX*svgW);circle.setAttribute('cy',centerY*svgH);circle.setAttribute('r',radius*Math.max(svgW,svgH));svg.appendChild(circle);const modal=document.getElementById('modal-overlay');const modalContent=document.querySelector('.modal-content');const ne=document.getElementById('modal-nummer');if(building.nummer&&building.nummer.trim()){ne.textContent=building.nummer;ne.style.display='block'}else{ne.style.display='none'}document.getElementById('modal-title').textContent=building.name;const bc=document.getElementById('modal-breadcrumb');const gruppe=(building.gruppe||'').trim();if(gruppe){const parts=gruppe.split(/\s*>\s*/);bc.innerHTML=parts.map(p=>'<span>'+p+'</span>').join('');bc.style.display='block'}else{bc.style.display='none'}const bd=document.getElementById('modal-beschreibung');if(building.beschreibung&&building.beschreibung.trim()){bd.innerHTML=building.beschreibung;bd.style.display='block'}else{bd.style.display='none'}modal.classList.add('active');requestAnimationFrame(()=>{const ic=document.querySelector('.image-container');if(!ic)return;const img=ic.querySelector('img');const iw=img.offsetWidth,ih=img.offsetHeight;const mR=modalContent.getBoundingClientRect();const bx=centerX*iw,by=centerY*ih;const crPx=radius*Math.max(iw,ih);const gap=20,margin=15;let left,top;const isRight=centerX>0.5;const cle=bx-crPx,cre=bx+crPx;if(isRight){const tl=cle-gap-mR.width;if(tl>=margin){left=tl;top=by-(mR.height/2)}else{left=bx-(mR.width/2);top=by+crPx+gap}}else{const tl=cre+gap;if(tl+mR.width<=iw-margin){left=tl;top=by-(mR.height/2)}else{left=bx-(mR.width/2);top=by+crPx+gap}}if(left===bx-(mR.width/2)&&top!==undefined){if(top+mR.height>ih-margin){const ta=by-crPx-gap-mR.height;if(ta>=margin)top=ta}}left=Math.max(margin,Math.min(left,iw-mR.width-margin));top=Math.max(margin,Math.min(top,ih-mR.height-margin));modalContent.style.left=left+'px';modalContent.style.top=top+'px'})}
         function hidePopup(){if(selectedBuildingId){const prev=selectedBuildingId;selectedBuildingId=null;unhighlightBuilding(prev)}const c=document.querySelector('.selection-circle');const d=document.querySelector('.dim-overlay');const m=document.getElementById('selection-mask');const mo=document.getElementById('modal-overlay');if(c)c.remove();if(d)d.remove();if(m)m.remove();if(mo)mo.classList.remove('active')}
         document.addEventListener('keydown',e=>{if(e.key==='Escape')hidePopup()});
         document.addEventListener('click',e=>{if(!e.target.closest('.building-polygon')&&!e.target.closest('.building-item')&&!e.target.closest('.sidebar')&&!e.target.closest('.modal-content'))hidePopup()});
@@ -1379,6 +1599,226 @@ class Pipeline {
     exportImage() { downloadImageFile(this.canvas); }
 }
 
+// --------------------------------------------------------------------------
+// Embedded viewer preview
+// --------------------------------------------------------------------------
+let vpBuildingsData = null;
+let vpCurrentHighlighted = new Set();
+let vpSelectedBuildingId = null;
+
+function vpHexToRgb(hex) {
+    const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return r ? { r: parseInt(r[1], 16), g: parseInt(r[2], 16), b: parseInt(r[3], 16) } : { r: 255, g: 193, b: 7 };
+}
+
+function vpHighlight(buildingId) {
+    vpCurrentHighlighted.add(buildingId);
+    const building = vpBuildingsData.buildings.find(b => b.id === buildingId);
+    const hc = building?.highlightColor || '#FFC107';
+    const rgb = vpHexToRgb(hc);
+    const polygon = document.querySelector('.vp-building-polygon[data-building-id="' + buildingId + '"]');
+    if (polygon) { polygon.style.fill = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.35)'; polygon.style.stroke = hc; polygon.style.strokeWidth = '3'; }
+    const item = document.querySelector('.vp-building-item[data-building-id="' + buildingId + '"]');
+    if (item) { item.classList.add('highlighted'); item.style.borderLeftColor = hc; }
+}
+
+function vpUnhighlight(buildingId) {
+    vpCurrentHighlighted.delete(buildingId);
+    if (buildingId === vpSelectedBuildingId) return;
+    const polygon = document.querySelector('.vp-building-polygon[data-building-id="' + buildingId + '"]');
+    if (polygon) { polygon.style.fill = 'rgba(255,255,0,0)'; polygon.style.stroke = 'rgba(255,255,0,0)'; polygon.style.strokeWidth = '2'; }
+    const item = document.querySelector('.vp-building-item[data-building-id="' + buildingId + '"]');
+    if (item) { item.classList.remove('highlighted'); item.style.borderLeftColor = ''; }
+}
+
+function vpHidePopup() {
+    if (vpSelectedBuildingId) { const prev = vpSelectedBuildingId; vpSelectedBuildingId = null; vpUnhighlight(prev); }
+    const c = document.querySelector('.vp-selection-circle'); if (c) c.remove();
+    const d = document.querySelector('.vp-dim-overlay'); if (d) d.remove();
+    const m = document.getElementById('vp-selection-mask'); if (m) m.remove();
+    const mo = document.getElementById('vp-modal-overlay'); if (mo) mo.classList.remove('active');
+}
+
+function vpShowPopup(building) {
+    vpHidePopup();
+    vpSelectedBuildingId = building.id;
+    vpHighlight(building.id);
+
+    const polygon = document.querySelector('.vp-building-polygon[data-building-id="' + building.id + '"]');
+    if (!polygon) return;
+
+    const points = building.polygon;
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    points.forEach(([x, y]) => { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); });
+    const centerX = (minX + maxX) / 2, centerY = (minY + maxY) / 2;
+    const bW = maxX - minX, bH = maxY - minY;
+    const calcR = Math.max(bW, bH) / 2 * 1.8;
+    const radius = Math.max(calcR, 0.04);
+
+    const svg = polygon.closest('svg');
+    const vb = svg.getAttribute('viewBox').split(' ');
+    const svgW = parseFloat(vb[2]), svgH = parseFloat(vb[3]);
+
+    let defs = svg.querySelector('defs');
+    if (!defs) { defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs'); svg.insertBefore(defs, svg.firstChild); }
+
+    const mask = document.createElementNS('http://www.w3.org/2000/svg', 'mask');
+    mask.setAttribute('id', 'vp-selection-mask');
+    const mr = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    mr.setAttribute('width', svgW); mr.setAttribute('height', svgH); mr.setAttribute('fill', 'white');
+    mask.appendChild(mr);
+    const mc = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    mc.setAttribute('cx', centerX * svgW); mc.setAttribute('cy', centerY * svgH);
+    mc.setAttribute('r', radius * Math.max(svgW, svgH)); mc.setAttribute('fill', 'black');
+    mask.appendChild(mc);
+    defs.appendChild(mask);
+
+    const dr = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    dr.setAttribute('class', 'vp-dim-overlay');
+    dr.setAttribute('width', svgW); dr.setAttribute('height', svgH);
+    dr.setAttribute('mask', 'url(#vp-selection-mask)');
+    svg.appendChild(dr);
+
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('class', 'vp-selection-circle');
+    circle.setAttribute('cx', centerX * svgW); circle.setAttribute('cy', centerY * svgH);
+    circle.setAttribute('r', radius * Math.max(svgW, svgH));
+    svg.appendChild(circle);
+
+    // Modal
+    const modal = document.getElementById('vp-modal-overlay');
+    const modalContent = modal.querySelector('.vp-modal-content');
+    const ne = document.getElementById('vp-modal-nummer');
+    if (building.nummer && building.nummer.trim()) { ne.textContent = building.nummer; ne.style.display = 'block'; } else { ne.style.display = 'none'; }
+    document.getElementById('vp-modal-title').textContent = building.name;
+    const bc = document.getElementById('vp-modal-breadcrumb');
+    const gruppe = (building.gruppe || '').trim();
+    if (gruppe) { bc.innerHTML = gruppe.split(/\s*>\s*/).map(p => '<span>' + p + '</span>').join(''); bc.style.display = 'block'; } else { bc.style.display = 'none'; }
+    const bd = document.getElementById('vp-modal-beschreibung');
+    if (building.beschreibung && building.beschreibung.trim()) { bd.innerHTML = building.beschreibung; bd.style.display = 'block'; } else { bd.style.display = 'none'; }
+    modal.classList.add('active');
+
+    requestAnimationFrame(() => {
+        const ic = document.getElementById('vpImageContainer');
+        if (!ic) return;
+        const img = ic.querySelector('img');
+        if (!img) return;
+        const iw = img.offsetWidth, ih = img.offsetHeight;
+        const mR = modalContent.getBoundingClientRect();
+        const bx = centerX * iw, by = centerY * ih;
+        const crPx = radius * Math.max(iw, ih);
+        const gap = 16, margin = 10;
+        let left, top;
+        const isRight = centerX > 0.5;
+        if (isRight) { const tl = (bx - crPx) - gap - mR.width; if (tl >= margin) { left = tl; top = by - mR.height / 2; } else { left = bx - mR.width / 2; top = by + crPx + gap; } }
+        else { const tl = (bx + crPx) + gap; if (tl + mR.width <= iw - margin) { left = tl; top = by - mR.height / 2; } else { left = bx - mR.width / 2; top = by + crPx + gap; } }
+        if (left === bx - mR.width / 2 && top + mR.height > ih - margin) { const ta = by - crPx - gap - mR.height; if (ta >= margin) top = ta; }
+        left = Math.max(margin, Math.min(left, iw - mR.width - margin));
+        top = Math.max(margin, Math.min(top, ih - mR.height - margin));
+        modalContent.style.left = left + 'px';
+        modalContent.style.top = top + 'px';
+    });
+}
+
+function renderViewerPreview(buildingJson) {
+    vpBuildingsData = buildingJson;
+    vpSelectedBuildingId = null;
+    vpCurrentHighlighted.clear();
+
+    const container = document.getElementById('viewerPreview');
+    container.style.display = 'flex';
+
+    // Render sidebar
+    const sidebar = document.getElementById('vpSidebar');
+    sidebar.innerHTML = '<div class="vp-sidebar-header"><h3>' + (buildingJson.title || 'Gebäudekarte') + '</h3><p>Interaktive Vorschau</p></div>';
+
+    const sidebarContent = document.createElement('div');
+
+    const groupHierarchy = {};
+    buildingJson.buildings.forEach(b => {
+        const g = b.gruppe || 'Sonstige';
+        const parts = g.split(' > ').map(p => p.trim());
+        let cl = groupHierarchy;
+        parts.forEach((part, i) => {
+            if (!cl[part]) cl[part] = { buildings: [], subgroups: {} };
+            if (i === parts.length - 1) cl[part].buildings.push(b);
+            cl = cl[part].subgroups;
+        });
+    });
+
+    function sortNames(n) { return n.sort((a, b) => { if (a === 'Unbekannt' || a === 'Sonstige') return 1; if (b === 'Unbekannt' || b === 'Sonstige') return -1; return a.localeCompare(b); }); }
+    function getAllIds(gd) { const ids = gd.buildings.map(b => b.id); Object.values(gd.subgroups).forEach(sg => ids.push(...getAllIds(sg))); return ids; }
+
+    function renderGroup(gn, gd, level) {
+        const g = document.createElement('div'); g.className = 'vp-group'; g.style.marginLeft = (level * 12) + 'px';
+        const bids = getAllIds(gd);
+        const h = document.createElement('div'); h.className = 'vp-group-header'; h.style.paddingLeft = (16 - level * 4) + 'px';
+        h.innerHTML = '<h4>' + gn + '</h4><span class="vp-group-toggle">\u25BC</span>';
+        h.addEventListener('click', () => g.classList.toggle('collapsed'));
+        h.addEventListener('mouseenter', () => bids.forEach(id => vpHighlight(id)));
+        h.addEventListener('mouseleave', () => bids.forEach(id => vpUnhighlight(id)));
+        g.appendChild(h);
+        const ct = document.createElement('div'); ct.className = 'vp-group-buildings';
+        gd.buildings.forEach(b => {
+            const it = document.createElement('div'); it.className = 'vp-building-item'; it.style.paddingLeft = (28 + level * 12) + 'px';
+            it.setAttribute('data-building-id', b.id);
+            it.innerHTML = '<div class="vp-building-name">' + (b.nummer ? '<span class="vp-building-nummer">' + b.nummer + '</span> ' : '') + b.name + '</div>';
+            it.addEventListener('mouseenter', () => vpHighlight(b.id));
+            it.addEventListener('mouseleave', () => vpUnhighlight(b.id));
+            it.addEventListener('click', () => vpShowPopup(b));
+            ct.appendChild(it);
+        });
+        sortNames(Object.keys(gd.subgroups)).forEach(sn => ct.appendChild(renderGroup(sn, gd.subgroups[sn], level + 1)));
+        g.appendChild(ct);
+        return g;
+    }
+
+    sortNames(Object.keys(groupHierarchy)).forEach(gn => sidebarContent.appendChild(renderGroup(gn, groupHierarchy[gn], 0)));
+    sidebar.appendChild(sidebarContent);
+
+    // Render image + SVG + modal
+    const ic = document.getElementById('vpImageContainer');
+    const { width, height } = buildingJson.image;
+
+    const img = document.createElement('img');
+    img.src = buildingJson.image.dataUrl || buildingJson.image.filename;
+    img.alt = (buildingJson.title || 'Gebäudekarte') + ' Karte';
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'vp-svg-overlay');
+    svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+
+    buildingJson.buildings.forEach(b => {
+        const p = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        p.setAttribute('points', b.polygon.map(([x, y]) => (x * width) + ',' + (y * height)).join(' '));
+        p.setAttribute('class', 'vp-building-polygon');
+        p.setAttribute('data-building-id', b.id);
+        p.addEventListener('mouseenter', () => vpHighlight(b.id));
+        p.addEventListener('mouseleave', () => vpUnhighlight(b.id));
+        p.addEventListener('click', () => vpShowPopup(b));
+        svg.appendChild(p);
+    });
+
+    const mo = document.createElement('div');
+    mo.className = 'vp-modal-overlay'; mo.id = 'vp-modal-overlay';
+    mo.innerHTML = '<div class="vp-modal-content"><button class="vp-modal-close" id="vp-modal-close">&times;</button><div class="vp-modal-header"><div class="vp-modal-nummer" id="vp-modal-nummer" style="display:none"></div><h5 id="vp-modal-title"></h5><div class="vp-modal-breadcrumb" id="vp-modal-breadcrumb"></div></div><div class="vp-modal-beschreibung" id="vp-modal-beschreibung" style="display:none"></div></div>';
+
+    ic.innerHTML = '';
+    ic.appendChild(img);
+    ic.appendChild(svg);
+    ic.appendChild(mo);
+
+    document.getElementById('vp-modal-close').addEventListener('click', vpHidePopup);
+}
+
+// Close viewer popup on Escape or click outside
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') vpHidePopup(); });
+document.addEventListener('click', (e) => {
+    if (e.target.closest('.vp-building-polygon') || e.target.closest('.vp-building-item') || e.target.closest('.vp-sidebar') || e.target.closest('.vp-modal-content')) return;
+    if (e.target.closest('.viewer-preview')) vpHidePopup();
+});
+
 // ==========================================================================
 // UI Controller
 // ==========================================================================
@@ -1393,7 +1833,6 @@ const progressBarWrap = document.getElementById('progressBarWrap');
 const progressBarFill = document.getElementById('progressBarFill');
 const logConsole      = document.getElementById('logConsole');
 const resultCard      = document.getElementById('resultCard');
-const previewImg      = document.getElementById('previewImg');
 const btnEditor       = document.getElementById('btnEditor');
 const btnStandalone   = document.getElementById('btnStandalone');
 const btnDownloadGeojson = document.getElementById('btnDownloadGeojson');
@@ -1525,10 +1964,6 @@ function loadResultCache() {
         statBuildings.textContent = cached.buildingCount;
         statResolution.textContent = cached.imageWidth + 'x' + cached.imageHeight;
         statAvgPoints.textContent = cached.avgPoints;
-        // Restore preview image from buildingJson dataUrl
-        if (cached.buildingJson && cached.buildingJson.image && cached.buildingJson.image.dataUrl) {
-            previewImg.src = cached.buildingJson.image.dataUrl;
-        }
         // Restore pipeline state so export buttons work
         pipeline.buildingJson = cached.buildingJson;
         // Recreate canvas from dataUrl for export functions
@@ -1545,6 +1980,7 @@ function loadResultCache() {
         // Restore pipelineResult for editor button
         pipelineResult = { buildingCount: cached.buildingCount, imageWidth: cached.imageWidth, imageHeight: cached.imageHeight, avgPoints: cached.avgPoints, buildingJson: cached.buildingJson };
         resultCard.classList.add('visible');
+        if (cached.buildingJson) renderViewerPreview(cached.buildingJson);
     } catch(e) { console.warn('[pipeline] Ergebnis-Cache konnte nicht geladen werden:', e.message); }
 }
 
@@ -1604,6 +2040,7 @@ function handleMetadataImport(metadata, file) {
         if (bestMatch !== null && bestDist <= MIGRATION_THRESHOLD_M) {
             const src = source[bestMatch];
             used.add(bestMatch);
+            bTarget.nummer = src.nummer;
             bTarget.name = src.name;
             bTarget.gruppe = src.gruppe;
             bTarget.beschreibung = src.beschreibung;
@@ -1687,15 +2124,16 @@ function onComplete(result) {
     statBuildings.textContent = result.buildingCount;
     statResolution.textContent = result.imageWidth + 'x' + result.imageHeight;
     statAvgPoints.textContent = result.avgPoints;
-    previewImg.src = result.canvas.toDataURL('image/png');
     resultCard.classList.add('visible');
+    renderViewerPreview(result.buildingJson);
     btnRerender.classList.remove('hidden'); btnRerender2.classList.remove('hidden');    document.getElementById('rerenderTip').classList.remove('hidden');
     btnRun.disabled = false;
     btnRerender.disabled = false;
-    // Persist result for reload
+    // Persist result for reload and sync editor cache
     try {
         const cached = { buildingCount: result.buildingCount, imageWidth: result.imageWidth, imageHeight: result.imageHeight, avgPoints: result.avgPoints, buildingJson: result.buildingJson };
         localStorage.setItem(RESULT_CACHE_KEY, JSON.stringify(cached));
+        localStorage.setItem('editor_buildingsData', JSON.stringify(result.buildingJson));
     } catch(e) { console.warn('[pipeline] Ergebnis-Cache zu groß für localStorage'); }
 }
 
@@ -1719,14 +2157,13 @@ function resetUI() {
 
 // ---- Export buttons ----
 btnEditor.addEventListener('click', () => { if (!pipelineResult) return; sessionStorage.setItem('buildingsData', JSON.stringify(pipelineResult.buildingJson)); window.open('editor.html','_blank'); });
-document.getElementById('btnViewer').addEventListener('click', () => { if (!pipelineResult) return; sessionStorage.setItem('buildingsData', JSON.stringify(pipelineResult.buildingJson)); window.open('viewer.html','_blank'); });
 btnStandalone.addEventListener('click', () => { if (pipeline) pipeline.exportStandalone(geojsonData, getParams()); });
 btnDownloadGeojson.addEventListener('click', () => { if (pipeline) pipeline.exportGeojson(); });
 btnDownloadImage.addEventListener('click', () => { if (pipeline) pipeline.exportImage(); });
 btnReset.addEventListener('click', () => {
     geojsonData=null; pipelineResult=null;
     pipeline = new Pipeline({ onProgress, onLog, onComplete, onError });
-    fileInfo.classList.add('hidden'); fileInput.value=''; btnRun.disabled=true; btnRerender.classList.add('hidden'); btnRerender2.classList.add('hidden');    try { localStorage.removeItem(GEOJSON_KEY); localStorage.removeItem(GEOJSON_NAME_KEY); localStorage.removeItem(GEOJSON_SOURCE_KEY); localStorage.removeItem(BUILDINGS_CACHE_KEY); localStorage.removeItem(RESULT_CACHE_KEY); } catch(e) {}
+    fileInfo.classList.add('hidden'); fileInput.value=''; btnRun.disabled=true; btnRerender.classList.add('hidden'); btnRerender2.classList.add('hidden');    try { localStorage.removeItem(GEOJSON_KEY); localStorage.removeItem(GEOJSON_NAME_KEY); localStorage.removeItem(GEOJSON_SOURCE_KEY); localStorage.removeItem(BUILDINGS_CACHE_KEY); localStorage.removeItem(RESULT_CACHE_KEY); localStorage.removeItem('editor_buildingsData'); } catch(e) {}
     clearDrawnPolygon();
     uploadedLayer.clearLayers();
     resetUI();

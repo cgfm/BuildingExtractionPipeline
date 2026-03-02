@@ -236,6 +236,11 @@
             color: #1a1a1a;
         }
 
+        .building-nummer {
+            font-weight: 700;
+            color: #4b5320;
+        }
+
         .building-id {
             font-size: 11px;
             color: #888;
@@ -258,6 +263,7 @@
             flex-direction: column;
             gap: 20px;
             padding: 20px;
+            position: relative;
         }
 
         .map-panel {
@@ -484,6 +490,253 @@
             color: #c0392b;
         }
 
+        /* ---- Viewer overlay ---- */
+        .viewer-overlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 500;
+            background: #d6d3c8;
+        }
+        .viewer-overlay.active {
+            display: flex;
+        }
+        .viewer-overlay .vo-sidebar {
+            width: 300px;
+            min-width: 300px;
+            background: #ffffff;
+            overflow-y: auto;
+            border-right: 1px solid #c0bda8;
+            border-left: 3px solid #4b5320;
+        }
+        .viewer-overlay .vo-sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #c0bda8;
+        }
+        .viewer-overlay .vo-sidebar-header h3 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #2d331a;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .viewer-overlay .vo-sidebar-header p {
+            font-size: 12px;
+            color: #888;
+        }
+        .viewer-overlay .vo-back-btn {
+            display: block;
+            width: calc(100% - 40px);
+            margin: 15px 20px;
+            padding: 10px 20px;
+            background: #4b5320;
+            color: #fff;
+            border: 1px solid #6b7530;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            transition: background 0.2s;
+        }
+        .viewer-overlay .vo-back-btn:hover {
+            background: #5a6328;
+        }
+        .viewer-overlay .vo-main {
+            flex: 1;
+            overflow: auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .viewer-overlay .vo-image-container {
+            position: relative;
+            display: inline-block;
+            max-width: 100%;
+            max-height: 100%;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+        }
+        .viewer-overlay .vo-image-container img {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+        .viewer-overlay .vo-svg-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .viewer-overlay .vo-building-polygon {
+            fill: rgba(255, 255, 0, 0);
+            stroke: rgba(255, 255, 0, 0);
+            stroke-width: 2;
+            pointer-events: auto;
+            cursor: pointer;
+            transition: fill 0.2s, stroke 0.2s;
+        }
+        .viewer-overlay .vo-group {
+            border-bottom: 1px solid #e8e6df;
+        }
+        .viewer-overlay .vo-group-header {
+            padding: 12px 20px;
+            background: #f5f4ee;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+        .viewer-overlay .vo-group-header:hover {
+            background: #e8e6df;
+        }
+        .viewer-overlay .vo-group-header h4 {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #4b5320;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin: 0;
+        }
+        .viewer-overlay .vo-group-toggle {
+            font-size: 12px;
+            color: #b0ad98;
+            transition: transform 0.3s;
+        }
+        .viewer-overlay .vo-group.collapsed .vo-group-toggle {
+            transform: rotate(-90deg);
+        }
+        .viewer-overlay .vo-group-buildings {
+            max-height: 1000px;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        .viewer-overlay .vo-group.collapsed .vo-group-buildings {
+            max-height: 0;
+        }
+        .viewer-overlay .vo-building-item {
+            padding: 10px 20px 10px 35px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-left: 3px solid transparent;
+        }
+        .viewer-overlay .vo-building-item:hover {
+            background: #f5f4ee;
+            border-left-color: #6b7530;
+        }
+        .viewer-overlay .vo-building-item.highlighted {
+            background: #e8e6df;
+            border-left-color: #f39c12;
+        }
+        .viewer-overlay .vo-building-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: #1a1a1a;
+        }
+        .viewer-overlay .vo-building-nummer {
+            font-weight: 700;
+            color: #4b5320;
+        }
+        .viewer-overlay .vo-selection-circle {
+            fill: none;
+            stroke: #4b5320;
+            stroke-width: 4;
+            pointer-events: none;
+        }
+        .viewer-overlay .vo-dim-overlay {
+            fill: rgba(0, 0, 0, 0.6);
+            pointer-events: none;
+        }
+        .viewer-overlay .vo-modal-overlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 200;
+            pointer-events: none;
+        }
+        .viewer-overlay .vo-modal-overlay.active {
+            display: block;
+        }
+        .viewer-overlay .vo-modal-content {
+            position: absolute;
+            background: #ffffff;
+            border-radius: 2px;
+            border: 1px solid #c0bda8;
+            border-left: 3px solid #4b5320;
+            padding: 25px 30px;
+            min-width: 280px;
+            max-width: 400px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            pointer-events: auto;
+        }
+        .viewer-overlay .vo-modal-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #b0ad98;
+            width: 35px;
+            height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 2px;
+            transition: background 0.2s, color 0.2s;
+            line-height: 1;
+        }
+        .viewer-overlay .vo-modal-close:hover {
+            background: #e8e6df;
+            color: #2d331a;
+        }
+        .viewer-overlay .vo-modal-content h5 {
+            margin: 0;
+            color: #2d331a;
+            font-size: 22px;
+            padding-right: 25px;
+        }
+        .viewer-overlay .vo-modal-breadcrumb {
+            font-size: 12px;
+            color: #6b7530;
+            margin: 4px 0 0 0;
+        }
+        .viewer-overlay .vo-modal-breadcrumb span::after {
+            content: ' \203A ';
+            margin: 0 2px;
+        }
+        .viewer-overlay .vo-modal-breadcrumb span:last-child::after {
+            content: '';
+        }
+        .viewer-overlay .vo-modal-header {
+            margin-bottom: 20px;
+        }
+        .viewer-overlay .vo-modal-nummer {
+            font-size: 13px;
+            font-weight: 700;
+            color: #4b5320;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-bottom: 2px;
+        }
+        .viewer-overlay .vo-modal-beschreibung {
+            color: #1a1a1a;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+
         /* ---- Info tooltips ---- */
         .info-tip {
             position: relative;
@@ -571,7 +824,7 @@
             <!-- Buildings Tab -->
             <div class="toolbar">
                 <button class="btn btn-success" id="save-json-btn" data-tooltip="Lädt eine JSON-Datei mit allen Änderungen herunter.">Änderungen Speichern</button>
-                <button class="btn btn-primary" id="export-html-btn" data-tooltip="Öffnet die interaktive Karte im Viewer-Modus in einem neuen Tab.">Karte Anzeigen</button>
+                <button class="btn btn-primary" id="preview-btn" data-tooltip="Zeigt eine interaktive Vorschau der Karte mit klickbaren Gebäuden.">Vorschau</button>
             </div>
             <div id="sidebar-content" class="loading">
                 Lade Gebäudedaten...
@@ -585,6 +838,14 @@
                 <h2>Interaktive Karte</h2>
                 <div class="map-container" id="map-container">
                     <div class="loading">Lade Karte...</div>
+                </div>
+            </div>
+
+            <!-- Viewer overlay (hidden by default) -->
+            <div class="viewer-overlay" id="viewerOverlay">
+                <div class="vo-sidebar" id="voSidebar"></div>
+                <div class="vo-main">
+                    <div class="vo-image-container" id="voImageContainer"></div>
                 </div>
             </div>
 
@@ -865,8 +1126,8 @@
                 item.innerHTML = `
                     <span class="drag-handle">\u22EE\u22EE</span>
                     <div class="building-info">
-                        <div class="building-name">${building.name}</div>
-                        <div class="building-id">${building.id}</div>
+                        <div class="building-name">${building.nummer ? '<span class="building-nummer">' + building.nummer + '</span> ' : ''}${building.name}</div>
+                        <div class="building-id">${building.nummer || ''}</div>
                     </div>
                     <div class="color-indicator" style="background-color: ${building.highlightColor || '#FFC107'}"></div>
                 `;
@@ -1076,6 +1337,13 @@
                 </div>
 
                 <div class="form-group">
+                    <label class="form-label" for="building-nummer">Nummer <span class="info-tip" tabindex="0"><span class="info-tip-text">Optionale Gebäudenummer oder -kennzeichnung (z.B. „B3"). Wird in der Karte vor dem Namen angezeigt.</span></span></label>
+                    <input type="text" id="building-nummer" class="form-input"
+                           value="${currentBuilding.nummer || ''}"
+                           placeholder="z.B. B3">
+                </div>
+
+                <div class="form-group">
                     <label class="form-label" for="building-name">Name <span class="info-tip" tabindex="0"><span class="info-tip-text">Anzeigename des Gebäudes. Wird in der Karte und Seitenleiste angezeigt.</span></span></label>
                     <input type="text" id="building-name" class="form-input"
                            value="${currentBuilding.name}"
@@ -1129,6 +1397,7 @@
                 saveTimeout = setTimeout(saveBuilding, 400);
             }
 
+            document.getElementById('building-nummer').addEventListener('input', debouncedSave);
             document.getElementById('building-name').addEventListener('input', debouncedSave);
             document.getElementById('building-gruppe').addEventListener('input', debouncedSave);
             document.getElementById('building-beschreibung').addEventListener('input', debouncedSave);
@@ -1155,6 +1424,7 @@
 
         // Save building changes
         function saveBuilding() {
+            const nummer = document.getElementById('building-nummer').value.trim();
             const name = document.getElementById('building-name').value.trim();
             const gruppe = document.getElementById('building-gruppe').value.trim();
             const beschreibung = document.getElementById('building-beschreibung').value.trim();
@@ -1163,6 +1433,7 @@
             // Update the building in the data
             const buildingIndex = buildingsData.buildings.findIndex(b => b.id === currentBuilding.id);
             if (buildingIndex !== -1) {
+                buildingsData.buildings[buildingIndex].nummer = nummer;
                 buildingsData.buildings[buildingIndex].name = name;
                 buildingsData.buildings[buildingIndex].gruppe = gruppe;
                 buildingsData.buildings[buildingIndex].beschreibung = beschreibung;
@@ -1209,6 +1480,7 @@
             // Create the duplicate
             const duplicate = {
                 id: newId,
+                nummer: currentBuilding.nummer || '',
                 name: `${currentBuilding.name} (Kopie)`,
                 gruppe: currentBuilding.gruppe,
                 beschreibung: currentBuilding.beschreibung,
@@ -1373,15 +1645,246 @@
             hasChanges = false;
         }
 
-        // Open viewer in new tab
-        function exportStandaloneHTML() {
-            sessionStorage.setItem('buildingsData', JSON.stringify(buildingsData));
-            window.open('viewer.html', '_blank');
+        // ---------- Viewer overlay ----------
+        let voSelectedBuildingId = null;
+        let voCurrentHighlighted = new Set();
+
+        function voHexToRgb(hex) {
+            const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return r ? { r: parseInt(r[1], 16), g: parseInt(r[2], 16), b: parseInt(r[3], 16) } : { r: 255, g: 193, b: 7 };
         }
+
+        function voHighlight(buildingId) {
+            voCurrentHighlighted.add(buildingId);
+            const building = buildingsData.buildings.find(b => b.id === buildingId);
+            const hc = building?.highlightColor || '#FFC107';
+            const rgb = voHexToRgb(hc);
+            const polygon = document.querySelector('.vo-building-polygon[data-building-id="' + buildingId + '"]');
+            if (polygon) { polygon.style.fill = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.35)'; polygon.style.stroke = hc; polygon.style.strokeWidth = '3'; }
+            const item = document.querySelector('.vo-building-item[data-building-id="' + buildingId + '"]');
+            if (item) { item.classList.add('highlighted'); item.style.borderLeftColor = hc; }
+        }
+
+        function voUnhighlight(buildingId) {
+            voCurrentHighlighted.delete(buildingId);
+            if (buildingId === voSelectedBuildingId) return;
+            const polygon = document.querySelector('.vo-building-polygon[data-building-id="' + buildingId + '"]');
+            if (polygon) { polygon.style.fill = 'rgba(255,255,0,0)'; polygon.style.stroke = 'rgba(255,255,0,0)'; polygon.style.strokeWidth = '2'; }
+            const item = document.querySelector('.vo-building-item[data-building-id="' + buildingId + '"]');
+            if (item) { item.classList.remove('highlighted'); item.style.borderLeftColor = ''; }
+        }
+
+        function voHidePopup() {
+            if (voSelectedBuildingId) { const prev = voSelectedBuildingId; voSelectedBuildingId = null; voUnhighlight(prev); }
+            const c = document.querySelector('.vo-selection-circle'); if (c) c.remove();
+            const d = document.querySelector('.vo-dim-overlay'); if (d) d.remove();
+            const m = document.getElementById('vo-selection-mask'); if (m) m.remove();
+            const mo = document.getElementById('vo-modal-overlay'); if (mo) mo.classList.remove('active');
+        }
+
+        function voShowPopup(building) {
+            voHidePopup();
+            voSelectedBuildingId = building.id;
+            voHighlight(building.id);
+            const polygon = document.querySelector('.vo-building-polygon[data-building-id="' + building.id + '"]');
+            if (!polygon) return;
+
+            const points = building.polygon;
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            points.forEach(([x, y]) => { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); });
+            const centerX = (minX + maxX) / 2, centerY = (minY + maxY) / 2;
+            const bW = maxX - minX, bH = maxY - minY;
+            const radius = Math.max(Math.max(bW, bH) / 2 * 1.8, 0.04);
+
+            const svg = polygon.closest('svg');
+            const vb = svg.getAttribute('viewBox').split(' ');
+            const svgW = parseFloat(vb[2]), svgH = parseFloat(vb[3]);
+
+            let defs = svg.querySelector('defs');
+            if (!defs) { defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs'); svg.insertBefore(defs, svg.firstChild); }
+
+            const mask = document.createElementNS('http://www.w3.org/2000/svg', 'mask');
+            mask.setAttribute('id', 'vo-selection-mask');
+            const mr = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            mr.setAttribute('width', svgW); mr.setAttribute('height', svgH); mr.setAttribute('fill', 'white');
+            mask.appendChild(mr);
+            const mc = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            mc.setAttribute('cx', centerX * svgW); mc.setAttribute('cy', centerY * svgH);
+            mc.setAttribute('r', radius * Math.max(svgW, svgH)); mc.setAttribute('fill', 'black');
+            mask.appendChild(mc);
+            defs.appendChild(mask);
+
+            const dr = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            dr.setAttribute('class', 'vo-dim-overlay');
+            dr.setAttribute('width', svgW); dr.setAttribute('height', svgH);
+            dr.setAttribute('mask', 'url(#vo-selection-mask)');
+            svg.appendChild(dr);
+
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('class', 'vo-selection-circle');
+            circle.setAttribute('cx', centerX * svgW); circle.setAttribute('cy', centerY * svgH);
+            circle.setAttribute('r', radius * Math.max(svgW, svgH));
+            svg.appendChild(circle);
+
+            const modal = document.getElementById('vo-modal-overlay');
+            const modalContent = modal.querySelector('.vo-modal-content');
+            const ne = document.getElementById('vo-modal-nummer');
+            if (building.nummer && building.nummer.trim()) { ne.textContent = building.nummer; ne.style.display = 'block'; } else { ne.style.display = 'none'; }
+            document.getElementById('vo-modal-title').textContent = building.name;
+            const bc = document.getElementById('vo-modal-breadcrumb');
+            const gruppe = (building.gruppe || '').trim();
+            if (gruppe) { bc.innerHTML = gruppe.split(/\s*>\s*/).map(p => '<span>' + p + '</span>').join(''); bc.style.display = 'block'; } else { bc.style.display = 'none'; }
+            const bd = document.getElementById('vo-modal-beschreibung');
+            if (building.beschreibung && building.beschreibung.trim()) { bd.innerHTML = building.beschreibung; bd.style.display = 'block'; } else { bd.style.display = 'none'; }
+            modal.classList.add('active');
+
+            requestAnimationFrame(() => {
+                const ic = document.getElementById('voImageContainer');
+                if (!ic) return;
+                const img = ic.querySelector('img');
+                if (!img) return;
+                const iw = img.offsetWidth, ih = img.offsetHeight;
+                const mR = modalContent.getBoundingClientRect();
+                const bx = centerX * iw, by = centerY * ih;
+                const crPx = radius * Math.max(iw, ih);
+                const gap = 20, margin = 15;
+                let left, top;
+                const isRight = centerX > 0.5;
+                if (isRight) { const tl = (bx - crPx) - gap - mR.width; if (tl >= margin) { left = tl; top = by - mR.height / 2; } else { left = bx - mR.width / 2; top = by + crPx + gap; } }
+                else { const tl = (bx + crPx) + gap; if (tl + mR.width <= iw - margin) { left = tl; top = by - mR.height / 2; } else { left = bx - mR.width / 2; top = by + crPx + gap; } }
+                if (left === bx - mR.width / 2 && top + mR.height > ih - margin) { const ta = by - crPx - gap - mR.height; if (ta >= margin) top = ta; }
+                left = Math.max(margin, Math.min(left, iw - mR.width - margin));
+                top = Math.max(margin, Math.min(top, ih - mR.height - margin));
+                modalContent.style.left = left + 'px';
+                modalContent.style.top = top + 'px';
+            });
+        }
+
+        function renderViewerOverlay() {
+            voSelectedBuildingId = null;
+            voCurrentHighlighted.clear();
+
+            const sidebar = document.getElementById('voSidebar');
+            sidebar.innerHTML = '';
+
+            // Header + back button
+            const header = document.createElement('div');
+            header.className = 'vo-sidebar-header';
+            header.innerHTML = '<h3>' + (buildingsData.title || 'Gebäudekarte') + '</h3><p>Interaktive Vorschau</p>';
+            sidebar.appendChild(header);
+
+            const backBtn = document.createElement('button');
+            backBtn.className = 'vo-back-btn';
+            backBtn.textContent = 'Zurück zum Editor';
+            backBtn.addEventListener('click', hideViewerOverlay);
+            sidebar.appendChild(backBtn);
+
+            // Build group hierarchy
+            const groupHierarchy = {};
+            buildingsData.buildings.forEach(b => {
+                const g = b.gruppe || 'Sonstige';
+                const parts = g.split(' > ').map(p => p.trim());
+                let cl = groupHierarchy;
+                parts.forEach((part, i) => {
+                    if (!cl[part]) cl[part] = { buildings: [], subgroups: {} };
+                    if (i === parts.length - 1) cl[part].buildings.push(b);
+                    cl = cl[part].subgroups;
+                });
+            });
+
+            function sortNames(n) { return n.sort((a, b) => { if (a === 'Unbekannt' || a === 'Sonstige') return 1; if (b === 'Unbekannt' || b === 'Sonstige') return -1; return a.localeCompare(b); }); }
+            function getAllIds(gd) { const ids = gd.buildings.map(b => b.id); Object.values(gd.subgroups).forEach(sg => ids.push(...getAllIds(sg))); return ids; }
+
+            function renderGroup(gn, gd, level) {
+                const g = document.createElement('div'); g.className = 'vo-group'; g.style.marginLeft = (level * 15) + 'px';
+                const bids = getAllIds(gd);
+                const h = document.createElement('div'); h.className = 'vo-group-header'; h.style.paddingLeft = (20 - level * 5) + 'px';
+                h.innerHTML = '<h4>' + gn + '</h4><span class="vo-group-toggle">\u25BC</span>';
+                h.addEventListener('click', () => g.classList.toggle('collapsed'));
+                h.addEventListener('mouseenter', () => bids.forEach(id => voHighlight(id)));
+                h.addEventListener('mouseleave', () => bids.forEach(id => voUnhighlight(id)));
+                g.appendChild(h);
+                const ct = document.createElement('div'); ct.className = 'vo-group-buildings';
+                gd.buildings.forEach(b => {
+                    const it = document.createElement('div'); it.className = 'vo-building-item'; it.style.paddingLeft = (35 + level * 15) + 'px';
+                    it.setAttribute('data-building-id', b.id);
+                    it.innerHTML = '<div class="vo-building-name">' + (b.nummer ? '<span class="vo-building-nummer">' + b.nummer + '</span> ' : '') + b.name + '</div>';
+                    it.addEventListener('mouseenter', () => voHighlight(b.id));
+                    it.addEventListener('mouseleave', () => voUnhighlight(b.id));
+                    it.addEventListener('click', () => voShowPopup(b));
+                    ct.appendChild(it);
+                });
+                sortNames(Object.keys(gd.subgroups)).forEach(sn => ct.appendChild(renderGroup(sn, gd.subgroups[sn], level + 1)));
+                g.appendChild(ct);
+                return g;
+            }
+
+            sortNames(Object.keys(groupHierarchy)).forEach(gn => sidebar.appendChild(renderGroup(gn, groupHierarchy[gn], 0)));
+
+            // Image + SVG + modal
+            const ic = document.getElementById('voImageContainer');
+            const { width, height } = buildingsData.image;
+            const img = document.createElement('img');
+            img.src = buildingsData.image.dataUrl || buildingsData.image.filename;
+            img.alt = (buildingsData.title || 'Gebäudekarte') + ' Karte';
+
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('class', 'vo-svg-overlay');
+            svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+            svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+
+            buildingsData.buildings.forEach(b => {
+                const p = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                p.setAttribute('points', b.polygon.map(([x, y]) => (x * width) + ',' + (y * height)).join(' '));
+                p.setAttribute('class', 'vo-building-polygon');
+                p.setAttribute('data-building-id', b.id);
+                p.addEventListener('mouseenter', () => voHighlight(b.id));
+                p.addEventListener('mouseleave', () => voUnhighlight(b.id));
+                p.addEventListener('click', () => voShowPopup(b));
+                svg.appendChild(p);
+            });
+
+            const mo = document.createElement('div');
+            mo.className = 'vo-modal-overlay'; mo.id = 'vo-modal-overlay';
+            mo.innerHTML = '<div class="vo-modal-content"><button class="vo-modal-close" id="vo-modal-close">&times;</button><div class="vo-modal-header"><div class="vo-modal-nummer" id="vo-modal-nummer" style="display:none"></div><h5 id="vo-modal-title"></h5><div class="vo-modal-breadcrumb" id="vo-modal-breadcrumb"></div></div><div class="vo-modal-beschreibung" id="vo-modal-beschreibung" style="display:none"></div></div>';
+
+            ic.innerHTML = '';
+            ic.appendChild(img);
+            ic.appendChild(svg);
+            ic.appendChild(mo);
+
+            document.getElementById('vo-modal-close').addEventListener('click', voHidePopup);
+        }
+
+        function showViewerOverlay() {
+            renderViewerOverlay();
+            document.getElementById('viewerOverlay').classList.add('active');
+        }
+
+        function hideViewerOverlay() {
+            voHidePopup();
+            document.getElementById('viewerOverlay').classList.remove('active');
+        }
+
+        // Escape closes viewer overlay popup, or closes overlay itself
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && document.getElementById('viewerOverlay').classList.contains('active')) {
+                if (voSelectedBuildingId) { voHidePopup(); }
+                else { hideViewerOverlay(); }
+                e.stopPropagation();
+            }
+        });
+
+        // Click outside buildings in viewer overlay closes popup
+        document.addEventListener('click', (e) => {
+            if (!document.getElementById('viewerOverlay').classList.contains('active')) return;
+            if (e.target.closest('.vo-building-polygon') || e.target.closest('.vo-building-item') || e.target.closest('.vo-sidebar') || e.target.closest('.vo-modal-content')) return;
+            if (e.target.closest('.viewer-overlay')) voHidePopup();
+        });
 
         // Event listeners
         document.getElementById('save-json-btn').addEventListener('click', saveJSONToFile);
-        document.getElementById('export-html-btn').addEventListener('click', exportStandaloneHTML);
+        document.getElementById('preview-btn').addEventListener('click', showViewerOverlay);
 
         // Warn before leaving if there are unsaved changes
         window.addEventListener('beforeunload', (e) => {
