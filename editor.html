@@ -1393,7 +1393,12 @@
             // Build nested group hierarchy and collect ungrouped buildings
             const groupHierarchy = {};
             const ungroupedBuildings = [];
+            const disabledBuildings = [];
             buildingsData.buildings.forEach(building => {
+                if (building.disabled) {
+                    disabledBuildings.push(building);
+                    return;
+                }
                 const gruppe = (building.gruppe || '').trim();
                 if (!gruppe) {
                     ungroupedBuildings.push(building);
@@ -1528,6 +1533,28 @@
                 const groupElement = renderGroup(groupName, groupHierarchy[groupName], 0);
                 sidebar.appendChild(groupElement);
             });
+
+            // Render "Versteckt" group for disabled buildings
+            if (disabledBuildings.length > 0) {
+                const hiddenGroup = document.createElement('div');
+                hiddenGroup.className = 'group collapsed';
+                hiddenGroup.style.opacity = '0.55';
+
+                const hiddenHeader = document.createElement('div');
+                hiddenHeader.className = 'group-header';
+                hiddenHeader.style.paddingLeft = '20px';
+                hiddenHeader.innerHTML = '<h2>Versteckt (' + disabledBuildings.length + ')</h2><span class="group-toggle">\u25BC</span>';
+                hiddenHeader.addEventListener('click', () => hiddenGroup.classList.toggle('collapsed'));
+                hiddenGroup.appendChild(hiddenHeader);
+
+                const hiddenContent = document.createElement('div');
+                hiddenContent.className = 'group-buildings';
+                disabledBuildings.forEach(building => {
+                    hiddenContent.appendChild(createBuildingItem(building, 35));
+                });
+                hiddenGroup.appendChild(hiddenContent);
+                sidebar.appendChild(hiddenGroup);
+            }
 
             // Reset search
             const searchInput = document.getElementById('search-input');
@@ -1681,9 +1708,17 @@
 
                 <div class="form-group">
                     <label class="form-label" for="building-nummer">Nummer <span class="info-tip" tabindex="0"><span class="info-tip-text">Optionale Gebäudenummer oder -kennzeichnung (z.B. „B3"). Wird in der Karte vor dem Namen angezeigt.</span></span></label>
-                    <input type="text" id="building-nummer" class="form-input"
-                           value="${currentBuilding.nummer || ''}"
-                           placeholder="z.B. B3">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="text" id="building-nummer" class="form-input"
+                               value="${currentBuilding.nummer || ''}"
+                               placeholder="z.B. B3"
+                               style="width: 100px; flex: none;">
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px; color: #4b5320; white-space: nowrap;">
+                            <input type="checkbox" id="building-visible" ${!currentBuilding.disabled ? 'checked' : ''}
+                                   style="width: 14px; height: 14px; accent-color: #4b5320; cursor: pointer;">
+                            Sichtbar
+                        </label>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -1718,6 +1753,9 @@
                                placeholder="#FFC107">
                         <div class="color-preview" id="color-preview"
                              style="background-color: ${currentBuilding.highlightColor || '#FFC107'}"></div>
+                        <button type="button" class="btn" id="random-color-btn"
+                                title="Zufällige Farbe"
+                                style="padding: 0; width: 40px; height: 40px; min-width: 40px; font-size: 18px; line-height: 1; letter-spacing: 0;">&#x1f3b2;</button>
                     </div>
                 </div>
 
@@ -1734,8 +1772,12 @@
             `;
 
             // Attach event listeners
+            function autoEnable() {
+                document.getElementById('building-visible').checked = true;
+            }
             let saveTimeout = null;
             function debouncedSave() {
+                autoEnable();
                 clearTimeout(saveTimeout);
                 saveTimeout = setTimeout(saveBuilding, 400);
             }
@@ -1746,6 +1788,7 @@
             document.getElementById('building-beschreibung').addEventListener('input', debouncedSave);
 
             document.getElementById('building-color').addEventListener('input', (e) => {
+                autoEnable();
                 const color = e.target.value;
                 document.getElementById('building-color-hex').value = color;
                 document.getElementById('color-preview').style.backgroundColor = color;
@@ -1753,12 +1796,32 @@
             });
 
             document.getElementById('building-color-hex').addEventListener('input', (e) => {
+                autoEnable();
                 const color = e.target.value;
                 if (/^#[0-9A-F]{6}$/i.test(color)) {
                     document.getElementById('building-color').value = color;
                     document.getElementById('color-preview').style.backgroundColor = color;
                     saveBuilding();
                 }
+            });
+
+            document.getElementById('building-visible').addEventListener('change', saveBuilding);
+
+            document.getElementById('random-color-btn').addEventListener('click', () => {
+                autoEnable();
+                const hue = Math.floor(Math.random() * 360);
+                const sat = 60 + Math.floor(Math.random() * 30);
+                const lum = 45 + Math.floor(Math.random() * 20);
+                // HSL to hex
+                const s = sat / 100, l = lum / 100;
+                const a = s * Math.min(l, 1 - l);
+                const f = n => { const k = (n + hue / 30) % 12; return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); };
+                const toHex = x => Math.round(x * 255).toString(16).padStart(2, '0');
+                const color = '#' + toHex(f(0)) + toHex(f(8)) + toHex(f(4));
+                document.getElementById('building-color').value = color;
+                document.getElementById('building-color-hex').value = color;
+                document.getElementById('color-preview').style.backgroundColor = color;
+                saveBuilding();
             });
 
             document.getElementById('duplicate-btn').addEventListener('click', duplicateBuilding);
@@ -1772,6 +1835,7 @@
             const gruppe = document.getElementById('building-gruppe').value.trim();
             const beschreibung = document.getElementById('building-beschreibung').value.trim();
             const highlightColor = document.getElementById('building-color').value;
+            const disabled = !document.getElementById('building-visible').checked;
 
             // Update the building in the data
             const buildingIndex = buildingsData.buildings.findIndex(b => b.id === currentBuilding.id);
@@ -1782,6 +1846,7 @@
                 buildingsData.buildings[buildingIndex].gruppe = gruppe;
                 buildingsData.buildings[buildingIndex].beschreibung = beschreibung;
                 buildingsData.buildings[buildingIndex].highlightColor = highlightColor;
+                buildingsData.buildings[buildingIndex].disabled = disabled;
 
                 currentBuilding = buildingsData.buildings[buildingIndex];
                 hasChanges = true;
@@ -2134,9 +2199,10 @@
                 });
             });
 
-            // Build group hierarchy
+            // Build group hierarchy (only enabled buildings)
+            const enabledBuildings = buildingsData.buildings.filter(b => !b.disabled);
             const groupHierarchy = {};
-            buildingsData.buildings.forEach(b => {
+            enabledBuildings.forEach(b => {
                 const g = b.gruppe || 'Sonstige';
                 const parts = g.split(' > ').map(p => p.trim());
                 let cl = groupHierarchy;
@@ -2189,7 +2255,7 @@
             svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
             svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
-            buildingsData.buildings.forEach(b => {
+            enabledBuildings.forEach(b => {
                 const p = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
                 p.setAttribute('points', b.polygon.map(([x, y]) => (x * width) + ',' + (y * height)).join(' '));
                 p.setAttribute('class', 'vo-building-polygon');
