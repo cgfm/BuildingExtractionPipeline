@@ -16,11 +16,13 @@ Interaktives Tool zum Herunterladen von OSM-Gebäuden, Rendern einer 2.5D-Ansich
 
 **Auf Karte zeichnen** — Mit dem Polygon-Werkzeug (Leaflet Draw) ein Gebiet auf der Karte markieren. Das Polygon kann nachträglich bearbeitet oder als GeoJSON heruntergeladen werden.
 
-**Datei hochladen** — Eine bestehende `.geojson`- oder `.json`-Datei per Drag & Drop oder Klick hochladen. Es wird das erste Polygon-Feature verwendet.
+**Datei hochladen** — Eine bestehende `.geojson`- oder `.json`-Datei per Drag & Drop oder Klick hochladen. Auch Standalone-Exporte (`.html`) und Gebäude-Metadaten (`.json`) können reimportiert werden.
+
+**Projekte** — Alle Renderings werden automatisch gespeichert. Über den Tab „Projekte" können gespeicherte Projekte geladen oder gelöscht werden. Projekte bleiben über Seitenaktualisierungen hinweg erhalten.
 
 ### Schritt 2: Parameter
 
-Alle Parameter werden automatisch im `localStorage` gespeichert und beim nächsten Besuch wiederhergestellt.
+Alle Parameter werden automatisch in IndexedDB gespeichert und beim nächsten Besuch wiederhergestellt.
 
 | Parameter | Beschreibung | Bereich | Standard |
 |---|---|---|---|
@@ -109,8 +111,8 @@ Beim "Nur Rendering neu starten" werden Metadaten bestehender Gebäude per Centr
 
 - Funktioniert komplett clientseitig, auch via `file://`-Protokoll
 - Alle Abhängigkeiten (Leaflet, Leaflet Draw) werden von CDN geladen
-- Parameter und GeoJSON werden im `localStorage` persistiert
-- Gebäude-Daten werden zwischen Pipeline und Editor via `sessionStorage` übergeben
+- Daten werden in IndexedDB (`BuildingPipelineDB`) persistiert (Parameter, GeoJSON, Ergebnisse, Projekte)
+- Gebäude-Daten werden zwischen Pipeline und Editor via IndexedDB und `sessionStorage` übergeben
 - Kartenhintergrund: OpenStreetMap-Tiles
 - Gebäude-Daten: Overpass API (mit automatischem Retry bei Rate-Limiting)
 - Tooltips: Einheitliches JS-basiertes Tooltip-System (`#tooltip`) für Info-Icons (`.info-tip`) und Button-Tooltips (`data-tooltip`), das sich automatisch innerhalb des Viewports positioniert
