@@ -1308,26 +1308,33 @@
 
             // Add polygons
             buildingsData.buildings.forEach(building => {
-                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                const polys = building.polygons || [building.polygon];
+                polys.forEach(poly => {
+                    const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
 
-                // Convert normalized coordinates to pixel coordinates (to match viewBox)
-                const points = building.polygon.map(([x, y]) =>
-                    `${x * width},${y * height}`
-                ).join(' ');
+                    // Convert normalized coordinates to pixel coordinates (to match viewBox)
+                    const points = poly.map(([x, y]) =>
+                        `${x * width},${y * height}`
+                    ).join(' ');
 
-                polygon.setAttribute('points', points);
-                polygon.setAttribute('class', 'building-polygon');
-                polygon.setAttribute('data-building-id', building.id);
+                    polygon.setAttribute('points', points);
+                    polygon.setAttribute('class', 'building-polygon');
+                    polygon.setAttribute('data-building-id', building.id);
 
-                // Event listeners
-                polygon.addEventListener('mouseenter', () => highlightPolygon(building.id));
-                polygon.addEventListener('mouseleave', () => unhighlightPolygon(building.id));
-                polygon.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    selectBuilding(building);
+                    // Event listeners
+                    polygon.addEventListener('mouseenter', () => highlightPolygon(building.id));
+                    polygon.addEventListener('mouseleave', () => unhighlightPolygon(building.id));
+                    polygon.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if (mergeMode) {
+                            handleMergeClick(building);
+                        } else {
+                            selectBuilding(building);
+                        }
+                    });
+
+                    svg.appendChild(polygon);
                 });
-
-                svg.appendChild(polygon);
             });
 
             container.appendChild(svg);
@@ -1355,25 +1362,27 @@
             const building = buildingsData.buildings.find(b => b.id === buildingId);
             const highlightColor = building?.highlightColor || '#FFC107';
 
-            const polygon = document.querySelector(`.svg-overlay .building-polygon[data-building-id="${buildingId}"]`);
-            if (polygon && !polygon.classList.contains('selected')) {
-                const rgb = hexToRgb(highlightColor);
-                polygon.style.fill = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.25)`;
-                polygon.style.stroke = highlightColor;
-                polygon.style.strokeWidth = '2';
-            }
+            document.querySelectorAll(`.svg-overlay .building-polygon[data-building-id="${buildingId}"]`).forEach(polygon => {
+                if (!polygon.classList.contains('selected')) {
+                    const rgb = hexToRgb(highlightColor);
+                    polygon.style.fill = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.25)`;
+                    polygon.style.stroke = highlightColor;
+                    polygon.style.strokeWidth = '2';
+                }
+            });
         }
 
         // Unhighlight polygon
         function unhighlightPolygon(buildingId) {
             // Don't remove highlight from selected building
             if (currentBuilding && currentBuilding.id === buildingId) return;
-            const polygon = document.querySelector(`.svg-overlay .building-polygon[data-building-id="${buildingId}"]`);
-            if (polygon && !polygon.classList.contains('selected')) {
-                polygon.style.fill = 'rgba(255, 193, 7, 0)';
-                polygon.style.stroke = 'rgba(255, 193, 7, 0)';
-                polygon.style.strokeWidth = '2';
-            }
+            document.querySelectorAll(`.svg-overlay .building-polygon[data-building-id="${buildingId}"]`).forEach(polygon => {
+                if (!polygon.classList.contains('selected')) {
+                    polygon.style.fill = 'rgba(255, 193, 7, 0)';
+                    polygon.style.stroke = 'rgba(255, 193, 7, 0)';
+                    polygon.style.strokeWidth = '2';
+                }
+            });
         }
 
         // Helper function to convert hex color to RGB
@@ -1460,6 +1469,10 @@
                 `;
                 item.addEventListener('click', (e) => {
                     if (e.target.classList.contains('drag-handle')) return;
+                    if (mergeMode) {
+                        handleMergeClick(building);
+                        return;
+                    }
                     selectBuilding(building);
                 });
                 item.addEventListener('mouseenter', () => highlightPolygon(building.id));
@@ -1609,33 +1622,35 @@
             if (existingDim) existingDim.remove();
             if (existingMask) existingMask.remove();
 
-            const mapPolygon = document.querySelector(`.svg-overlay .building-polygon[data-building-id="${building.id}"]`);
-            if (mapPolygon) {
-                // Apply highlight color to the selected polygon
+            const mapPolygons = document.querySelectorAll(`.svg-overlay .building-polygon[data-building-id="${building.id}"]`);
+            if (mapPolygons.length > 0) {
+                // Apply highlight color to the selected polygons
                 const highlightColor = building.highlightColor || '#FFC107';
                 const rgb = hexToRgb(highlightColor);
-                mapPolygon.classList.add('selected');
-                mapPolygon.style.fill = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.35)`;
-                mapPolygon.style.stroke = highlightColor;
-                mapPolygon.style.strokeWidth = '3';
+                mapPolygons.forEach(mp => {
+                    mp.classList.add('selected');
+                    mp.style.fill = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.35)`;
+                    mp.style.stroke = highlightColor;
+                    mp.style.strokeWidth = '3';
+                });
             }
 
             // Add selection circle and dim overlay around the building
-            if (mapPolygon) {
-                const svg = mapPolygon.closest('svg');
+            if (mapPolygons.length > 0) {
+                const svg = mapPolygons[0].closest('svg');
                 const viewBox = svg.getAttribute('viewBox').split(' ');
                 const svgWidth = parseFloat(viewBox[2]);
                 const svgHeight = parseFloat(viewBox[3]);
 
-                // Calculate polygon center (bounding box center)
-                const points = building.polygon;
+                // Calculate bounding box center across all polygons
+                const polys = building.polygons || [building.polygon];
                 let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-                points.forEach(([x, y]) => {
+                polys.forEach(poly => poly.forEach(([x, y]) => {
                     minX = Math.min(minX, x);
                     maxX = Math.max(maxX, x);
                     minY = Math.min(minY, y);
                     maxY = Math.max(maxY, y);
-                });
+                }));
 
                 const centerX = (minX + maxX) / 2;
                 const centerY = (minY + maxY) / 2;
@@ -1702,7 +1717,7 @@
                     </div>
                     <div class="stats-row">
                         <span class="stats-label">Polygon-Punkte:</span>
-                        <span class="stats-value">${currentBuilding.polygon.length}</span>
+                        <span class="stats-value">${(currentBuilding.polygons || [currentBuilding.polygon]).reduce((s, p) => s + p.length, 0)}${currentBuilding.polygons && currentBuilding.polygons.length > 1 ? ' (' + currentBuilding.polygons.length + ' Polygone)' : ''}</span>
                     </div>
                 </div>
 
@@ -1764,6 +1779,10 @@
                         Gebäude duplizieren
                     </button>
                     <span class="info-tip" tabindex="0" style="margin-bottom: 10px;"><span class="info-tip-text">Erstellt eine Kopie dieses Gebäudes mit gleichem Polygon. Nützlich um ein Gebäude in mehrere Bereiche aufzuteilen.</span></span>
+                    <button class="btn btn-primary" id="merge-btn" style="width: 100%; margin-bottom: 10px;">
+                        Zusammenführen
+                    </button>
+                    <span class="info-tip" tabindex="0" style="margin-bottom: 10px;"><span class="info-tip-text">Führt ein anderes Gebäude in dieses zusammen (Multi-Polygon). Klicke danach auf das Gebäude, das hinzugefügt werden soll.</span></span>
                     <button class="btn btn-danger" id="delete-btn" style="width: 100%;">
                         Gebäude löschen
                     </button>
@@ -1825,6 +1844,7 @@
             });
 
             document.getElementById('duplicate-btn').addEventListener('click', duplicateBuilding);
+            document.getElementById('merge-btn').addEventListener('click', startMergeMode);
             document.getElementById('delete-btn').addEventListener('click', deleteBuilding);
         }
 
@@ -1866,6 +1886,76 @@
             }
         }
 
+        // ---------- Merge mode ----------
+        let mergeMode = false;
+        let mergeTarget = null;
+
+        function startMergeMode() {
+            if (!currentBuilding) return;
+            if (mergeMode) { cancelMergeMode(); return; }
+            mergeMode = true;
+            mergeTarget = currentBuilding;
+            document.body.style.cursor = 'crosshair';
+            const btn = document.getElementById('merge-btn');
+            if (btn) {
+                btn.textContent = 'Abbrechen';
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-danger');
+            }
+            // Show hint
+            const hint = document.createElement('div');
+            hint.id = 'merge-hint';
+            hint.className = 'info-message';
+            hint.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:500;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.2);';
+            hint.innerHTML = '<strong>Zusammenführen:</strong> Klicke auf das Gebäude, das zu „' + mergeTarget.name + '" hinzugefügt werden soll. <em>ESC</em> zum Abbrechen.';
+            document.body.appendChild(hint);
+        }
+
+        function cancelMergeMode() {
+            mergeMode = false;
+            mergeTarget = null;
+            document.body.style.cursor = '';
+            const hint = document.getElementById('merge-hint');
+            if (hint) hint.remove();
+            const btn = document.getElementById('merge-btn');
+            if (btn) {
+                btn.textContent = 'Zusammenführen';
+                btn.classList.remove('btn-danger');
+                btn.classList.add('btn-primary');
+            }
+        }
+
+        function handleMergeClick(source) {
+            if (!mergeTarget || source.id === mergeTarget.id) return;
+            mergeBuildings(mergeTarget, source);
+            cancelMergeMode();
+        }
+
+        function mergeBuildings(target, source) {
+            UndoManager.pushState();
+
+            // Combine polygons
+            const targetPolys = target.polygons || [target.polygon];
+            const sourcePolys = source.polygons || [source.polygon];
+            target.polygons = targetPolys.concat(sourcePolys);
+            // Keep target.polygon as first polygon for fallback compatibility
+            target.polygon = target.polygons[0];
+
+            // Remove source building
+            const sourceIndex = buildingsData.buildings.findIndex(b => b.id === source.id);
+            if (sourceIndex !== -1) {
+                buildingsData.buildings.splice(sourceIndex, 1);
+            }
+
+            hasChanges = true;
+            persistToIDB();
+            renderMap();
+            setTimeout(() => {
+                renderSidebar();
+                selectBuilding(target);
+            }, 100);
+        }
+
         // Duplicate building
         function duplicateBuilding() {
             if (!currentBuilding) return;
@@ -1894,7 +1984,8 @@
                 gruppe: currentBuilding.gruppe,
                 beschreibung: currentBuilding.beschreibung,
                 highlightColor: currentBuilding.highlightColor,
-                polygon: JSON.parse(JSON.stringify(currentBuilding.polygon)) // Deep copy
+                polygon: JSON.parse(JSON.stringify(currentBuilding.polygon)), // Deep copy
+                ...(currentBuilding.polygons ? { polygons: JSON.parse(JSON.stringify(currentBuilding.polygons)) } : {})
             };
 
             // Insert the duplicate right after the original
@@ -2070,8 +2161,9 @@
             const building = buildingsData.buildings.find(b => b.id === buildingId);
             const hc = building?.highlightColor || '#FFC107';
             const rgb = voHexToRgb(hc);
-            const polygon = document.querySelector('.vo-building-polygon[data-building-id="' + buildingId + '"]');
-            if (polygon) { polygon.style.fill = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.35)'; polygon.style.stroke = hc; polygon.style.strokeWidth = '3'; }
+            document.querySelectorAll('.vo-building-polygon[data-building-id="' + buildingId + '"]').forEach(polygon => {
+                polygon.style.fill = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.35)'; polygon.style.stroke = hc; polygon.style.strokeWidth = '3';
+            });
             const item = document.querySelector('.vo-building-item[data-building-id="' + buildingId + '"]');
             if (item) { item.classList.add('highlighted'); item.style.borderLeftColor = hc; }
         }
@@ -2079,8 +2171,9 @@
         function voUnhighlight(buildingId) {
             voCurrentHighlighted.delete(buildingId);
             if (buildingId === voSelectedBuildingId) return;
-            const polygon = document.querySelector('.vo-building-polygon[data-building-id="' + buildingId + '"]');
-            if (polygon) { polygon.style.fill = 'rgba(255,255,0,0)'; polygon.style.stroke = 'rgba(255,255,0,0)'; polygon.style.strokeWidth = '2'; }
+            document.querySelectorAll('.vo-building-polygon[data-building-id="' + buildingId + '"]').forEach(polygon => {
+                polygon.style.fill = 'rgba(255,255,0,0)'; polygon.style.stroke = 'rgba(255,255,0,0)'; polygon.style.strokeWidth = '2';
+            });
             const item = document.querySelector('.vo-building-item[data-building-id="' + buildingId + '"]');
             if (item) { item.classList.remove('highlighted'); item.style.borderLeftColor = ''; }
         }
@@ -2100,9 +2193,9 @@
             const polygon = document.querySelector('.vo-building-polygon[data-building-id="' + building.id + '"]');
             if (!polygon) return;
 
-            const points = building.polygon;
+            const polys = building.polygons || [building.polygon];
             let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-            points.forEach(([x, y]) => { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); });
+            polys.forEach(poly => poly.forEach(([x, y]) => { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); }));
             const centerX = (minX + maxX) / 2, centerY = (minY + maxY) / 2;
             const bW = maxX - minX, bH = maxY - minY;
             const radius = Math.max(Math.max(bW, bH) / 2 * 1.8, 0.04);
@@ -2256,14 +2349,17 @@
             svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
             enabledBuildings.forEach(b => {
-                const p = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-                p.setAttribute('points', b.polygon.map(([x, y]) => (x * width) + ',' + (y * height)).join(' '));
-                p.setAttribute('class', 'vo-building-polygon');
-                p.setAttribute('data-building-id', b.id);
-                p.addEventListener('mouseenter', () => voHighlight(b.id));
-                p.addEventListener('mouseleave', () => voUnhighlight(b.id));
-                p.addEventListener('click', () => voShowPopup(b));
-                svg.appendChild(p);
+                const polys = b.polygons || [b.polygon];
+                polys.forEach(poly => {
+                    const p = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                    p.setAttribute('points', poly.map(([x, y]) => (x * width) + ',' + (y * height)).join(' '));
+                    p.setAttribute('class', 'vo-building-polygon');
+                    p.setAttribute('data-building-id', b.id);
+                    p.addEventListener('mouseenter', () => voHighlight(b.id));
+                    p.addEventListener('mouseleave', () => voUnhighlight(b.id));
+                    p.addEventListener('click', () => voShowPopup(b));
+                    svg.appendChild(p);
+                });
             });
 
             const mo = document.createElement('div');
@@ -2288,8 +2384,13 @@
             document.getElementById('viewerOverlay').classList.remove('active');
         }
 
-        // Escape closes viewer overlay popup, or closes overlay itself
+        // Escape cancels merge mode, closes viewer overlay popup, or closes overlay itself
         document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && mergeMode) {
+                cancelMergeMode();
+                e.stopPropagation();
+                return;
+            }
             if (e.key === 'Escape' && document.getElementById('viewerOverlay').classList.contains('active')) {
                 if (voSelectedBuildingId) { voHidePopup(); }
                 else { hideViewerOverlay(); }
