@@ -2337,6 +2337,7 @@ function handleMetadataImport(metadata, file) {
             bTarget.gruppe = src.gruppe;
             bTarget.beschreibung = src.beschreibung;
             bTarget.highlightColor = src.highlightColor;
+            if ('disabled' in src) bTarget.disabled = src.disabled;
             merged++;
         }
     }
