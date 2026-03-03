@@ -821,6 +821,97 @@
             line-height: 1.5;
         }
 
+        /* ---- Project list ---- */
+        .tab-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            border-radius: 2px;
+            background: #4b5320;
+            color: #fff;
+            font-size: 0.7rem;
+            font-weight: 700;
+            margin-left: 4px;
+            vertical-align: middle;
+        }
+        .projects-empty {
+            text-align: center;
+            padding: 32px 16px;
+            color: #888;
+            font-size: 0.88rem;
+        }
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 14px;
+        }
+        .project-item {
+            border: 1px solid #c0bda8;
+            border-radius: 2px;
+            background: #f5f4ee;
+            cursor: pointer;
+            transition: border-color 0.15s, box-shadow 0.15s;
+            overflow: hidden;
+            position: relative;
+        }
+        .project-item:hover {
+            border-color: #4b5320;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .project-item.active {
+            border-color: #4b5320;
+            border-width: 2px;
+            box-shadow: 0 0 0 2px rgba(75,83,32,0.2);
+        }
+        .project-thumb {
+            width: 100%;
+            aspect-ratio: 4 / 3;
+            object-fit: cover;
+            display: block;
+            background: #e8e6df;
+        }
+        .project-meta {
+            padding: 10px 12px;
+        }
+        .project-name {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #2d331a;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 4px;
+        }
+        .project-info {
+            font-size: 0.75rem;
+            color: #666;
+            line-height: 1.4;
+        }
+        .project-delete {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 26px;
+            height: 26px;
+            border: none;
+            border-radius: 2px;
+            background: rgba(0,0,0,0.5);
+            color: #fff;
+            font-size: 1rem;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.15s, background 0.15s;
+        }
+        .project-item:hover .project-delete { opacity: 1; }
+        .project-delete:hover { background: rgba(180,40,40,0.85); }
+
         /* ---- Responsive ---- */
         @media (max-width: 768px) {
             body { padding: 16px 10px 48px; }
@@ -855,6 +946,7 @@
         <div class="tab-bar">
             <button class="tab-btn active" data-tab="tabDraw">Auf Karte zeichnen</button>
             <button class="tab-btn" data-tab="tabUpload">Datei hochladen</button>
+            <button class="tab-btn" data-tab="tabProjects" id="tabBtnProjects" style="display:none">Projekte <span class="tab-badge" id="projectsBadge"></span></button>
         </div>
         <!-- Tab: Draw on map -->
         <div class="tab-panel active" id="tabDraw">
@@ -874,6 +966,11 @@
                 <div class="file-info hidden" id="fileInfo"></div>
                 <input type="file" id="fileInput" accept=".geojson,.json,.html,application/geo+json,application/json,text/html">
             </div>
+        </div>
+        <!-- Tab: Saved projects -->
+        <div class="tab-panel" id="tabProjects">
+            <div class="projects-grid" id="projectsGrid"></div>
+            <div class="projects-empty" id="projectsEmpty" style="display:none">Noch keine gespeicherten Projekte. Nach dem ersten Rendering erscheint das Projekt hier automatisch.</div>
         </div>
     </div>
 
@@ -1123,8 +1220,8 @@
 // ==========================================================================
 const PipelineDB = (() => {
     const DB_NAME = 'BuildingPipelineDB';
-    const DB_VERSION = 1;
-    const STORES = ['meta', 'geojson', 'buildings_cache', 'result', 'images', 'editor'];
+    const DB_VERSION = 2;
+    const STORES = ['meta', 'geojson', 'buildings_cache', 'result', 'images', 'editor', 'projects'];
     let _db = null;
 
     function open() {
@@ -1168,14 +1265,23 @@ const PipelineDB = (() => {
 
     function clearAll() {
         return new Promise((resolve, reject) => {
-            const tx = _db.transaction(STORES, 'readwrite');
-            STORES.forEach(name => tx.objectStore(name).clear());
+            const clearStores = STORES.filter(s => s !== 'projects');
+            const tx = _db.transaction(clearStores, 'readwrite');
+            clearStores.forEach(name => tx.objectStore(name).clear());
             tx.oncomplete = () => resolve();
             tx.onerror = (e) => reject(e.target.error);
         });
     }
 
-    return { open, get, put, remove, clearAll };
+    function getAll(store) {
+        return new Promise((resolve, reject) => {
+            const req = _tx(store, 'readonly').getAll();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = (e) => reject(e.target.error);
+        });
+    }
+
+    return { open, get, put, remove, clearAll, getAll };
 })();
 
 function dataUrlToBlob(dataUrl) {
@@ -2288,6 +2394,184 @@ function handleHtmlImport(text, file) {
     img.src = buildingsData.image.dataUrl;
 }
 
+// ==========================================================================
+// Project list
+// ==========================================================================
+const projectsGrid = document.getElementById('projectsGrid');
+const projectsEmpty = document.getElementById('projectsEmpty');
+const tabBtnProjects = document.getElementById('tabBtnProjects');
+const projectsBadge = document.getElementById('projectsBadge');
+let activeProjectId = null;
+
+function createThumbnail(canvas, maxWidth = 200) {
+    return new Promise(resolve => {
+        const scale = maxWidth / canvas.width;
+        const tc = document.createElement('canvas');
+        tc.width = maxWidth;
+        tc.height = Math.round(canvas.height * scale);
+        tc.getContext('2d').drawImage(canvas, 0, 0, tc.width, tc.height);
+        tc.toBlob(blob => resolve(blob), 'image/png');
+    });
+}
+
+async function saveProject(result) {
+    try {
+        const sourceCanvas = pipeline.canvas || result.canvas;
+        if (!sourceCanvas) return;
+        const thumbnail = await createThumbnail(sourceCanvas);
+        const imageBlob = await canvasToBlob(sourceCanvas);
+        const buildingJson = JSON.parse(JSON.stringify(result.buildingJson));
+        if (buildingJson.image) delete buildingJson.image.dataUrl;
+        const geojsonName = (await PipelineDB.get('meta', 'geojson_name')) || 'Unbenannt';
+        const geojson = await PipelineDB.get('geojson', 'input');
+        const buildingsCache = pipeline.buildingsGeojson || await PipelineDB.get('buildings_cache', 'osm');
+        const params = getParams();
+        const project = {
+            id: Date.now(),
+            name: geojsonName,
+            timestamp: Date.now(),
+            buildingCount: result.buildingCount,
+            imageWidth: result.imageWidth,
+            imageHeight: result.imageHeight,
+            avgPoints: result.avgPoints,
+            thumbnail,
+            imageBlob,
+            buildingJson,
+            geojson: geojson || null,
+            params,
+            buildingsCache: buildingsCache || null
+        };
+        await PipelineDB.put('projects', project.id, project);
+        activeProjectId = project.id;
+        await renderProjectList();
+    } catch(e) { console.warn('[projects] Projekt konnte nicht gespeichert werden:', e); }
+}
+
+async function renderProjectList() {
+    try {
+        const projects = await PipelineDB.getAll('projects');
+        projects.sort((a, b) => b.timestamp - a.timestamp);
+        projectsGrid.innerHTML = '';
+        if (projects.length === 0) {
+            tabBtnProjects.style.display = 'none';
+            projectsEmpty.style.display = 'block';
+            return;
+        }
+        tabBtnProjects.style.display = '';
+        projectsBadge.textContent = projects.length;
+        projectsEmpty.style.display = 'none';
+        for (const p of projects) {
+            const item = document.createElement('div');
+            item.className = 'project-item' + (p.id === activeProjectId ? ' active' : '');
+            const thumbUrl = p.thumbnail ? URL.createObjectURL(p.thumbnail) : '';
+            const date = new Date(p.timestamp);
+            const dateStr = date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ', ' + date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            item.innerHTML =
+                (thumbUrl ? '<img class="project-thumb" src="' + thumbUrl + '" alt="">' : '<div class="project-thumb"></div>') +
+                '<div class="project-meta">' +
+                    '<div class="project-name" title="' + (p.name || 'Unbenannt').replace(/"/g, '&quot;') + '">' + (p.name || 'Unbenannt') + '</div>' +
+                    '<div class="project-info">' + p.buildingCount + ' Gebäude &middot; ' + dateStr + '</div>' +
+                '</div>' +
+                '<button class="project-delete" title="Projekt löschen">&times;</button>';
+            item.querySelector('.project-delete').addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (confirm('Projekt „' + (p.name || 'Unbenannt') + '" löschen?')) deleteProject(p.id);
+            });
+            item.addEventListener('click', () => loadProject(p));
+            projectsGrid.appendChild(item);
+        }
+    } catch(e) { console.warn('[projects] Projektliste konnte nicht geladen werden:', e); }
+}
+
+async function deleteProject(id) {
+    try {
+        await PipelineDB.remove('projects', id);
+        if (activeProjectId === id) activeProjectId = null;
+        await renderProjectList();
+    } catch(e) { console.warn('[projects] Projekt konnte nicht gelöscht werden:', e); }
+}
+
+async function loadProject(project) {
+    try {
+        activeProjectId = project.id;
+        // Re-fetch full project from IndexedDB (closure may hold stale structured-clone)
+        const fullProject = await PipelineDB.get('projects', project.id) || project;
+        // Restore image blob
+        if (fullProject.imageBlob) {
+            await PipelineDB.put('images', 'rendered_map', fullProject.imageBlob);
+        }
+        // Reconstruct buildingJson with dataUrl from Blob
+        const bJson = JSON.parse(JSON.stringify(fullProject.buildingJson));
+        if (fullProject.imageBlob) {
+            const dataUrl = await blobToDataUrl(fullProject.imageBlob);
+            bJson.image = bJson.image || {};
+            bJson.image.dataUrl = dataUrl;
+            bJson.image.width = bJson.image.width || fullProject.imageWidth;
+            bJson.image.height = bJson.image.height || fullProject.imageHeight;
+        }
+        // Restore result cache
+        const cachedBJson = JSON.parse(JSON.stringify(fullProject.buildingJson));
+        await PipelineDB.put('result', 'latest', {
+            buildingCount: fullProject.buildingCount,
+            imageWidth: fullProject.imageWidth,
+            imageHeight: fullProject.imageHeight,
+            avgPoints: fullProject.avgPoints,
+            buildingJson: cachedBJson
+        });
+        // Restore editor data
+        await PipelineDB.put('editor', 'buildingsData', cachedBJson);
+        try { sessionStorage.setItem('editor_freshData', 'true'); } catch(e2) {}
+        // Restore GeoJSON
+        if (fullProject.geojson) {
+            geojsonData = fullProject.geojson;
+            await PipelineDB.put('geojson', 'input', fullProject.geojson);
+            await PipelineDB.put('meta', 'geojson_name', fullProject.name);
+            showGeojsonOnMap(fullProject.geojson);
+            fileInfo.textContent = fullProject.name;
+            fileInfo.classList.remove('hidden');
+            btnRun.disabled = false;
+        }
+        // Restore params
+        if (fullProject.params) {
+            applyParams(fullProject.params);
+            await PipelineDB.put('meta', 'params', fullProject.params);
+        }
+        // Restore buildings cache for rerendering
+        if (fullProject.buildingsCache) {
+            pipeline.buildingsGeojson = fullProject.buildingsCache;
+            await PipelineDB.put('buildings_cache', 'osm', fullProject.buildingsCache);
+        }
+        // Restore pipeline state (canvas for export)
+        pipeline.buildingJson = bJson;
+        if (bJson.image && bJson.image.dataUrl) {
+            await new Promise((resolve) => {
+                const img = new Image();
+                img.onload = function() {
+                    const c = document.createElement('canvas');
+                    c.width = img.width; c.height = img.height;
+                    c.getContext('2d').drawImage(img, 0, 0);
+                    pipeline.canvas = c;
+                    resolve();
+                };
+                img.onerror = resolve;
+                img.src = bJson.image.dataUrl;
+            });
+        }
+        // Update UI
+        statBuildings.textContent = fullProject.buildingCount;
+        statResolution.textContent = fullProject.imageWidth + 'x' + fullProject.imageHeight;
+        statAvgPoints.textContent = fullProject.avgPoints;
+        pipelineResult = { buildingCount: fullProject.buildingCount, imageWidth: fullProject.imageWidth, imageHeight: fullProject.imageHeight, avgPoints: fullProject.avgPoints, buildingJson: bJson };
+        resultCard.classList.add('visible');
+        renderViewerPreview(bJson);
+        btnRerender.classList.remove('hidden');
+        btnRerender2.classList.remove('hidden');
+        document.getElementById('rerenderTip').classList.remove('hidden');
+        // Update active state in list
+        await renderProjectList();
+    } catch(e) { console.warn('[projects] Projekt konnte nicht geladen werden:', e); }
+}
+
 // ---- Pipeline callbacks ----
 function onProgress(step) {
     progressSteps.classList.remove('hidden');
@@ -2336,6 +2620,8 @@ function onComplete(result) {
             await PipelineDB.put('editor', 'buildingsData', editorCopy);
             // Signal editor to reset undo history
             try { sessionStorage.setItem('editor_freshData', 'true'); } catch(e2) {}
+            // Auto-save project
+            await saveProject(result);
         } catch(e) { console.warn('[pipeline] Ergebnis-Cache konnte nicht gespeichert werden:', e); }
     })();
 }
@@ -2351,6 +2637,7 @@ function onError(message) { onLog('[ERROR] ' + message); btnRun.disabled = false
     pipeline = new Pipeline({ onProgress, onLog, onComplete, onError });
     await loadBuildingsCache();
     await loadResultCache();
+    await renderProjectList();
     await restoreMapState();
 })();
 

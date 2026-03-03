@@ -1016,10 +1016,12 @@
         }
         function hideTip() { tip.className = ''; }
         document.addEventListener('mouseenter', function(e) {
+            if (!e.target.closest) return;
             var el = e.target.closest('[data-tooltip], .info-tip');
             if (el) showTip(el);
         }, true);
         document.addEventListener('mouseleave', function(e) {
+            if (!e.target.closest) return;
             var el = e.target.closest('[data-tooltip], .info-tip');
             if (el) hideTip();
         }, true);
@@ -1032,8 +1034,8 @@
         // ==========================================================================
         const PipelineDB = (() => {
             const DB_NAME = 'BuildingPipelineDB';
-            const DB_VERSION = 1;
-            const STORES = ['meta', 'geojson', 'buildings_cache', 'result', 'images', 'editor'];
+            const DB_VERSION = 2;
+            const STORES = ['meta', 'geojson', 'buildings_cache', 'result', 'images', 'editor', 'projects'];
             let _db = null;
 
             function open() {
