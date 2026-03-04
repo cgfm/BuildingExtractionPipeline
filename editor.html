@@ -1867,29 +1867,65 @@
             const buildingIndex = buildingsData.buildings.findIndex(b => b.id === currentBuilding.id);
             if (buildingIndex !== -1) {
                 UndoManager.pushStateDebounced();
-                buildingsData.buildings[buildingIndex].nummer = nummer;
-                buildingsData.buildings[buildingIndex].name = name;
-                buildingsData.buildings[buildingIndex].gruppe = gruppe;
-                buildingsData.buildings[buildingIndex].beschreibung = beschreibung;
-                buildingsData.buildings[buildingIndex].highlightColor = highlightColor;
-                buildingsData.buildings[buildingIndex].disabled = disabled;
+                const b = buildingsData.buildings[buildingIndex];
+                const oldGruppe = b.gruppe;
+                const oldDisabled = b.disabled;
+                const oldColor = b.highlightColor;
 
-                currentBuilding = buildingsData.buildings[buildingIndex];
+                b.nummer = nummer;
+                b.name = name;
+                b.gruppe = gruppe;
+                b.beschreibung = beschreibung;
+                b.highlightColor = highlightColor;
+                b.disabled = disabled;
+
+                currentBuilding = b;
                 hasChanges = true;
                 persistToIDB();
 
-                // Re-render map and sidebar to reflect changes
-                renderMap();
-                setTimeout(() => {
-                    renderSidebar();
+                // Determine what changed and use minimal update path
+                const gruppeChanged = oldGruppe !== gruppe;
+                const disabledChanged = oldDisabled !== disabled;
+                const colorChanged = oldColor !== highlightColor;
 
-                    // Re-select the current building
+                if (gruppeChanged || disabledChanged) {
+                    // Structural change: need full sidebar rebuild (but not map)
+                    renderSidebar();
                     const item = document.querySelector(`.building-item[data-building-id="${currentBuilding.id}"]`);
-                    if (item) {
-                        item.classList.add('selected');
+                    if (item) item.classList.add('selected');
+                } else {
+                    // Lightweight in-place update for text and color
+                    updateSidebarItemInPlace(b);
+                    if (colorChanged) {
+                        updateMapPolygonStyle(b);
                     }
-                }, 100);
+                }
             }
+        }
+
+        // Update a single sidebar item's text and color without rebuilding the DOM
+        function updateSidebarItemInPlace(building) {
+            const item = document.querySelector(`.building-item[data-building-id="${building.id}"]`);
+            if (!item) return;
+            const nameEl = item.querySelector('.building-name');
+            if (nameEl) nameEl.textContent = building.name;
+            const idEl = item.querySelector('.building-id');
+            if (idEl) idEl.textContent = building.nummer || '';
+            const colorEl = item.querySelector('.color-indicator');
+            if (colorEl) colorEl.style.backgroundColor = building.highlightColor || '#FFC107';
+            item.setAttribute('data-search-text', [building.name, building.nummer, building.gruppe].filter(Boolean).join(' ').toLowerCase());
+        }
+
+        // Update SVG polygon stroke/fill for a building's highlight color
+        function updateMapPolygonStyle(building) {
+            const highlightColor = building.highlightColor || '#FFC107';
+            const rgb = hexToRgb(highlightColor);
+            document.querySelectorAll(`.svg-overlay .building-polygon[data-building-id="${building.id}"]`).forEach(polygon => {
+                if (polygon.classList.contains('selected')) {
+                    polygon.style.fill = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.35)`;
+                    polygon.style.stroke = highlightColor;
+                }
+            });
         }
 
         // ---------- Merge mode ----------

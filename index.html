@@ -1843,8 +1843,9 @@ function _getViewerTemplate() {
 </html>`;
 }
 
-function createStandaloneHtml(buildingsData, canvasElement, sourcePolygon, params) {
-    const imageDataUrl = canvasElement.toDataURL('image/png');
+async function createStandaloneHtml(buildingsData, canvasElement, sourcePolygon, params) {
+    const imageBlob = await canvasToBlob(canvasElement);
+    const imageDataUrl = await blobToDataUrl(imageBlob);
     let html = _getViewerTemplate();
     const inlineData = { ...buildingsData, image: { ...buildingsData.image, dataUrl: imageDataUrl } };
     if (sourcePolygon) inlineData.sourcePolygon = sourcePolygon;
@@ -1897,7 +1898,8 @@ class Pipeline {
             this.callbacks.onLog('[INFO] ' + migrated + '/' + this.buildingJson.buildings.length + ' Gebäude-Metadaten migriert');
         }
         this.callbacks.onLog('[INFO] ' + this.buildingJson.buildings.length + ' klickbare Polygone extrahiert');
-        this.buildingJson.image.dataUrl = this.canvas.toDataURL('image/png');
+        const imageBlob = await canvasToBlob(this.canvas);
+        this.buildingJson.image.dataUrl = URL.createObjectURL(imageBlob);
         const avg = this.buildingJson.buildings.length > 0 ? Math.round(this.buildingJson.buildings.reduce((s,b)=>s+(b.polygons||[b.polygon]).reduce((ps,p)=>ps+p.length,0),0)/this.buildingJson.buildings.length) : 0;
         this.callbacks.onProgress(4, 'Complete!');
         this.callbacks.onLog('[INFO] Pipeline abgeschlossen!');
@@ -1924,7 +1926,7 @@ class Pipeline {
         return this.buildingJson;
     }
     async exportStandalone(sourcePolygon, params) {
-        downloadHtmlFile(createStandaloneHtml(await this._getExportBuildingJson(), this.canvas, sourcePolygon, params));
+        downloadHtmlFile(await createStandaloneHtml(await this._getExportBuildingJson(), this.canvas, sourcePolygon, params));
     }
     exportGeojson() { if (this.buildingsGeojson) downloadJsonFile(this.buildingsGeojson, 'buildings.geojson'); }
     exportImage() { downloadImageFile(this.canvas); }
@@ -2492,10 +2494,11 @@ async function saveProject(result) {
         const geojson = await PipelineDB.get('geojson', 'input');
         const buildingsCache = pipeline.buildingsGeojson || await PipelineDB.get('buildings_cache', 'osm');
         const params = getParams();
+        const projectId = Date.now();
         const project = {
-            id: Date.now(),
+            id: projectId,
             name: geojsonName,
-            timestamp: Date.now(),
+            timestamp: projectId,
             buildingCount: result.buildingCount,
             imageWidth: result.imageWidth,
             imageHeight: result.imageHeight,
@@ -2505,9 +2508,12 @@ async function saveProject(result) {
             buildingJson,
             geojson: geojson || null,
             params,
-            buildingsCache: buildingsCache || null
+            hasBuildingsCache: !!buildingsCache
         };
         await PipelineDB.put('projects', project.id, project);
+        if (buildingsCache) {
+            await PipelineDB.put('buildings_cache', 'project_' + projectId, buildingsCache);
+        }
         activeProjectId = project.id;
         await renderProjectList();
     } catch(e) { console.warn('[projects] Projekt konnte nicht gespeichert werden:', e); }
@@ -2557,6 +2563,7 @@ async function renderProjectList() {
 async function deleteProject(id) {
     try {
         await PipelineDB.remove('projects', id);
+        await PipelineDB.remove('buildings_cache', 'project_' + id).catch(() => {});
         if (activeProjectId === id) activeProjectId = null;
         await renderProjectList();
     } catch(e) { console.warn('[projects] Projekt konnte nicht gelöscht werden:', e); }
@@ -2609,9 +2616,11 @@ async function loadProject(project) {
             await PipelineDB.put('meta', 'params', fullProject.params);
         }
         // Restore buildings cache for rerendering
-        if (fullProject.buildingsCache) {
-            pipeline.buildingsGeojson = fullProject.buildingsCache;
-            await PipelineDB.put('buildings_cache', 'osm', fullProject.buildingsCache);
+        const projectCache = fullProject.buildingsCache
+            || (fullProject.hasBuildingsCache ? await PipelineDB.get('buildings_cache', 'project_' + fullProject.id) : null);
+        if (projectCache) {
+            pipeline.buildingsGeojson = projectCache;
+            await PipelineDB.put('buildings_cache', 'osm', projectCache);
         }
         // Restore pipeline state (canvas for export)
         pipeline.buildingJson = bJson;
