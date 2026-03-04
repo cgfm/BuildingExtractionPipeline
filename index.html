@@ -913,6 +913,319 @@
         .project-item:hover .project-delete { opacity: 1; }
         .project-delete:hover { background: rgba(180,40,40,0.85); }
 
+        /* ---- Accordion ---- */
+        .accordion { margin-bottom: 20px; }
+        .accordion-header {
+            background: #fff;
+            border: 1px solid #c0bda8;
+            border-left: 3px solid #4b5320;
+            border-radius: 2px;
+            padding: 16px 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            user-select: none;
+            transition: background 0.15s;
+        }
+        .accordion-header:hover { background: #f5f4ee; }
+        .accordion-header h2 {
+            font-size: 1.1rem; font-weight: 700; color: #2d331a;
+            text-transform: uppercase; letter-spacing: 0.03em;
+            margin: 0; display: flex; align-items: center; gap: 10px;
+        }
+        .accordion-toggle {
+            font-size: 14px; color: #b0ad98; transition: transform 0.3s;
+        }
+        .accordion.collapsed .accordion-toggle { transform: rotate(-90deg); }
+        .accordion-body {
+            max-height: 8000px; overflow: hidden;
+            transition: max-height 0.45s ease;
+        }
+        .accordion.collapsed .accordion-body { max-height: 0; }
+        .accordion-badge {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-width: 22px; height: 22px; padding: 0 6px;
+            border-radius: 2px; background: #4b5320; color: #fff;
+            font-size: 0.72rem; font-weight: 700;
+        }
+
+        /* ---- Editor layout (inside accordion) ---- */
+        .editor-layout {
+            display: flex; height: 78vh; min-height: 500px;
+            border: 1px solid #c0bda8; border-radius: 2px;
+            overflow: hidden; margin: 12px 0; background: #d6d3c8;
+        }
+        .editor-sidebar {
+            width: 350px; min-width: 350px;
+            background: #fff; overflow-y: auto;
+            border-right: 1px solid #c0bda8;
+            border-left: 3px solid #4b5320;
+        }
+        .editor-sidebar-header {
+            padding: 20px; border-bottom: 1px solid #c0bda8;
+        }
+        .editor-sidebar-header h3 {
+            font-size: 1.15rem; font-weight: 700; color: #2d331a;
+            margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.03em;
+        }
+        .editor-sidebar-header p { font-size: 12px; color: #888; }
+        .editor-toolbar {
+            padding: 15px 20px; background: #f5f4ee;
+            border-bottom: 1px solid #c0bda8;
+            display: flex; gap: 10px; flex-wrap: wrap;
+        }
+        .editor-toolbar .btn { flex: 1; min-width: 0; }
+        .editor-toolbar .info-tip { background: #b0ad98; color: #2d331a; flex: 0; }
+        .ed-search-bar {
+            padding: 10px 20px; border-bottom: 1px solid #c0bda8;
+            background: #fff; position: sticky; top: 0; z-index: 10;
+        }
+        .ed-search-input {
+            width: 100%; padding: 7px 10px;
+            border: 1px solid #c0bda8; border-radius: 2px;
+            font-size: 0.85rem; background: #f5f4ee; font-family: inherit;
+        }
+        .ed-search-input:focus { outline: none; border-color: #4b5320; }
+        .editor-main {
+            flex: 1; overflow: auto; background: #d6d3c8;
+            display: flex; flex-direction: column; gap: 20px; padding: 20px;
+        }
+
+        /* Editor building list */
+        .building-item {
+            padding: 10px 20px 10px 35px; cursor: grab;
+            transition: background 0.2s; border-left: 3px solid transparent;
+            display: flex; justify-content: space-between;
+            align-items: center; position: relative;
+        }
+        .building-item:active { cursor: grabbing; }
+        .building-item:hover { background: #f5f4ee; }
+        .building-item.selected { background: #e8e6df; border-left-color: #4b5320; }
+        .building-item.dragging { opacity: 0.5; background: #d6d3c8; }
+        .building-item.drag-over { border-top: 3px solid #4b5320; }
+        .drag-handle { position: absolute; left: 10px; color: #b0ad98; font-size: 14px; cursor: grab; }
+        .building-item:active .drag-handle { cursor: grabbing; }
+        .building-info { flex: 1; }
+        .building-name { font-size: 14px; font-weight: 500; color: #1a1a1a; }
+        .building-nummer { font-weight: 700; color: #4b5320; }
+        .building-id { font-size: 11px; color: #888; margin-top: 2px; }
+        .color-indicator { width: 24px; height: 24px; border-radius: 2px; border: 2px solid #c0bda8; }
+        .ed-group { border-bottom: 1px solid #e8e6df; }
+        .ed-group-header {
+            padding: 12px 20px; background: #f5f4ee; cursor: pointer;
+            display: flex; justify-content: space-between; align-items: center;
+            transition: background 0.2s;
+        }
+        .ed-group-header:hover { background: #e8e6df; }
+        .ed-group-header h2 {
+            font-size: 0.85rem; font-weight: 700; color: #4b5320;
+            text-transform: uppercase; letter-spacing: 0.03em;
+        }
+        .ed-group-toggle { font-size: 12px; color: #b0ad98; transition: transform 0.3s; }
+        .ed-group.collapsed .ed-group-toggle { transform: rotate(-90deg); }
+        .ed-group-buildings { max-height: 2000px; overflow: hidden; transition: max-height 0.3s ease; }
+        .ed-group.collapsed .ed-group-buildings { max-height: 0; }
+
+        /* Editor map + editor panels */
+        .ed-map-panel {
+            background: #fff; border-radius: 2px;
+            border: 1px solid #c0bda8; border-left: 3px solid #4b5320;
+            padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            display: flex; flex-direction: column;
+        }
+        .ed-map-panel h2 {
+            color: #2d331a; margin-bottom: 15px; font-size: 20px;
+            text-transform: uppercase; letter-spacing: 0.03em;
+        }
+        .ed-map-container { display: flex; justify-content: center; align-items: flex-start; overflow: auto; }
+        .ed-image-container {
+            position: relative; display: inline-block; line-height: 0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.15); max-width: 100%; width: auto;
+        }
+        .ed-image-container img { display: block; width: auto; height: auto; max-width: 100%; max-height: 50vh; }
+        .ed-svg-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+        .ed-building-polygon {
+            fill: rgba(255, 193, 7, 0); stroke: rgba(255, 193, 7, 0);
+            stroke-width: 2; pointer-events: auto; cursor: pointer;
+            transition: fill 0.2s, stroke 0.2s;
+        }
+        .ed-building-polygon.selected { stroke-width: 3; }
+        .ed-dim-overlay { fill: rgba(0, 0, 0, 0.6); pointer-events: none; }
+        .ed-selection-circle { fill: none; stroke: #4b5320; stroke-width: 3; pointer-events: none; }
+        .ed-editor-panel {
+            background: #fff; border-radius: 2px;
+            border: 1px solid #c0bda8; border-left: 3px solid #4b5320;
+            padding: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        .ed-editor-panel h2 {
+            color: #2d331a; margin-bottom: 20px; font-size: 24px;
+            text-transform: uppercase; letter-spacing: 0.03em;
+        }
+        .ed-form-group { margin-bottom: 20px; }
+        .ed-form-label { display: block; font-weight: 600; color: #444; margin-bottom: 8px; font-size: 14px; }
+        .ed-form-input {
+            width: 100%; padding: 10px 15px; border: 1px solid #c0bda8;
+            border-radius: 2px; font-size: 14px; font-family: inherit;
+            background: #fff; color: #1a1a1a; transition: border-color 0.15s;
+        }
+        .ed-form-input:focus { outline: none; border-color: #4b5320; }
+        textarea.ed-form-input { min-height: 100px; resize: vertical; }
+        .ed-color-picker-group { display: flex; align-items: center; gap: 15px; }
+        .ed-color-input-wrapper { position: relative; width: 80px; height: 40px; }
+        .ed-color-input-wrapper input[type="color"] {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            border: 1px solid #c0bda8; border-radius: 2px; cursor: pointer;
+        }
+        .ed-color-hex { flex: 1; }
+        .ed-empty-state { text-align: center; padding: 60px 20px; color: #b0ad98; }
+        .ed-empty-state h3 { font-size: 20px; margin-bottom: 10px; }
+        .ed-empty-state p { font-size: 14px; }
+        .ed-stats { background: #f5f4ee; padding: 15px; border-radius: 2px; margin-bottom: 20px; border: 1px solid #c0bda8; }
+        .ed-stats-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
+        .ed-stats-row:last-child { margin-bottom: 0; }
+        .ed-stats-label { color: #888; }
+        .ed-stats-value { font-weight: 600; color: #2d331a; }
+        .ed-info-message {
+            background: #f5f4ee; color: #2d331a; padding: 12px 15px;
+            border-radius: 2px; border: 1px solid #c0bda8;
+            border-left: 3px solid #4b5320; font-size: 13px;
+        }
+        .ed-info-message strong { font-weight: 600; }
+        .btn-danger { background: #8b2500; color: #fff; border: 1px solid #a03000; }
+        .btn-danger:hover { background: #a03000; }
+        .btn-duplicate { background: #555; color: #fff; border: 1px solid #666; }
+        .btn-duplicate:hover { background: #666; }
+
+        /* ---- Viewer overlay (full-screen preview) ---- */
+        .viewer-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 500; background: rgba(0, 0, 0, 0.6);
+            justify-content: center; align-items: center;
+        }
+        .viewer-overlay.active { display: flex; }
+        .viewer-overlay .vo-dialog {
+            display: flex; background: #d6d3c8; border-radius: 2px;
+            box-shadow: 0 10px 60px rgba(0,0,0,0.4);
+            width: 92vw; height: 88vh; max-width: 1600px;
+            overflow: hidden; position: relative;
+        }
+        .viewer-overlay .vo-close-btn {
+            position: absolute; top: 10px; right: 10px; z-index: 10;
+            background: #4b5320; color: #fff; border: 1px solid #6b7530;
+            border-radius: 2px; width: 36px; height: 36px; font-size: 22px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: background 0.2s; line-height: 1;
+        }
+        .viewer-overlay .vo-close-btn:hover { background: #5a6328; }
+        .viewer-overlay .vo-sidebar {
+            width: 300px; min-width: 300px; background: #fff;
+            overflow-y: auto; border-right: 1px solid #c0bda8;
+            border-left: 3px solid #4b5320;
+        }
+        .viewer-overlay .vo-sidebar-header { padding: 20px; border-bottom: 1px solid #c0bda8; }
+        .viewer-overlay .vo-sidebar-header h3 {
+            font-size: 1.15rem; font-weight: 700; color: #2d331a;
+            margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.03em;
+        }
+        .viewer-overlay .vo-sidebar-header p { font-size: 12px; color: #888; }
+        .viewer-overlay .vo-main {
+            flex: 1; overflow: auto; display: flex;
+            justify-content: center; align-items: center; padding: 20px;
+        }
+        .viewer-overlay .vo-image-container {
+            position: relative; display: inline-block;
+            max-width: 100%; max-height: 100%;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+        }
+        .viewer-overlay .vo-image-container img { display: block; width: 100%; height: auto; }
+        .viewer-overlay .vo-svg-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;
+        }
+        .viewer-overlay .vo-building-polygon {
+            fill: rgba(255, 255, 0, 0); stroke: rgba(255, 255, 0, 0);
+            stroke-width: 2; pointer-events: auto; cursor: pointer;
+            transition: fill 0.2s, stroke 0.2s;
+        }
+        .viewer-overlay .vo-group { border-bottom: 1px solid #e8e6df; }
+        .viewer-overlay .vo-group-header {
+            padding: 12px 20px; background: #f5f4ee; cursor: pointer;
+            display: flex; justify-content: space-between; align-items: center;
+            transition: background 0.2s;
+        }
+        .viewer-overlay .vo-group-header:hover { background: #e8e6df; }
+        .viewer-overlay .vo-group-header h4 {
+            font-size: 0.85rem; font-weight: 700; color: #4b5320;
+            text-transform: uppercase; letter-spacing: 0.03em; margin: 0;
+        }
+        .viewer-overlay .vo-group-toggle { font-size: 12px; color: #b0ad98; transition: transform 0.3s; }
+        .viewer-overlay .vo-group.collapsed .vo-group-toggle { transform: rotate(-90deg); }
+        .viewer-overlay .vo-group-buildings { max-height: 1000px; overflow: hidden; transition: max-height 0.3s ease; }
+        .viewer-overlay .vo-group.collapsed .vo-group-buildings { max-height: 0; }
+        .viewer-overlay .vo-search-bar {
+            padding: 10px 20px; border-bottom: 1px solid #c0bda8;
+            background: #fff; position: sticky; top: 0; z-index: 10;
+        }
+        .viewer-overlay .vo-search-input {
+            width: 100%; padding: 7px 10px; border: 1px solid #c0bda8;
+            border-radius: 2px; font-size: 0.85rem; background: #f5f4ee; font-family: inherit;
+        }
+        .viewer-overlay .vo-search-input:focus { outline: none; border-color: #4b5320; }
+        .viewer-overlay .vo-building-item {
+            padding: 10px 20px 10px 35px; cursor: pointer;
+            transition: background 0.2s; border-left: 3px solid transparent;
+        }
+        .viewer-overlay .vo-building-item:hover { background: #f5f4ee; border-left-color: #6b7530; }
+        .viewer-overlay .vo-building-item.highlighted { background: #e8e6df; border-left-color: #f39c12; }
+        .viewer-overlay .vo-building-name { font-size: 14px; font-weight: 500; color: #1a1a1a; }
+        .viewer-overlay .vo-building-nummer { font-weight: 700; color: #4b5320; }
+        .viewer-overlay .vo-selection-circle { fill: none; stroke: #4b5320; stroke-width: 4; pointer-events: none; }
+        .viewer-overlay .vo-dim-overlay { fill: rgba(0, 0, 0, 0.6); pointer-events: none; }
+        .viewer-overlay .vo-modal-overlay {
+            display: none; position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%; z-index: 200; pointer-events: none;
+        }
+        .viewer-overlay .vo-modal-overlay.active { display: block; }
+        .viewer-overlay .vo-modal-content {
+            position: absolute; background: #fff; border-radius: 2px;
+            border: 1px solid #c0bda8; border-left: 3px solid #4b5320;
+            padding: 25px 30px; min-width: 280px; max-width: 400px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3); pointer-events: auto;
+        }
+        .viewer-overlay .vo-modal-close {
+            position: absolute; top: 10px; right: 10px;
+            background: none; border: none; font-size: 28px; cursor: pointer;
+            color: #b0ad98; width: 35px; height: 35px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 2px; transition: background 0.2s, color 0.2s; line-height: 1;
+        }
+        .viewer-overlay .vo-modal-close:hover { background: #e8e6df; color: #2d331a; }
+        .viewer-overlay .vo-modal-content h5 { margin: 0; color: #2d331a; font-size: 22px; padding-right: 25px; }
+        .viewer-overlay .vo-modal-breadcrumb { font-size: 12px; color: #6b7530; margin: 4px 0 0 0; }
+        .viewer-overlay .vo-modal-breadcrumb span::after { content: ' \203A '; margin: 0 2px; }
+        .viewer-overlay .vo-modal-breadcrumb span:last-child::after { content: ''; }
+        .viewer-overlay .vo-modal-header { margin-bottom: 20px; }
+        .viewer-overlay .vo-modal-nummer {
+            font-size: 13px; font-weight: 700; color: #4b5320;
+            text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 2px;
+        }
+        .viewer-overlay .vo-modal-beschreibung { color: #1a1a1a; font-size: 15px; line-height: 1.5; }
+
+        /* ---- Floating undo/redo ---- */
+        .undo-redo-float {
+            position: fixed; top: 12px; right: 12px; z-index: 400;
+            display: none; gap: 6px;
+        }
+        .undo-redo-btn {
+            width: 36px; height: 36px; border-radius: 2px;
+            border: 1px solid #6b7530; background: #4b5320; color: #fff;
+            font-size: 18px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .undo-redo-btn:hover:not(:disabled) { background: #5a6328; }
+        .undo-redo-btn:disabled { background: #999; border-color: #aaa; cursor: not-allowed; opacity: 0.5; }
+
         /* ---- Responsive ---- */
         @media (max-width: 768px) {
             body { padding: 16px 10px 48px; }
@@ -923,6 +1236,8 @@
             .header-card h1 { font-size: 1.2rem; }
             .viewer-preview { height: 400px; flex-direction: column; }
             .viewer-preview .vp-sidebar { width: 100%; min-width: 100%; height: 150px; border-right: none; border-bottom: 1px solid #c0bda8; }
+            .editor-layout { flex-direction: column; height: auto; min-height: 0; }
+            .editor-sidebar { width: 100%; min-width: 100%; max-height: 300px; border-right: none; border-bottom: 1px solid #c0bda8; }
         }
     </style>
 </head>
@@ -935,6 +1250,14 @@
         <h1>Building Extraction Pipeline</h1>
         <p>GeoJSON hochladen, 2.5D-Rendering erstellen, Polygone extrahieren &mdash; alles im Browser.</p>
     </div>
+
+    <!-- Accordion 1: Pipeline -->
+    <div class="accordion" id="accordionPipeline">
+        <div class="accordion-header" onclick="toggleAccordion('accordionPipeline')">
+            <h2><span class="step-badge">&#9881;</span> Pipeline <span class="accordion-badge hidden" id="pipelineBadge"></span></h2>
+            <span class="accordion-toggle">&#9660;</span>
+        </div>
+        <div class="accordion-body">
 
     <!-- Step 1: Area / Upload -->
     <div class="card">
@@ -1135,7 +1458,7 @@
             </div>
 
             <div class="button-row" style="margin-bottom:18px;">
-                <button class="btn btn-success btn-sm" id="btnEditor" data-tooltip="Öffnet den Gebäude-Editor zum Bearbeiten von Namen, Gruppen, Beschreibungen und Farben.">Editor öffnen</button>
+                <button class="btn btn-success btn-sm" id="btnEditor" data-tooltip="Öffnet den Gebäude-Editor zum Bearbeiten von Namen, Gruppen, Beschreibungen und Farben.">Zum Editor</button>
                 <button class="btn btn-secondary btn-sm hidden" id="btnRerender2" data-tooltip="Rendert das Bild mit den aktuellen Parametern neu. Gecachte OSM-Daten und Gebäude-Metadaten bleiben erhalten.">Neurendering</button>
             </div>
 
@@ -1160,6 +1483,70 @@
         </div>
     </div>
 
+        </div><!-- /accordion-body Pipeline -->
+    </div><!-- /accordion Pipeline -->
+
+    <!-- Accordion 2: Gebäude Editor -->
+    <div class="accordion collapsed" id="accordionEditor">
+        <div class="accordion-header" onclick="toggleAccordion('accordionEditor')">
+            <h2><span class="step-badge">&#9998;</span> Gebäude Editor <span class="accordion-badge hidden" id="editorBadge"></span></h2>
+            <span class="accordion-toggle">&#9660;</span>
+        </div>
+        <div class="accordion-body">
+            <div class="editor-layout">
+                <aside class="editor-sidebar">
+                    <div class="editor-sidebar-header">
+                        <h3>Gebäude</h3>
+                        <p id="edSidebarInfo">Interaktiver Gebäude-Editor</p>
+                    </div>
+                    <div class="editor-toolbar">
+                        <button class="btn btn-success btn-sm" id="edSaveBtn" data-tooltip="Lädt eine JSON-Datei mit allen Änderungen herunter.">Speichern</button>
+                        <button class="btn btn-primary btn-sm" id="edPreviewBtn" data-tooltip="Zeigt eine interaktive Vorschau der Karte mit klickbaren Gebäuden.">Vorschau</button>
+                    </div>
+                    <div class="ed-search-bar">
+                        <input type="text" class="ed-search-input" id="edSearchInput" placeholder="Gebäude suchen...">
+                    </div>
+                    <div id="edSidebarContent">
+                        <div class="ed-empty-state"><p>Führen Sie zuerst die Pipeline aus, um Gebäude zu laden.</p></div>
+                    </div>
+                </aside>
+                <main class="editor-main">
+                    <div class="ed-map-panel">
+                        <h2>Interaktive Karte</h2>
+                        <div class="ed-map-container" id="edMapContainer">
+                            <div class="ed-empty-state"><p>Noch keine Kartendaten vorhanden.</p></div>
+                        </div>
+                    </div>
+                    <div class="ed-editor-panel">
+                        <div id="edEditorContent">
+                            <div class="ed-empty-state">
+                                <h3>Kein Gebäude ausgewählt</h3>
+                                <p>Wählen Sie ein Gebäude aus der Liste oder klicken Sie auf ein Gebäude in der Karte, um es zu bearbeiten.</p>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div><!-- /accordion-body Editor -->
+    </div><!-- /accordion Editor -->
+
+</div><!-- /pipeline-wrap -->
+
+<!-- Viewer overlay (full-screen preview, outside accordion) -->
+<div class="viewer-overlay" id="viewerOverlay">
+    <div class="vo-dialog">
+        <button class="vo-close-btn" id="voCloseBtn" title="Schließen">&times;</button>
+        <div class="vo-sidebar" id="voSidebar"></div>
+        <div class="vo-main">
+            <div class="vo-image-container" id="voImageContainer"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Floating undo/redo (shown when editor active) -->
+<div class="undo-redo-float" id="undoRedoFloat">
+    <button class="undo-redo-btn" id="undoBtn" disabled data-tooltip="Rückgängig (Strg+Z)">&#x21B6;</button>
+    <button class="undo-redo-btn" id="redoBtn" disabled data-tooltip="Wiederholen (Strg+Umschalt+Z)">&#x21B7;</button>
 </div>
 
 <div id="tooltip"></div>
@@ -1311,6 +1698,11 @@ function blobToDataUrl(blob) {
 
 function canvasToBlob(canvas) {
     return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+}
+
+function hexToRgb(hex) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : { r: 255, g: 193, b: 7 };
 }
 
 async function migrateFromLocalStorage() {
@@ -2335,7 +2727,12 @@ async function loadResultCache() {
         // Restore pipelineResult for editor button
         pipelineResult = { buildingCount: cached.buildingCount, imageWidth: cached.imageWidth, imageHeight: cached.imageHeight, avgPoints: cached.avgPoints, buildingJson: cached.buildingJson };
         resultCard.classList.add('visible');
-        if (cached.buildingJson) renderViewerPreview(cached.buildingJson);
+        if (cached.buildingJson) {
+            renderViewerPreview(cached.buildingJson);
+            EditorModule.init(cached.buildingJson);
+        }
+        btnRerender.classList.remove('hidden'); btnRerender2.classList.remove('hidden');
+        document.getElementById('rerenderTip').classList.remove('hidden');
     } catch(e) { console.warn('[pipeline] Ergebnis-Cache konnte nicht geladen werden:', e.message); }
 }
 
@@ -2599,7 +2996,6 @@ async function loadProject(project) {
         });
         // Restore editor data
         await PipelineDB.put('editor', 'buildingsData', cachedBJson);
-        try { sessionStorage.setItem('editor_freshData', 'true'); } catch(e2) {}
         // Restore GeoJSON
         if (fullProject.geojson) {
             geojsonData = fullProject.geojson;
@@ -2648,6 +3044,8 @@ async function loadProject(project) {
         btnRerender.classList.remove('hidden');
         btnRerender2.classList.remove('hidden');
         document.getElementById('rerenderTip').classList.remove('hidden');
+        // Initialize editor with project data
+        EditorModule.init(bJson);
         // Update active state in list
         await renderProjectList();
     } catch(e) { console.warn('[projects] Projekt konnte nicht geladen werden:', e); }
@@ -2681,6 +3079,9 @@ function onComplete(result) {
     btnRerender.classList.remove('hidden'); btnRerender2.classList.remove('hidden');    document.getElementById('rerenderTip').classList.remove('hidden');
     btnRun.disabled = false;
     btnRerender.disabled = false;
+    // Initialize editor with result data and auto-open
+    EditorModule.init(result.buildingJson);
+    openEditorAccordion();
     // Persist result for reload and sync editor cache
     (async () => {
         try {
@@ -2696,8 +3097,6 @@ function onComplete(result) {
             const cached = { buildingCount: result.buildingCount, imageWidth: result.imageWidth, imageHeight: result.imageHeight, avgPoints: result.avgPoints, buildingJson: strippedCopy };
             await PipelineDB.put('result', 'latest', cached);
             await PipelineDB.put('editor', 'buildingsData', structuredClone(strippedCopy));
-            // Signal editor to reset undo history
-            try { sessionStorage.setItem('editor_freshData', 'true'); } catch(e2) {}
             // Auto-save project
             await saveProject(result);
         } catch(e) { console.warn('[pipeline] Ergebnis-Cache konnte nicht gespeichert werden:', e); }
@@ -2706,6 +3105,935 @@ function onComplete(result) {
 
 function onError(message) { onLog('[ERROR] ' + message); btnRun.disabled = false; btnRerender.disabled = false; }
 
+// ==========================================================================
+// Accordion helpers
+// ==========================================================================
+function toggleAccordion(id) {
+    var el = document.getElementById(id);
+    el.classList.toggle('collapsed');
+    updateUndoRedoVisibility();
+}
+function openEditorAccordion() {
+    document.getElementById('accordionPipeline').classList.add('collapsed');
+    var ed = document.getElementById('accordionEditor');
+    ed.classList.remove('collapsed');
+    updateUndoRedoVisibility();
+    setTimeout(function() { ed.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100);
+}
+function updateUndoRedoVisibility() {
+    var editorExpanded = !document.getElementById('accordionEditor').classList.contains('collapsed');
+    document.getElementById('undoRedoFloat').style.display = editorExpanded ? 'flex' : 'none';
+}
+function updateEditorBadge(count) {
+    var badge = document.getElementById('editorBadge');
+    if (count > 0) {
+        badge.textContent = count + ' Gebäude';
+        badge.classList.remove('hidden');
+    } else {
+        badge.classList.add('hidden');
+    }
+}
+function updatePipelineBadge(count) {
+    var badge = document.getElementById('pipelineBadge');
+    if (count > 0) {
+        badge.textContent = count + ' Gebäude';
+        badge.classList.remove('hidden');
+    } else {
+        badge.classList.add('hidden');
+    }
+}
+
+// ==========================================================================
+// EditorModule — Building Editor (integrated)
+// ==========================================================================
+const EditorModule = (() => {
+    // ---- State ----
+    let buildingsData = null;
+    let currentBuilding = null;
+    let hasChanges = false;
+    let mergeMode = false;
+    let mergeTarget = null;
+    let draggedElement = null;
+    let draggedBuildingId = null;
+    let _mapResizeObserver = null;
+
+    // ---- UndoManager ----
+    const UndoManager = (() => {
+        const MAX_ENTRIES = 50;
+        let undoStack = [];
+        let redoStack = [];
+        let debounceTimer = null;
+        let debounceStateCaptured = false;
+
+        function snapshot() { return structuredClone(buildingsData.buildings); }
+
+        function pushState() {
+            undoStack.push(snapshot());
+            if (undoStack.length > MAX_ENTRIES) undoStack.shift();
+            redoStack = [];
+            debounceStateCaptured = false;
+            updateButtons();
+        }
+
+        function pushStateDebounced() {
+            if (!debounceStateCaptured) {
+                undoStack.push(snapshot());
+                if (undoStack.length > MAX_ENTRIES) undoStack.shift();
+                redoStack = [];
+                debounceStateCaptured = true;
+                updateButtons();
+            }
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => { debounceStateCaptured = false; }, 500);
+        }
+
+        function undo() {
+            if (undoStack.length === 0) return;
+            redoStack.push(snapshot());
+            buildingsData.buildings = undoStack.pop();
+            afterRestore();
+        }
+
+        function redo() {
+            if (redoStack.length === 0) return;
+            undoStack.push(snapshot());
+            buildingsData.buildings = redoStack.pop();
+            afterRestore();
+        }
+
+        function afterRestore() {
+            persistToIDB();
+            renderMap();
+            setTimeout(() => {
+                renderSidebar();
+                if (currentBuilding) {
+                    const still = buildingsData.buildings.find(b => b.id === currentBuilding.id);
+                    if (still) { selectBuilding(still); }
+                    else {
+                        currentBuilding = null;
+                        document.getElementById('edEditorContent').innerHTML = '<div class="ed-empty-state"><h3>Gebäude nicht mehr vorhanden</h3><p>Wählen Sie ein Gebäude aus der Liste.</p></div>';
+                    }
+                }
+                updateButtons();
+            }, 100);
+        }
+
+        function clear() {
+            undoStack = []; redoStack = [];
+            debounceStateCaptured = false;
+            updateButtons();
+        }
+
+        function updateButtons() {
+            const undoBtn = document.getElementById('undoBtn');
+            const redoBtn = document.getElementById('redoBtn');
+            if (undoBtn) undoBtn.disabled = undoStack.length === 0;
+            if (redoBtn) redoBtn.disabled = redoStack.length === 0;
+        }
+
+        return { pushState, pushStateDebounced, undo, redo, clear, updateButtons };
+    })();
+
+    // ---- Persist to IDB ----
+    function persistToIDB() {
+        try {
+            const copy = structuredClone(buildingsData);
+            if (copy.image) delete copy.image.dataUrl;
+            PipelineDB.put('editor', 'buildingsData', copy).catch(e => {
+                console.warn('[editor] IDB-Speicherung fehlgeschlagen:', e.message);
+            });
+        } catch(e) { console.warn('[editor] IDB-Speicherung fehlgeschlagen:', e.message); }
+    }
+
+    // ---- Render map ----
+    function renderMap() {
+        const mapContainer = document.getElementById('edMapContainer');
+        if (!buildingsData || !buildingsData.image) {
+            mapContainer.innerHTML = '<div class="ed-empty-state"><p>Keine Bilddaten vorhanden</p></div>';
+            return;
+        }
+        const { filename, width, height, dataUrl } = buildingsData.image;
+
+        const container = document.createElement('div');
+        container.className = 'ed-image-container';
+
+        const img = document.createElement('img');
+        img.src = dataUrl || filename;
+        img.alt = (buildingsData.title || 'Gebäudekarte') + ' Karte';
+        container.appendChild(img);
+
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('class', 'ed-svg-overlay');
+        svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+        svg.setAttribute('preserveAspectRatio', 'xMinYMin meet');
+
+        buildingsData.buildings.forEach(building => {
+            const polys = building.polygons || [building.polygon];
+            polys.forEach(poly => {
+                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                const points = poly.map(([x, y]) => (x * width) + ',' + (y * height)).join(' ');
+                polygon.setAttribute('points', points);
+                polygon.setAttribute('class', 'ed-building-polygon');
+                polygon.setAttribute('data-building-id', building.id);
+                polygon.addEventListener('mouseenter', () => highlightPolygon(building.id));
+                polygon.addEventListener('mouseleave', () => unhighlightPolygon(building.id));
+                polygon.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (mergeMode) { handleMergeClick(building); }
+                    else { selectBuilding(building); }
+                });
+                svg.appendChild(polygon);
+            });
+        });
+
+        container.appendChild(svg);
+        mapContainer.innerHTML = '';
+        mapContainer.appendChild(container);
+
+        img.addEventListener('load', () => {
+            const imgRect = img.getBoundingClientRect();
+            svg.style.width = imgRect.width + 'px';
+            svg.style.height = imgRect.height + 'px';
+        });
+        if (_mapResizeObserver) _mapResizeObserver.disconnect();
+        _mapResizeObserver = new ResizeObserver(() => {
+            const imgRect = img.getBoundingClientRect();
+            svg.style.width = imgRect.width + 'px';
+            svg.style.height = imgRect.height + 'px';
+        });
+        _mapResizeObserver.observe(img);
+    }
+
+    // ---- Highlight/unhighlight ----
+    function highlightPolygon(buildingId) {
+        const building = buildingsData.buildings.find(b => b.id === buildingId);
+        const hc = building?.highlightColor || '#FFC107';
+        const rgb = hexToRgb(hc);
+        document.querySelectorAll('.ed-svg-overlay .ed-building-polygon[data-building-id="' + buildingId + '"]').forEach(p => {
+            if (!p.classList.contains('selected')) {
+                p.style.fill = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.25)';
+                p.style.stroke = hc; p.style.strokeWidth = '2';
+            }
+        });
+    }
+
+    function unhighlightPolygon(buildingId) {
+        if (currentBuilding && currentBuilding.id === buildingId) return;
+        document.querySelectorAll('.ed-svg-overlay .ed-building-polygon[data-building-id="' + buildingId + '"]').forEach(p => {
+            if (!p.classList.contains('selected')) {
+                p.style.fill = 'rgba(255,193,7,0)';
+                p.style.stroke = 'rgba(255,193,7,0)';
+                p.style.strokeWidth = '2';
+            }
+        });
+    }
+
+    // ---- Render sidebar ----
+    function renderSidebar() {
+        const sidebar = document.getElementById('edSidebarContent');
+        const groupHierarchy = {};
+        const ungroupedBuildings = [];
+        const disabledBuildings = [];
+
+        buildingsData.buildings.forEach(building => {
+            if (building.disabled) { disabledBuildings.push(building); return; }
+            const gruppe = (building.gruppe || '').trim();
+            if (!gruppe) { ungroupedBuildings.push(building); return; }
+            const parts = gruppe.split(' > ').map(p => p.trim());
+            let currentLevel = groupHierarchy;
+            parts.forEach((part, index) => {
+                if (!currentLevel[part]) currentLevel[part] = { buildings: [], subgroups: {} };
+                if (index === parts.length - 1) currentLevel[part].buildings.push(building);
+                currentLevel = currentLevel[part].subgroups;
+            });
+        });
+
+        function sortGroupNames(names) {
+            return names.sort((a, b) => {
+                if (a === 'Unbekannt') return 1;
+                if (b === 'Unbekannt') return -1;
+                return a.localeCompare(b);
+            });
+        }
+
+        function getAllBuildingIds(groupData) {
+            const ids = groupData.buildings.map(b => b.id);
+            Object.values(groupData.subgroups).forEach(sg => ids.push(...getAllBuildingIds(sg)));
+            return ids;
+        }
+
+        function createBuildingItem(building, paddingLeft) {
+            const item = document.createElement('div');
+            item.className = 'building-item';
+            item.style.paddingLeft = paddingLeft + 'px';
+            item.setAttribute('data-building-id', building.id);
+            item.setAttribute('data-search-text', [building.name, building.nummer, building.gruppe].filter(Boolean).join(' ').toLowerCase());
+            item.setAttribute('draggable', 'true');
+            item.innerHTML = '<span class="drag-handle">\u22EE\u22EE</span><div class="building-info"><div class="building-name">' + escapeHtml(building.name) + '</div><div class="building-id">' + escapeHtml(building.nummer || '') + '</div></div><div class="color-indicator" style="background-color: ' + escapeHtml(building.highlightColor || '#FFC107') + '"></div>';
+            item.addEventListener('click', (e) => {
+                if (e.target.classList.contains('drag-handle')) return;
+                if (mergeMode) { handleMergeClick(building); return; }
+                selectBuilding(building);
+            });
+            item.addEventListener('mouseenter', () => highlightPolygon(building.id));
+            item.addEventListener('mouseleave', () => unhighlightPolygon(building.id));
+            item.addEventListener('dragstart', handleDragStart);
+            item.addEventListener('dragend', handleDragEnd);
+            item.addEventListener('dragover', handleDragOver);
+            item.addEventListener('drop', handleDrop);
+            item.addEventListener('dragleave', handleDragLeave);
+            return item;
+        }
+
+        function renderGroup(groupName, groupData, level) {
+            const group = document.createElement('div');
+            group.className = 'ed-group';
+            group.style.marginLeft = (level * 15) + 'px';
+            const buildingIds = getAllBuildingIds(groupData);
+            const header = document.createElement('div');
+            header.className = 'ed-group-header';
+            header.style.paddingLeft = (20 - level * 5) + 'px';
+            header.innerHTML = '<h2>' + escapeHtml(groupName) + '</h2><span class="ed-group-toggle">\u25BC</span>';
+            header.addEventListener('click', () => group.classList.toggle('collapsed'));
+            header.addEventListener('mouseenter', () => buildingIds.forEach(id => highlightPolygon(id)));
+            header.addEventListener('mouseleave', () => buildingIds.forEach(id => unhighlightPolygon(id)));
+            group.appendChild(header);
+            const content = document.createElement('div');
+            content.className = 'ed-group-buildings';
+            groupData.buildings.forEach(b => content.appendChild(createBuildingItem(b, 35 + level * 15)));
+            sortGroupNames(Object.keys(groupData.subgroups)).forEach(sn => content.appendChild(renderGroup(sn, groupData.subgroups[sn], level + 1)));
+            group.appendChild(content);
+            return group;
+        }
+
+        sidebar.innerHTML = '';
+        ungroupedBuildings.forEach(b => sidebar.appendChild(createBuildingItem(b, 20)));
+        sortGroupNames(Object.keys(groupHierarchy)).forEach(gn => sidebar.appendChild(renderGroup(gn, groupHierarchy[gn], 0)));
+
+        if (disabledBuildings.length > 0) {
+            const hiddenGroup = document.createElement('div');
+            hiddenGroup.className = 'ed-group collapsed';
+            hiddenGroup.style.opacity = '0.55';
+            const hiddenHeader = document.createElement('div');
+            hiddenHeader.className = 'ed-group-header';
+            hiddenHeader.style.paddingLeft = '20px';
+            hiddenHeader.innerHTML = '<h2>Versteckt (' + disabledBuildings.length + ')</h2><span class="ed-group-toggle">\u25BC</span>';
+            hiddenHeader.addEventListener('click', () => hiddenGroup.classList.toggle('collapsed'));
+            hiddenGroup.appendChild(hiddenHeader);
+            const hiddenContent = document.createElement('div');
+            hiddenContent.className = 'ed-group-buildings';
+            disabledBuildings.forEach(b => hiddenContent.appendChild(createBuildingItem(b, 35)));
+            hiddenGroup.appendChild(hiddenContent);
+            sidebar.appendChild(hiddenGroup);
+        }
+
+        document.getElementById('edSearchInput').value = '';
+        // Update sidebar info
+        document.getElementById('edSidebarInfo').textContent = buildingsData.buildings.length + ' Gebäude geladen';
+        updateEditorBadge(buildingsData.buildings.length);
+        updatePipelineBadge(buildingsData.buildings.length);
+    }
+
+    // ---- Search filter ----
+    function filterSidebar(query) {
+        const q = query.toLowerCase().trim();
+        const container = document.getElementById('edSidebarContent');
+        container.querySelectorAll('.building-item').forEach(it => {
+            it.style.display = (!q || it.getAttribute('data-search-text').includes(q)) ? '' : 'none';
+        });
+        container.querySelectorAll('.ed-group').forEach(g => {
+            g.style.display = Array.from(g.querySelectorAll('.building-item')).some(it => it.style.display !== 'none') ? '' : 'none';
+        });
+    }
+
+    // ---- Select building ----
+    function selectBuilding(building) {
+        currentBuilding = building;
+        document.querySelectorAll('#edSidebarContent .building-item').forEach(item => item.classList.remove('selected'));
+        const item = document.querySelector('#edSidebarContent .building-item[data-building-id="' + building.id + '"]');
+        if (item) { item.classList.add('selected'); item.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+
+        document.querySelectorAll('.ed-svg-overlay .ed-building-polygon').forEach(p => {
+            p.classList.remove('selected');
+            p.style.fill = 'rgba(255,193,7,0)'; p.style.stroke = 'rgba(255,193,7,0)'; p.style.strokeWidth = '2';
+        });
+        const existingCircle = document.querySelector('.ed-selection-circle');
+        const existingDim = document.querySelector('.ed-dim-overlay');
+        const existingMask = document.getElementById('ed-selection-mask');
+        if (existingCircle) existingCircle.remove();
+        if (existingDim) existingDim.remove();
+        if (existingMask) existingMask.remove();
+
+        const mapPolygons = document.querySelectorAll('.ed-svg-overlay .ed-building-polygon[data-building-id="' + building.id + '"]');
+        if (mapPolygons.length > 0) {
+            const hc = building.highlightColor || '#FFC107';
+            const rgb = hexToRgb(hc);
+            mapPolygons.forEach(mp => {
+                mp.classList.add('selected');
+                mp.style.fill = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.35)';
+                mp.style.stroke = hc; mp.style.strokeWidth = '3';
+            });
+        }
+        // Add selection circle + dim overlay
+        if (mapPolygons.length > 0) {
+            const svg = mapPolygons[0].closest('svg');
+            const viewBox = svg.getAttribute('viewBox').split(' ');
+            const svgWidth = parseFloat(viewBox[2]);
+            const svgHeight = parseFloat(viewBox[3]);
+            const polys = building.polygons || [building.polygon];
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            polys.forEach(poly => poly.forEach(([x, y]) => { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); }));
+            const centerX = (minX + maxX) / 2, centerY = (minY + maxY) / 2;
+            const bW = maxX - minX, bH = maxY - minY;
+            const radius = Math.max(Math.max(bW, bH) / 2 * 1.8, 0.04);
+
+            let defs = svg.querySelector('defs');
+            if (!defs) { defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs'); svg.insertBefore(defs, svg.firstChild); }
+            const mask = document.createElementNS('http://www.w3.org/2000/svg', 'mask');
+            mask.setAttribute('id', 'ed-selection-mask');
+            const mr = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            mr.setAttribute('width', svgWidth); mr.setAttribute('height', svgHeight); mr.setAttribute('fill', 'white');
+            mask.appendChild(mr);
+            const mc = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            mc.setAttribute('cx', centerX * svgWidth); mc.setAttribute('cy', centerY * svgHeight);
+            mc.setAttribute('r', radius * Math.max(svgWidth, svgHeight)); mc.setAttribute('fill', 'black');
+            mask.appendChild(mc);
+            defs.appendChild(mask);
+            const dr = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            dr.setAttribute('class', 'ed-dim-overlay');
+            dr.setAttribute('width', svgWidth); dr.setAttribute('height', svgHeight);
+            dr.setAttribute('mask', 'url(#ed-selection-mask)');
+            svg.appendChild(dr);
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('class', 'ed-selection-circle');
+            circle.setAttribute('cx', centerX * svgWidth); circle.setAttribute('cy', centerY * svgHeight);
+            circle.setAttribute('r', radius * Math.max(svgWidth, svgHeight));
+            svg.appendChild(circle);
+        }
+        renderEditor();
+    }
+
+    // ---- Editor form ----
+    function renderEditor() {
+        const container = document.getElementById('edEditorContent');
+        container.innerHTML =
+            '<h2>Gebäude bearbeiten</h2>' +
+            '<div class="ed-stats"><div class="ed-stats-row"><span class="ed-stats-label">ID:</span><span class="ed-stats-value">' + currentBuilding.id + '</span></div>' +
+            '<div class="ed-stats-row"><span class="ed-stats-label">Polygon-Punkte:</span><span class="ed-stats-value">' + (currentBuilding.polygons || [currentBuilding.polygon]).reduce((s, p) => s + p.length, 0) + (currentBuilding.polygons && currentBuilding.polygons.length > 1 ? ' (' + currentBuilding.polygons.length + ' Polygone)' : '') + '</span></div></div>' +
+            '<div class="ed-form-group"><label class="ed-form-label" for="edNummer">Nummer <span class="info-tip" tabindex="0"><span class="info-tip-text">Optionale Gebäudenummer oder -kennzeichnung (z.B. „B3").</span></span></label>' +
+            '<div style="display:flex;align-items:center;gap:10px;"><input type="text" id="edNummer" class="ed-form-input" value="' + escapeHtml(currentBuilding.nummer || '') + '" placeholder="z.B. B3" style="width:100px;flex:none;">' +
+            '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;color:#4b5320;white-space:nowrap;"><input type="checkbox" id="edVisible" ' + (!currentBuilding.disabled ? 'checked' : '') + ' style="width:14px;height:14px;accent-color:#4b5320;cursor:pointer;"> Sichtbar</label></div></div>' +
+            '<div class="ed-form-group"><label class="ed-form-label" for="edName">Name <span class="info-tip" tabindex="0"><span class="info-tip-text">Anzeigename des Gebäudes.</span></span></label>' +
+            '<input type="text" id="edName" class="ed-form-input" value="' + escapeHtml(currentBuilding.name) + '" placeholder="z.B. Hauptgebäude"></div>' +
+            '<div class="ed-form-group"><label class="ed-form-label" for="edGruppe">Gruppe <span class="info-tip" tabindex="0"><span class="info-tip-text">Ordnet das Gebäude einer Kategorie zu. Verschachtelte Gruppen mit &quot; &gt; &quot; trennen.</span></span></label>' +
+            '<input type="text" id="edGruppe" class="ed-form-input" value="' + escapeHtml(currentBuilding.gruppe) + '" placeholder="Verwaltung > Hauptgebäude"></div>' +
+            '<div class="ed-form-group"><label class="ed-form-label" for="edBeschreibung">Beschreibung <span class="info-tip" tabindex="0"><span class="info-tip-text">Optionaler Freitext. Wird beim Klick auf das Gebäude angezeigt.</span></span></label>' +
+            '<textarea id="edBeschreibung" class="ed-form-input" placeholder="Optionale Beschreibung">' + escapeHtml(currentBuilding.beschreibung) + '</textarea></div>' +
+            '<div class="ed-form-group"><label class="ed-form-label">Highlight-Farbe <span class="info-tip" tabindex="0"><span class="info-tip-text">Farbe für Hervorhebung beim Überfahren oder Auswählen.</span></span></label>' +
+            '<div class="ed-color-picker-group"><div class="ed-color-input-wrapper"><input type="color" id="edColor" value="' + (currentBuilding.highlightColor || '#FFC107') + '"></div>' +
+            '<input type="text" id="edColorHex" class="ed-form-input ed-color-hex" value="' + (currentBuilding.highlightColor || '#FFC107') + '" placeholder="#FFC107">' +
+            '<button type="button" class="btn btn-sm" id="edRandomColor" title="Zufällige Farbe" style="padding:0;width:40px;height:40px;min-width:40px;font-size:18px;line-height:1;letter-spacing:0;">&#x1f3b2;</button></div></div>' +
+            '<div style="margin-top:30px;padding-top:20px;border-top:1px solid #c0bda8;">' +
+            '<button class="btn btn-duplicate btn-sm" id="edDuplicate" style="width:100%;margin-bottom:10px;">Gebäude duplizieren</button>' +
+            '<span class="info-tip" tabindex="0" style="margin-bottom:10px;"><span class="info-tip-text">Erstellt eine Kopie dieses Gebäudes mit gleichem Polygon.</span></span>' +
+            '<button class="btn btn-primary btn-sm" id="edMerge" style="width:100%;margin-bottom:10px;">Zusammenführen</button>' +
+            '<span class="info-tip" tabindex="0" style="margin-bottom:10px;"><span class="info-tip-text">Führt ein anderes Gebäude in dieses zusammen (Multi-Polygon).</span></span>' +
+            '<button class="btn btn-danger btn-sm" id="edDelete" style="width:100%;">Gebäude löschen</button>' +
+            '<span class="info-tip" tabindex="0"><span class="info-tip-text">Entfernt das Gebäude. Kann mit Rückgängig (Strg+Z) wiederhergestellt werden.</span></span></div>';
+
+        // Attach event listeners
+        function autoEnable() { document.getElementById('edVisible').checked = true; }
+        let saveTimeout = null;
+        function debouncedSave() { autoEnable(); clearTimeout(saveTimeout); saveTimeout = setTimeout(saveBuilding, 400); }
+        document.getElementById('edNummer').addEventListener('input', debouncedSave);
+        document.getElementById('edName').addEventListener('input', debouncedSave);
+        document.getElementById('edGruppe').addEventListener('input', debouncedSave);
+        document.getElementById('edBeschreibung').addEventListener('input', debouncedSave);
+        document.getElementById('edColor').addEventListener('input', (e) => { autoEnable(); document.getElementById('edColorHex').value = e.target.value; saveBuilding(); });
+        document.getElementById('edColorHex').addEventListener('input', (e) => {
+            autoEnable();
+            if (/^#[0-9A-F]{6}$/i.test(e.target.value)) { document.getElementById('edColor').value = e.target.value; saveBuilding(); }
+        });
+        document.getElementById('edVisible').addEventListener('change', saveBuilding);
+        document.getElementById('edRandomColor').addEventListener('click', () => {
+            autoEnable();
+            const hue = Math.floor(Math.random() * 360);
+            const sat = 60 + Math.floor(Math.random() * 30);
+            const lum = 45 + Math.floor(Math.random() * 20);
+            const s = sat / 100, l = lum / 100;
+            const a = s * Math.min(l, 1 - l);
+            const f = n => { const k = (n + hue / 30) % 12; return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); };
+            const toHex = x => Math.round(x * 255).toString(16).padStart(2, '0');
+            const color = '#' + toHex(f(0)) + toHex(f(8)) + toHex(f(4));
+            document.getElementById('edColor').value = color;
+            document.getElementById('edColorHex').value = color;
+            saveBuilding();
+        });
+        document.getElementById('edDuplicate').addEventListener('click', duplicateBuilding);
+        document.getElementById('edMerge').addEventListener('click', startMergeMode);
+        document.getElementById('edDelete').addEventListener('click', deleteBuilding);
+    }
+
+    // ---- Save building ----
+    function saveBuilding() {
+        const nummer = document.getElementById('edNummer').value.trim();
+        const name = document.getElementById('edName').value.trim();
+        const gruppe = document.getElementById('edGruppe').value.trim();
+        const beschreibung = document.getElementById('edBeschreibung').value.trim();
+        const highlightColor = document.getElementById('edColor').value;
+        const disabled = !document.getElementById('edVisible').checked;
+        const buildingIndex = buildingsData.buildings.findIndex(b => b.id === currentBuilding.id);
+        if (buildingIndex !== -1) {
+            UndoManager.pushStateDebounced();
+            const b = buildingsData.buildings[buildingIndex];
+            const oldGruppe = b.gruppe, oldDisabled = b.disabled, oldColor = b.highlightColor;
+            b.nummer = nummer; b.name = name; b.gruppe = gruppe;
+            b.beschreibung = beschreibung; b.highlightColor = highlightColor; b.disabled = disabled;
+            currentBuilding = b;
+            hasChanges = true;
+            persistToIDB();
+            if (oldGruppe !== gruppe || oldDisabled !== disabled) {
+                renderSidebar();
+                const it = document.querySelector('#edSidebarContent .building-item[data-building-id="' + currentBuilding.id + '"]');
+                if (it) it.classList.add('selected');
+            } else {
+                updateSidebarItemInPlace(b);
+                if (oldColor !== highlightColor) updateMapPolygonStyle(b);
+            }
+        }
+    }
+
+    function updateSidebarItemInPlace(building) {
+        const item = document.querySelector('#edSidebarContent .building-item[data-building-id="' + building.id + '"]');
+        if (!item) return;
+        const nameEl = item.querySelector('.building-name');
+        if (nameEl) nameEl.textContent = building.name;
+        const idEl = item.querySelector('.building-id');
+        if (idEl) idEl.textContent = building.nummer || '';
+        const colorEl = item.querySelector('.color-indicator');
+        if (colorEl) colorEl.style.backgroundColor = building.highlightColor || '#FFC107';
+        item.setAttribute('data-search-text', [building.name, building.nummer, building.gruppe].filter(Boolean).join(' ').toLowerCase());
+    }
+
+    function updateMapPolygonStyle(building) {
+        const hc = building.highlightColor || '#FFC107';
+        const rgb = hexToRgb(hc);
+        document.querySelectorAll('.ed-svg-overlay .ed-building-polygon[data-building-id="' + building.id + '"]').forEach(p => {
+            if (p.classList.contains('selected')) {
+                p.style.fill = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.35)';
+                p.style.stroke = hc;
+            }
+        });
+    }
+
+    // ---- Merge mode ----
+    function startMergeMode() {
+        if (!currentBuilding) return;
+        if (mergeMode) { cancelMergeMode(); return; }
+        mergeMode = true; mergeTarget = currentBuilding;
+        document.body.style.cursor = 'crosshair';
+        const btn = document.getElementById('edMerge');
+        if (btn) { btn.textContent = 'Abbrechen'; btn.classList.remove('btn-primary'); btn.classList.add('btn-danger'); }
+        const hint = document.createElement('div');
+        hint.id = 'ed-merge-hint';
+        hint.className = 'ed-info-message';
+        hint.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:500;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.2);';
+        hint.innerHTML = '<strong>Zusammenführen:</strong> Klicke auf das Gebäude, das zu \u201E' + escapeHtml(mergeTarget.name) + '\u201C hinzugefügt werden soll. <em>ESC</em> zum Abbrechen.';
+        document.body.appendChild(hint);
+    }
+
+    function cancelMergeMode() {
+        mergeMode = false; mergeTarget = null;
+        document.body.style.cursor = '';
+        const hint = document.getElementById('ed-merge-hint');
+        if (hint) hint.remove();
+        const btn = document.getElementById('edMerge');
+        if (btn) { btn.textContent = 'Zusammenführen'; btn.classList.remove('btn-danger'); btn.classList.add('btn-primary'); }
+    }
+
+    function handleMergeClick(source) {
+        if (!mergeTarget || source.id === mergeTarget.id) return;
+        UndoManager.pushState();
+        const targetPolys = mergeTarget.polygons || [mergeTarget.polygon];
+        const sourcePolys = source.polygons || [source.polygon];
+        mergeTarget.polygons = targetPolys.concat(sourcePolys);
+        mergeTarget.polygon = mergeTarget.polygons[0];
+        const sourceIndex = buildingsData.buildings.findIndex(b => b.id === source.id);
+        if (sourceIndex !== -1) buildingsData.buildings.splice(sourceIndex, 1);
+        hasChanges = true; persistToIDB();
+        const target = mergeTarget;
+        cancelMergeMode();
+        renderMap();
+        setTimeout(() => { renderSidebar(); selectBuilding(target); }, 100);
+    }
+
+    // ---- Duplicate ----
+    function duplicateBuilding() {
+        if (!currentBuilding) return;
+        const buildingIndex = buildingsData.buildings.findIndex(b => b.id === currentBuilding.id);
+        if (buildingIndex === -1) return;
+        const maxId = buildingsData.buildings.reduce((max, b) => {
+            const match = b.id.match(/building_(\d+)/);
+            return match ? Math.max(max, parseInt(match[1])) : max;
+        }, 0);
+        const duplicate = {
+            id: 'building_' + (maxId + 1),
+            nummer: currentBuilding.nummer || '',
+            name: currentBuilding.name + ' (Kopie)',
+            gruppe: currentBuilding.gruppe,
+            beschreibung: currentBuilding.beschreibung,
+            highlightColor: currentBuilding.highlightColor,
+            polygon: JSON.parse(JSON.stringify(currentBuilding.polygon)),
+            ...(currentBuilding.polygons ? { polygons: JSON.parse(JSON.stringify(currentBuilding.polygons)) } : {})
+        };
+        UndoManager.pushState();
+        buildingsData.buildings.splice(buildingIndex + 1, 0, duplicate);
+        hasChanges = true; persistToIDB();
+        renderMap();
+        setTimeout(() => { renderSidebar(); selectBuilding(duplicate); }, 100);
+    }
+
+    // ---- Delete ----
+    function deleteBuilding() {
+        if (!currentBuilding) return;
+        if (!confirm('Möchten Sie das Gebäude "' + currentBuilding.name + '" (' + currentBuilding.id + ') wirklich löschen?')) return;
+        const idx = buildingsData.buildings.findIndex(b => b.id === currentBuilding.id);
+        if (idx !== -1) {
+            UndoManager.pushState();
+            buildingsData.buildings.splice(idx, 1);
+            hasChanges = true; persistToIDB();
+            currentBuilding = null;
+            renderMap();
+            setTimeout(() => {
+                renderSidebar();
+                document.getElementById('edEditorContent').innerHTML = '<div class="ed-empty-state"><h3>Gebäude gelöscht</h3><p>Wählen Sie ein anderes Gebäude aus der Liste.</p></div>';
+            }, 100);
+        }
+    }
+
+    // ---- Drag and Drop ----
+    function handleDragStart(e) {
+        draggedElement = e.currentTarget;
+        draggedBuildingId = draggedElement.getAttribute('data-building-id');
+        draggedElement.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/html', draggedElement.innerHTML);
+    }
+    function handleDragEnd(e) {
+        e.currentTarget.classList.remove('dragging');
+        document.querySelectorAll('#edSidebarContent .building-item').forEach(it => it.classList.remove('drag-over'));
+    }
+    function handleDragOver(e) {
+        e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+        if (e.currentTarget !== draggedElement) e.currentTarget.classList.add('drag-over');
+        return false;
+    }
+    function handleDrop(e) {
+        e.stopPropagation(); e.preventDefault();
+        const dropBuildingId = e.currentTarget.getAttribute('data-building-id');
+        if (draggedBuildingId === dropBuildingId) return false;
+        const draggedIndex = buildingsData.buildings.findIndex(b => b.id === draggedBuildingId);
+        const dropIndex = buildingsData.buildings.findIndex(b => b.id === dropBuildingId);
+        if (draggedIndex !== -1 && dropIndex !== -1) {
+            UndoManager.pushState();
+            const [db] = buildingsData.buildings.splice(draggedIndex, 1);
+            buildingsData.buildings.splice(draggedIndex < dropIndex ? dropIndex - 1 : dropIndex, 0, db);
+            hasChanges = true; persistToIDB();
+            renderSidebar();
+            if (currentBuilding) {
+                const it = document.querySelector('#edSidebarContent .building-item[data-building-id="' + currentBuilding.id + '"]');
+                if (it) it.classList.add('selected');
+            }
+        }
+        return false;
+    }
+    function handleDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+
+    // ---- Download JSON ----
+    function saveJSONToFile() {
+        const blob = new Blob([JSON.stringify(buildingsData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'gebaeude_polygone.json'; a.click();
+        URL.revokeObjectURL(url);
+        hasChanges = false;
+    }
+
+    // ---- Viewer overlay ----
+    let voSelectedBuildingId = null;
+    let voCurrentHighlighted = new Set();
+
+    function voHighlight(buildingId) {
+        voCurrentHighlighted.add(buildingId);
+        const b = buildingsData.buildings.find(b2 => b2.id === buildingId);
+        const hc = b?.highlightColor || '#FFC107';
+        const rgb = hexToRgb(hc);
+        document.querySelectorAll('.vo-building-polygon[data-building-id="' + buildingId + '"]').forEach(p => {
+            p.style.fill = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.35)'; p.style.stroke = hc; p.style.strokeWidth = '3';
+        });
+        const item = document.querySelector('.vo-building-item[data-building-id="' + buildingId + '"]');
+        if (item) { item.classList.add('highlighted'); item.style.borderLeftColor = hc; }
+    }
+
+    function voUnhighlight(buildingId) {
+        voCurrentHighlighted.delete(buildingId);
+        if (buildingId === voSelectedBuildingId) return;
+        document.querySelectorAll('.vo-building-polygon[data-building-id="' + buildingId + '"]').forEach(p => {
+            p.style.fill = 'rgba(255,255,0,0)'; p.style.stroke = 'rgba(255,255,0,0)'; p.style.strokeWidth = '2';
+        });
+        const item = document.querySelector('.vo-building-item[data-building-id="' + buildingId + '"]');
+        if (item) { item.classList.remove('highlighted'); item.style.borderLeftColor = ''; }
+    }
+
+    function voHidePopup() {
+        if (voSelectedBuildingId) { const prev = voSelectedBuildingId; voSelectedBuildingId = null; voUnhighlight(prev); }
+        const c = document.querySelector('.vo-selection-circle'); if (c) c.remove();
+        const d = document.querySelector('.vo-dim-overlay'); if (d) d.remove();
+        const m = document.getElementById('vo-selection-mask'); if (m) m.remove();
+        const mo = document.getElementById('vo-modal-overlay'); if (mo) mo.classList.remove('active');
+    }
+
+    function voShowPopup(building) {
+        voHidePopup();
+        voSelectedBuildingId = building.id;
+        voHighlight(building.id);
+        const polygon = document.querySelector('.vo-building-polygon[data-building-id="' + building.id + '"]');
+        if (!polygon) return;
+        const polys = building.polygons || [building.polygon];
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        polys.forEach(poly => poly.forEach(([x, y]) => { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); }));
+        const centerX = (minX + maxX) / 2, centerY = (minY + maxY) / 2;
+        const radius = Math.max(Math.max(maxX - minX, maxY - minY) / 2 * 1.8, 0.04);
+        const svg = polygon.closest('svg');
+        const vb = svg.getAttribute('viewBox').split(' ');
+        const svgW = parseFloat(vb[2]), svgH = parseFloat(vb[3]);
+        let defs = svg.querySelector('defs');
+        if (!defs) { defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs'); svg.insertBefore(defs, svg.firstChild); }
+        const mask = document.createElementNS('http://www.w3.org/2000/svg', 'mask');
+        mask.setAttribute('id', 'vo-selection-mask');
+        const mr = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        mr.setAttribute('width', svgW); mr.setAttribute('height', svgH); mr.setAttribute('fill', 'white');
+        mask.appendChild(mr);
+        const mc = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        mc.setAttribute('cx', centerX * svgW); mc.setAttribute('cy', centerY * svgH);
+        mc.setAttribute('r', radius * Math.max(svgW, svgH)); mc.setAttribute('fill', 'black');
+        mask.appendChild(mc); defs.appendChild(mask);
+        const dr = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        dr.setAttribute('class', 'vo-dim-overlay');
+        dr.setAttribute('width', svgW); dr.setAttribute('height', svgH);
+        dr.setAttribute('mask', 'url(#vo-selection-mask)');
+        svg.appendChild(dr);
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('class', 'vo-selection-circle');
+        circle.setAttribute('cx', centerX * svgW); circle.setAttribute('cy', centerY * svgH);
+        circle.setAttribute('r', radius * Math.max(svgW, svgH));
+        svg.appendChild(circle);
+
+        const modal = document.getElementById('vo-modal-overlay');
+        const modalContent = modal.querySelector('.vo-modal-content');
+        const ne = document.getElementById('vo-modal-nummer');
+        if (building.nummer && building.nummer.trim()) { ne.textContent = building.nummer; ne.style.display = 'block'; } else { ne.style.display = 'none'; }
+        document.getElementById('vo-modal-title').textContent = building.name;
+        const bc = document.getElementById('vo-modal-breadcrumb');
+        const gruppe = (building.gruppe || '').trim();
+        if (gruppe) { bc.innerHTML = gruppe.split(/\s*>\s*/).map(p => '<span>' + escapeHtml(p) + '</span>').join(''); bc.style.display = 'block'; } else { bc.style.display = 'none'; }
+        const bd = document.getElementById('vo-modal-beschreibung');
+        if (building.beschreibung && building.beschreibung.trim()) { bd.textContent = building.beschreibung; bd.style.display = 'block'; } else { bd.style.display = 'none'; }
+        modal.classList.add('active');
+
+        requestAnimationFrame(() => {
+            const ic = document.getElementById('voImageContainer');
+            if (!ic) return;
+            const img = ic.querySelector('img');
+            if (!img) return;
+            const iw = img.offsetWidth, ih = img.offsetHeight;
+            const mR = modalContent.getBoundingClientRect();
+            const bx = centerX * iw, by = centerY * ih;
+            const crPx = radius * Math.max(iw, ih);
+            const gap = 20, margin = 15;
+            let left, top;
+            if (centerX > 0.5) { const tl = (bx - crPx) - gap - mR.width; if (tl >= margin) { left = tl; top = by - mR.height / 2; } else { left = bx - mR.width / 2; top = by + crPx + gap; } }
+            else { const tl = (bx + crPx) + gap; if (tl + mR.width <= iw - margin) { left = tl; top = by - mR.height / 2; } else { left = bx - mR.width / 2; top = by + crPx + gap; } }
+            if (left === bx - mR.width / 2 && top + mR.height > ih - margin) { const ta = by - crPx - gap - mR.height; if (ta >= margin) top = ta; }
+            left = Math.max(margin, Math.min(left, iw - mR.width - margin));
+            top = Math.max(margin, Math.min(top, ih - mR.height - margin));
+            modalContent.style.left = left + 'px'; modalContent.style.top = top + 'px';
+        });
+    }
+
+    function renderViewerOverlay() {
+        voSelectedBuildingId = null;
+        voCurrentHighlighted.clear();
+        const sidebar = document.getElementById('voSidebar');
+        sidebar.innerHTML = '';
+        const header = document.createElement('div');
+        header.className = 'vo-sidebar-header';
+        header.innerHTML = '<h3>' + escapeHtml(buildingsData.title || 'Gebäudekarte') + '</h3><p>Interaktive Vorschau</p>';
+        sidebar.appendChild(header);
+        const searchBar = document.createElement('div');
+        searchBar.className = 'vo-search-bar';
+        searchBar.innerHTML = '<input type="text" class="vo-search-input" placeholder="Gebäude suchen...">';
+        sidebar.appendChild(searchBar);
+        searchBar.querySelector('.vo-search-input').addEventListener('input', function() {
+            const q = this.value.toLowerCase().trim();
+            sidebar.querySelectorAll('.vo-building-item').forEach(it => { it.style.display = (!q || it.getAttribute('data-search-text').includes(q)) ? '' : 'none'; });
+            sidebar.querySelectorAll('.vo-group').forEach(g => { g.style.display = Array.from(g.querySelectorAll('.vo-building-item')).some(it => it.style.display !== 'none') ? '' : 'none'; });
+        });
+
+        const enabledBuildings = buildingsData.buildings.filter(b => !b.disabled);
+        const gh = {};
+        enabledBuildings.forEach(b => {
+            const g = b.gruppe || 'Sonstige';
+            const parts = g.split(' > ').map(p => p.trim());
+            let cl = gh;
+            parts.forEach((part, i) => { if (!cl[part]) cl[part] = { buildings: [], subgroups: {} }; if (i === parts.length - 1) cl[part].buildings.push(b); cl = cl[part].subgroups; });
+        });
+        function sortN(n) { return n.sort((a, b) => { if (a === 'Unbekannt' || a === 'Sonstige') return 1; if (b === 'Unbekannt' || b === 'Sonstige') return -1; return a.localeCompare(b); }); }
+        function getAllIds(gd) { const ids = gd.buildings.map(b => b.id); Object.values(gd.subgroups).forEach(sg => ids.push(...getAllIds(sg))); return ids; }
+        function renderVoGroup(gn, gd, level) {
+            const g = document.createElement('div'); g.className = 'vo-group'; g.style.marginLeft = (level * 15) + 'px';
+            const bids = getAllIds(gd);
+            const h = document.createElement('div'); h.className = 'vo-group-header'; h.style.paddingLeft = (20 - level * 5) + 'px';
+            h.innerHTML = '<h4>' + escapeHtml(gn) + '</h4><span class="vo-group-toggle">\u25BC</span>';
+            h.addEventListener('click', () => g.classList.toggle('collapsed'));
+            h.addEventListener('mouseenter', () => bids.forEach(id => voHighlight(id)));
+            h.addEventListener('mouseleave', () => bids.forEach(id => voUnhighlight(id)));
+            g.appendChild(h);
+            const ct = document.createElement('div'); ct.className = 'vo-group-buildings';
+            gd.buildings.forEach(b => {
+                const it = document.createElement('div'); it.className = 'vo-building-item'; it.style.paddingLeft = (35 + level * 15) + 'px';
+                it.setAttribute('data-building-id', b.id);
+                it.setAttribute('data-search-text', [b.name, b.nummer, b.gruppe].filter(Boolean).join(' ').toLowerCase());
+                it.innerHTML = '<div class="vo-building-name">' + escapeHtml(b.name) + '</div>';
+                it.addEventListener('mouseenter', () => voHighlight(b.id));
+                it.addEventListener('mouseleave', () => voUnhighlight(b.id));
+                it.addEventListener('click', () => voShowPopup(b));
+                ct.appendChild(it);
+            });
+            sortN(Object.keys(gd.subgroups)).forEach(sn => ct.appendChild(renderVoGroup(sn, gd.subgroups[sn], level + 1)));
+            g.appendChild(ct); return g;
+        }
+        sortN(Object.keys(gh)).forEach(gn => sidebar.appendChild(renderVoGroup(gn, gh[gn], 0)));
+
+        const ic = document.getElementById('voImageContainer');
+        const { width, height } = buildingsData.image;
+        const img = document.createElement('img');
+        img.src = buildingsData.image.dataUrl || buildingsData.image.filename;
+        img.alt = (buildingsData.title || 'Gebäudekarte') + ' Karte';
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('class', 'vo-svg-overlay');
+        svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+        svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        enabledBuildings.forEach(b => {
+            (b.polygons || [b.polygon]).forEach(poly => {
+                const p = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                p.setAttribute('points', poly.map(([x, y]) => (x * width) + ',' + (y * height)).join(' '));
+                p.setAttribute('class', 'vo-building-polygon'); p.setAttribute('data-building-id', b.id);
+                p.addEventListener('mouseenter', () => voHighlight(b.id));
+                p.addEventListener('mouseleave', () => voUnhighlight(b.id));
+                p.addEventListener('click', () => voShowPopup(b));
+                svg.appendChild(p);
+            });
+        });
+        const mo = document.createElement('div');
+        mo.className = 'vo-modal-overlay'; mo.id = 'vo-modal-overlay';
+        mo.innerHTML = '<div class="vo-modal-content"><button class="vo-modal-close" id="vo-modal-close">&times;</button><div class="vo-modal-header"><div class="vo-modal-nummer" id="vo-modal-nummer" style="display:none"></div><h5 id="vo-modal-title"></h5><div class="vo-modal-breadcrumb" id="vo-modal-breadcrumb"></div></div><div class="vo-modal-beschreibung" id="vo-modal-beschreibung" style="display:none"></div></div>';
+        ic.innerHTML = '';
+        ic.appendChild(img); ic.appendChild(svg); ic.appendChild(mo);
+        document.getElementById('vo-modal-close').addEventListener('click', voHidePopup);
+    }
+
+    function showViewerOverlay() {
+        renderViewerOverlay();
+        document.getElementById('viewerOverlay').classList.add('active');
+    }
+    function hideViewerOverlay() {
+        voHidePopup();
+        document.getElementById('viewerOverlay').classList.remove('active');
+    }
+
+    // ---- Public API ----
+    function init(data) {
+        if (data) {
+            buildingsData = structuredClone(data);
+        }
+        if (!buildingsData) return;
+        currentBuilding = null;
+        hasChanges = false;
+        UndoManager.clear();
+        renderMap();
+        setTimeout(() => { renderSidebar(); }, 100);
+    }
+
+    function bindEvents() {
+        document.getElementById('edSaveBtn').addEventListener('click', saveJSONToFile);
+        document.getElementById('edPreviewBtn').addEventListener('click', () => { if (buildingsData) showViewerOverlay(); });
+        document.getElementById('voCloseBtn').addEventListener('click', hideViewerOverlay);
+        document.getElementById('undoBtn').addEventListener('click', () => UndoManager.undo());
+        document.getElementById('redoBtn').addEventListener('click', () => UndoManager.redo());
+        document.getElementById('edSearchInput').addEventListener('input', function() { filterSidebar(this.value); });
+
+        // Keyboard: Escape priority: merge > viewer popup > viewer overlay
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && mergeMode) { cancelMergeMode(); e.stopPropagation(); return; }
+            if (e.key === 'Escape' && document.getElementById('viewerOverlay').classList.contains('active')) {
+                if (voSelectedBuildingId) { voHidePopup(); } else { hideViewerOverlay(); }
+                e.stopPropagation();
+            }
+        });
+
+        // Click outside in viewer overlay
+        document.addEventListener('click', (e) => {
+            if (!document.getElementById('viewerOverlay').classList.contains('active')) return;
+            if (e.target.id === 'viewerOverlay') { hideViewerOverlay(); return; }
+            if (e.target.closest('.vo-building-polygon') || e.target.closest('.vo-building-item') || e.target.closest('.vo-sidebar') || e.target.closest('.vo-modal-content')) return;
+            if (e.target.closest('.vo-dialog')) voHidePopup();
+        });
+
+        // Undo/redo keyboard
+        document.addEventListener('keydown', (e) => {
+            // Only intercept when editor is active
+            if (document.getElementById('accordionEditor').classList.contains('collapsed')) return;
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                if (!e.ctrlKey && !e.metaKey) return;
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); UndoManager.undo(); }
+            else if ((e.ctrlKey || e.metaKey) && (e.key === 'Z' || e.key === 'y')) { e.preventDefault(); UndoManager.redo(); }
+        });
+
+        // Warn before leaving if unsaved changes
+        window.addEventListener('beforeunload', (e) => {
+            if (hasChanges) { e.preventDefault(); e.returnValue = ''; }
+        });
+    }
+
+    async function initFromIDB() {
+        try {
+            const editorData = await PipelineDB.get('editor', 'buildingsData');
+            if (editorData) {
+                buildingsData = editorData;
+                const imageBlob = await PipelineDB.get('images', 'rendered_map');
+                if (imageBlob) {
+                    buildingsData.image = buildingsData.image || {};
+                    buildingsData.image.dataUrl = await blobToDataUrl(imageBlob);
+                }
+                UndoManager.clear();
+                renderMap();
+                setTimeout(() => { renderSidebar(); }, 100);
+            }
+        } catch(e) { console.warn('[editor] Konnte Editor-Daten nicht aus IDB laden:', e.message); }
+    }
+
+    return {
+        init,
+        bindEvents,
+        initFromIDB,
+        isActive() { return !document.getElementById('accordionEditor').classList.contains('collapsed'); },
+        hasUnsavedChanges() { return hasChanges; },
+        getBuildingsData() { return buildingsData; }
+    };
+})();
+
 // Async init flow
 (async function initApp() {
     await PipelineDB.open();
@@ -2713,6 +4041,7 @@ function onError(message) { onLog('[ERROR] ' + message); btnRun.disabled = false
     await loadParams();
     await loadGeojson();
     pipeline = new Pipeline({ onProgress, onLog, onComplete, onError });
+    EditorModule.bindEvents();
     await loadBuildingsCache();
     await loadResultCache();
     await renderProjectList();
@@ -2732,7 +4061,7 @@ function resetUI() {
 }
 
 // ---- Export buttons ----
-btnEditor.addEventListener('click', () => { if (!pipelineResult) return; window.open('editor.html','_blank'); });
+btnEditor.addEventListener('click', () => { if (!pipelineResult) return; openEditorAccordion(); });
 btnStandalone.addEventListener('click', () => { if (pipeline) pipeline.exportStandalone(geojsonData, getParams()); });
 btnDownloadGeojson.addEventListener('click', () => { if (pipeline) pipeline.exportGeojson(); });
 btnDownloadImage.addEventListener('click', () => { if (pipeline) pipeline.exportImage(); });
@@ -2743,6 +4072,13 @@ btnReset.addEventListener('click', () => {
     clearDrawnPolygon();
     uploadedLayer.clearLayers();
     resetUI();
+    // Reset editor
+    document.getElementById('edMapContainer').innerHTML = '<div class="ed-empty-state"><p>Noch keine Kartendaten vorhanden.</p></div>';
+    document.getElementById('edSidebarContent').innerHTML = '<div class="ed-empty-state"><p>Führen Sie zuerst die Pipeline aus, um Gebäude zu laden.</p></div>';
+    document.getElementById('edEditorContent').innerHTML = '<div class="ed-empty-state"><h3>Kein Gebäude ausgewählt</h3><p>Wählen Sie ein Gebäude aus der Liste oder klicken Sie auf ein Gebäude in der Karte.</p></div>';
+    document.getElementById('accordionEditor').classList.add('collapsed');
+    updateEditorBadge(0); updatePipelineBadge(0);
+    updateUndoRedoVisibility();
 });
 
 // ==========================================================================
