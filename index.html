@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://unpkg.com; connect-src 'self' https://overpass-api.de https://unpkg.com; font-src 'self'">
     <title>Building Extraction Pipeline</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" integrity="sha384-NZLkVuBRMEeB4VeZz27WwTRvlhec30biQ8Xx7zG7JJnkvEKRg5qi6BNbEXo9ydwv" crossorigin="anonymous" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js" integrity="sha384-JP5UPxIO2Tm2o79Fb0tGYMa44jkWar53aBoCbd8ah0+LcCDoohTIYr+zIXyfGIJN" crossorigin="anonymous"></script>
     <style>
         /* ---- Reset ---- */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1148,8 +1149,6 @@
                     <span class="export-desc">OSM-Gebäudedaten als GeoJSON-Datei</span>
                 </div>
                 <div class="export-row">
-                </div>
-                <div class="export-row">
                     <button class="btn btn-secondary btn-sm" id="btnDownloadImage">Bild herunterladen</button>
                     <span class="export-desc">Gerendertes 2.5D-Bild als PNG-Datei</span>
                 </div>
@@ -1284,9 +1283,17 @@ const PipelineDB = (() => {
     return { open, get, put, remove, clearAll, getAll };
 })();
 
+function escapeHtml(s) {
+    if (typeof s !== 'string') return '';
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
 function dataUrlToBlob(dataUrl) {
+    if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.includes(',')) throw new Error('Invalid data URL');
     const [header, b64] = dataUrl.split(',');
-    const mime = header.match(/:(.*?);/)[1];
+    const mimeMatch = header.match(/:(.*?);/);
+    if (!mimeMatch) throw new Error('Invalid data URL: missing MIME type');
+    const mime = mimeMatch[1];
     const bin = atob(b64);
     const arr = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
@@ -1398,7 +1405,7 @@ function estimateBboxAreaKm2(coords) {
 
 function buildOverpassQuery(coords) {
     const polyString = coords.map(([lng, lat]) => lat + ' ' + lng).join(' ');
-    return '[out:json][timeout:60];\n(\n  way["building"](poly:"' + polyString + '");\n  relation["building"](poly:"' + polyString + '");\n);\nout geom;\n>;\nout skel qt;';
+    return '[out:json][timeout:60];\n(\n  way["building"](poly:"' + polyString + '");\n  relation["building"](poly:"' + polyString + '");\n);\nout geom;';
 }
 
 function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
@@ -1443,9 +1450,18 @@ function osmToGeojson(data) {
         } else if (el.type === 'relation') {
             if (!el.members) continue;
             const outerRings = [];
-            for (const m of el.members) { if (m.role === 'outer' && m.geometry && m.geometry.length > 0) outerRings.push(wayGeometryToCoords(m.geometry)); }
+            const innerRings = [];
+            for (const m of el.members) {
+                if (m.role === 'outer' && m.geometry && m.geometry.length > 0) outerRings.push(wayGeometryToCoords(m.geometry));
+                if (m.role === 'inner' && m.geometry && m.geometry.length > 0) innerRings.push(wayGeometryToCoords(m.geometry));
+            }
             if (outerRings.length === 0) continue;
-            const geometry = outerRings.length === 1 ? { type: 'Polygon', coordinates: [outerRings[0]] } : { type: 'MultiPolygon', coordinates: outerRings.map(r => [r]) };
+            let geometry;
+            if (outerRings.length === 1) {
+                geometry = { type: 'Polygon', coordinates: [outerRings[0], ...innerRings] };
+            } else {
+                geometry = { type: 'MultiPolygon', coordinates: outerRings.map(r => [r]) };
+            }
             features.push({ type: 'Feature', properties: { ...(el.tags || {}), osm_id: el.id, osm_type: 'relation' }, geometry });
         }
     }
@@ -1488,9 +1504,15 @@ class Building25DRenderer {
     return canvas;
   }
 
+  _latToMercY(lat) { return Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)); }
+
   lonLatToPixel(lon, lat) {
-    return [Math.round((lon - this.minLon) / (this.maxLon - this.minLon) * this.width),
-            Math.round((this.maxLat - lat) / (this.maxLat - this.minLat) * this.height)];
+    const xNorm = (lon - this.minLon) / (this.maxLon - this.minLon);
+    const yMerc = this._latToMercY(lat);
+    const yMinMerc = this._latToMercY(this.minLat);
+    const yMaxMerc = this._latToMercY(this.maxLat);
+    const yNorm = (yMaxMerc - yMerc) / (yMaxMerc - yMinMerc);
+    return [Math.round(xNorm * this.width), Math.round(yNorm * this.height)];
   }
 
   calculateBounds() {
@@ -1521,35 +1543,50 @@ class Building25DRenderer {
   }
 
   renderBuilding(ctx, feature, isoOffsetX, isoOffsetY, index) {
-    const coords = this.extractCoordinates(feature.geometry);
-    if (!coords || coords.length < 3) return;
-    if (this.calculateBuildingArea(coords) < this.minArea) return;
+    const allCoords = this.extractAllCoordinates(feature.geometry);
+    if (allCoords.length === 0) return;
     const height = this.getBuildingHeight(feature.properties);
-    const gp = coords.map(([lon, lat]) => this.lonLatToPixel(lon, lat));
-    const rp = gp.map(([x, y]) => [x + Math.round(height * isoOffsetX), y - Math.round(height * isoOffsetY)]);
     const wc = this.darkenColor(this.roofColor, 0.7);
-    for (let i = 0; i < gp.length; i++) {
-      const j = (i+1) % gp.length;
-      ctx.beginPath(); ctx.moveTo(gp[i][0],gp[i][1]); ctx.lineTo(gp[j][0],gp[j][1]); ctx.lineTo(rp[j][0],rp[j][1]); ctx.lineTo(rp[i][0],rp[i][1]); ctx.closePath();
-      ctx.fillStyle=wc; ctx.fill(); ctx.strokeStyle=this.outlineColor; ctx.lineWidth=1; ctx.stroke();
+    let allPixels = [];
+    let totalLon = 0, totalLat = 0, totalPts = 0;
+    for (const coords of allCoords) {
+      if (!coords || coords.length < 3) continue;
+      if (this.calculateBuildingArea(coords) < this.minArea) continue;
+      const gp = coords.map(([lon, lat]) => this.lonLatToPixel(lon, lat));
+      const rp = gp.map(([x, y]) => [x + Math.round(height * isoOffsetX), y - Math.round(height * isoOffsetY)]);
+      for (let i = 0; i < gp.length; i++) {
+        const j = (i+1) % gp.length;
+        ctx.beginPath(); ctx.moveTo(gp[i][0],gp[i][1]); ctx.lineTo(gp[j][0],gp[j][1]); ctx.lineTo(rp[j][0],rp[j][1]); ctx.lineTo(rp[i][0],rp[i][1]); ctx.closePath();
+        ctx.fillStyle=wc; ctx.fill(); ctx.strokeStyle=this.outlineColor; ctx.lineWidth=1; ctx.stroke();
+      }
+      ctx.beginPath(); ctx.moveTo(rp[0][0],rp[0][1]);
+      for (let i = 1; i < rp.length; i++) ctx.lineTo(rp[i][0],rp[i][1]);
+      ctx.closePath(); ctx.fillStyle=this.roofColor; ctx.fill(); ctx.strokeStyle=this.outlineColor; ctx.lineWidth=1; ctx.stroke();
+      allPixels.push(...gp, ...rp);
+      for (const [lon, lat] of coords) { totalLon += lon; totalLat += lat; totalPts++; }
     }
-    ctx.beginPath(); ctx.moveTo(rp[0][0],rp[0][1]);
-    for (let i = 1; i < rp.length; i++) ctx.lineTo(rp[i][0],rp[i][1]);
-    ctx.closePath(); ctx.fillStyle=this.roofColor; ctx.fill(); ctx.strokeStyle=this.outlineColor; ctx.lineWidth=1; ctx.stroke();
-    const all = [...gp, ...rp];
-    const cp = this.simplify ? this.convexHull(all) : all;
-    // Compute geographic centroid (lon/lat) for later migration matching
-    let cLon = 0, cLat = 0;
-    for (const [lon, lat] of coords) { cLon += lon; cLat += lat; }
-    cLon /= coords.length; cLat /= coords.length;
+    if (allPixels.length === 0) return;
+    const cp = this.simplify ? this.convexHull(allPixels) : allPixels;
+    const cLon = totalPts > 0 ? totalLon / totalPts : 0;
+    const cLat = totalPts > 0 ? totalLat / totalPts : 0;
     this.buildingPolygons.push({ index, polygon: cp.map(([x,y]) => [x/this.width, y/this.height]), properties: feature.properties || {}, centroid: [cLon, cLat] });
   }
 
   extractCoordinates(g) {
     if (!g) return null;
     if (g.type === 'Polygon') return g.coordinates[0] || null;
-    if (g.type === 'MultiPolygon') { const fp = g.coordinates[0]; return fp ? fp[0] || null : null; }
+    if (g.type === 'MultiPolygon') {
+        // Return the outer ring of the first polygon; other polygons are handled by extractAllCoordinates
+        const fp = g.coordinates[0]; return fp ? fp[0] || null : null;
+    }
     return null;
+  }
+
+  extractAllCoordinates(g) {
+    if (!g) return [];
+    if (g.type === 'Polygon') { const c = g.coordinates[0]; return c ? [c] : []; }
+    if (g.type === 'MultiPolygon') { return g.coordinates.map(poly => poly[0]).filter(Boolean); }
+    return [];
   }
 
   convexHull(points) {
@@ -1603,11 +1640,28 @@ class Building25DRenderer {
     for (const {img,tx,ty} of tiles) { if (img) cc.drawImage(img,(tx-minTileX)*ts,(ty-minTileY)*ts,ts,ts); }
     const [cMinLon,cMaxLat]=this._tileToLonLat(minTileX,minTileY,zoom);
     const [cMaxLon,cMinLat]=this._tileToLonLat(maxTileX+1,maxTileY+1,zoom);
-    const lr=cMaxLon-cMinLon, ar=cMaxLat-cMinLat;
+    const lr=cMaxLon-cMinLon;
     const cl=(this.minLon-cMinLon)/lr*cW, cr=(this.maxLon-cMinLon)/lr*cW;
-    const ct=(cMaxLat-this.maxLat)/ar*cH, cb=(cMaxLat-this.minLat)/ar*cH;
+    // Use Mercator projection for latitude cropping to match tile projection
+    const cMinMerc=this._latToMercY(cMinLat), cMaxMerc=this._latToMercY(cMaxLat);
+    const mercRange=cMaxMerc-cMinMerc;
+    const ct=(cMaxMerc-this._latToMercY(this.maxLat))/mercRange*cH;
+    const cb=(cMaxMerc-this._latToMercY(this.minLat))/mercRange*cH;
     const sw=cr-cl, sh=cb-ct;
     if (sw>0 && sh>0) ctx.drawImage(comp,cl,ct,sw,sh,0,0,this.width,this.height);
+    // Free intermediate canvas memory
+    comp.width = 0; comp.height = 0;
+    // Draw OSM attribution
+    ctx.save();
+    ctx.font = '11px sans-serif';
+    const attrText = '\u00A9 OpenStreetMap contributors';
+    const tm = ctx.measureText(attrText);
+    const ax = this.width - tm.width - 6, ay = this.height - 6;
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.fillRect(ax - 4, ay - 12, tm.width + 8, 16);
+    ctx.fillStyle = '#333';
+    ctx.fillText(attrText, ax, ay);
+    ctx.restore();
   }
 
   _lonLatToMeters(lon, lat) {
@@ -1771,13 +1825,14 @@ function _getViewerTemplate() {
     </div>
     <script>
         let buildingsData=null;let currentHighlighted=new Set();let selectedBuildingId=null;
-        async function init(){try{if(window.__buildingsData){buildingsData=window.__buildingsData}else if(sessionStorage.getItem('buildingsData')){buildingsData=JSON.parse(sessionStorage.getItem('buildingsData'))}else if(localStorage.getItem('editor_buildingsData')){buildingsData=JSON.parse(localStorage.getItem('editor_buildingsData'))}else if(localStorage.getItem('pipeline_result_cache')){const cached=JSON.parse(localStorage.getItem('pipeline_result_cache'));if(cached.buildingJson)buildingsData=cached.buildingJson;else throw new Error('Keine Geb\\u00e4udedaten im Cache')}else{const r=await fetch('gebaeude_polygone.json');if(!r.ok)throw new Error('Konnte gebaeude_polygone.json nicht laden');buildingsData=await r.json()}const title=buildingsData.title||'Geb\\u00e4udekarte';document.getElementById('sidebar-title').textContent=title;document.title=title+' - Interaktive Karte';renderImage();renderSidebar()}catch(e){document.getElementById('sidebar-content').innerHTML='<div class="error">Fehler: '+e.message+'</div>';document.getElementById('image-container-wrapper').innerHTML='<div class="error">Fehler beim Laden</div>';console.error(e)}}
+        function esc(s){if(typeof s!=='string')return '';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+        async function init(){try{if(window.__buildingsData){buildingsData=window.__buildingsData}else if(sessionStorage.getItem('buildingsData')){buildingsData=JSON.parse(sessionStorage.getItem('buildingsData'))}else if(localStorage.getItem('editor_buildingsData')){buildingsData=JSON.parse(localStorage.getItem('editor_buildingsData'))}else if(localStorage.getItem('pipeline_result_cache')){const cached=JSON.parse(localStorage.getItem('pipeline_result_cache'));if(cached.buildingJson)buildingsData=cached.buildingJson;else throw new Error('Keine Geb\\u00e4udedaten im Cache')}else{const r=await fetch('gebaeude_polygone.json');if(!r.ok)throw new Error('Konnte gebaeude_polygone.json nicht laden');buildingsData=await r.json()}const title=buildingsData.title||'Geb\\u00e4udekarte';document.getElementById('sidebar-title').textContent=title;document.title=title+' - Interaktive Karte';renderImage();renderSidebar()}catch(e){const el=document.getElementById('sidebar-content');el.textContent='';const d=document.createElement('div');d.className='error';d.textContent='Fehler: '+e.message;el.appendChild(d);document.getElementById('image-container-wrapper').innerHTML='<div class="error">Fehler beim Laden</div>';console.error(e)}}
         function renderImage(){const w=document.getElementById('image-container-wrapper');const{filename,width,height}=buildingsData.image;const c=document.createElement('div');c.className='image-container';const img=document.createElement('img');img.src=buildingsData.image.dataUrl||filename;img.alt='Karte';c.appendChild(img);const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('class','svg-overlay');svg.setAttribute('viewBox','0 0 '+width+' '+height);svg.setAttribute('preserveAspectRatio','xMidYMid meet');buildingsData.buildings.filter(b=>!b.disabled).forEach(b=>{const polys=b.polygons||[b.polygon];polys.forEach(poly=>{const p=document.createElementNS('http://www.w3.org/2000/svg','polygon');p.setAttribute('points',poly.map(([x,y])=>(x*width)+','+(y*height)).join(' '));p.setAttribute('class','building-polygon');p.setAttribute('data-building-id',b.id);p.addEventListener('mouseenter',()=>highlightBuilding(b.id));p.addEventListener('mouseleave',()=>unhighlightBuilding(b.id));p.addEventListener('click',()=>showPopup(b));svg.appendChild(p)})});c.appendChild(svg);const mo=document.createElement('div');mo.className='modal-overlay';mo.id='modal-overlay';mo.innerHTML='<div class="modal-content"><button class="modal-close" id="modal-close">&times;</button><div class="modal-header"><div class="modal-nummer" id="modal-nummer" style="display:none"></div><h2 id="modal-title"></h2><div class="modal-breadcrumb" id="modal-breadcrumb"></div></div><div class="modal-beschreibung" id="modal-beschreibung" style="display:none"></div></div>';c.appendChild(mo);w.innerHTML='';w.appendChild(c);document.getElementById('modal-close').addEventListener('click',hidePopup)}
-        function renderSidebar(){const sidebar=document.getElementById('sidebar-content');const gh={};buildingsData.buildings.filter(b=>!b.disabled).forEach(b=>{const g=b.gruppe||'Sonstige';const parts=g.split(' > ').map(p=>p.trim());let cl=gh;parts.forEach((part,i)=>{if(!cl[part])cl[part]={buildings:[],subgroups:{}};if(i===parts.length-1)cl[part].buildings.push(b);cl=cl[part].subgroups})});function sn(n){return n.sort((a,b)=>{if(a==='Unbekannt'||a==='Sonstige')return 1;if(b==='Unbekannt'||b==='Sonstige')return -1;return a.localeCompare(b)})}function gbi(gd){const ids=gd.buildings.map(b=>b.id);Object.values(gd.subgroups).forEach(sg=>{ids.push(...gbi(sg))});return ids}function rg(gn,gd,l){const g=document.createElement('div');g.className='group';g.style.marginLeft=(l*15)+'px';const bids=gbi(gd);const h=document.createElement('div');h.className='group-header';h.style.paddingLeft=(20-l*5)+'px';h.innerHTML='<h2>'+gn+'</h2><span class="group-toggle">\\u25BC</span>';h.addEventListener('click',()=>g.classList.toggle('collapsed'));h.addEventListener('mouseenter',()=>bids.forEach(id=>highlightBuilding(id)));h.addEventListener('mouseleave',()=>bids.forEach(id=>unhighlightBuilding(id)));g.appendChild(h);const ct=document.createElement('div');ct.className='group-buildings';gd.buildings.forEach(b=>{const it=document.createElement('div');it.className='building-item';it.style.paddingLeft=(35+l*15)+'px';it.setAttribute('data-building-id',b.id);it.setAttribute('data-search-text',[b.name,b.nummer,b.gruppe].filter(Boolean).join(' ').toLowerCase());it.innerHTML='<div class="building-name">'+b.name+'</div>';it.addEventListener('mouseenter',()=>highlightBuilding(b.id));it.addEventListener('mouseleave',()=>unhighlightBuilding(b.id));it.addEventListener('click',()=>showPopup(b));ct.appendChild(it)});sn(Object.keys(gd.subgroups)).forEach(sn2=>{ct.appendChild(rg(sn2,gd.subgroups[sn2],l+1))});g.appendChild(ct);return g}sidebar.innerHTML='';sn(Object.keys(gh)).forEach(gn=>{sidebar.appendChild(rg(gn,gh[gn],0))})}
+        function renderSidebar(){const sidebar=document.getElementById('sidebar-content');const gh={};buildingsData.buildings.filter(b=>!b.disabled).forEach(b=>{const g=b.gruppe||'Sonstige';const parts=g.split(' > ').map(p=>p.trim());let cl=gh;parts.forEach((part,i)=>{if(!cl[part])cl[part]={buildings:[],subgroups:{}};if(i===parts.length-1)cl[part].buildings.push(b);cl=cl[part].subgroups})});function sn(n){return n.sort((a,b)=>{if(a==='Unbekannt'||a==='Sonstige')return 1;if(b==='Unbekannt'||b==='Sonstige')return -1;return a.localeCompare(b)})}function gbi(gd){const ids=gd.buildings.map(b=>b.id);Object.values(gd.subgroups).forEach(sg=>{ids.push(...gbi(sg))});return ids}function rg(gn,gd,l){const g=document.createElement('div');g.className='group';g.style.marginLeft=(l*15)+'px';const bids=gbi(gd);const h=document.createElement('div');h.className='group-header';h.style.paddingLeft=(20-l*5)+'px';const h2=document.createElement('h2');h2.textContent=gn;const sp=document.createElement('span');sp.className='group-toggle';sp.textContent='\\u25BC';h.appendChild(h2);h.appendChild(sp);h.addEventListener('click',()=>g.classList.toggle('collapsed'));h.addEventListener('mouseenter',()=>bids.forEach(id=>highlightBuilding(id)));h.addEventListener('mouseleave',()=>bids.forEach(id=>unhighlightBuilding(id)));g.appendChild(h);const ct=document.createElement('div');ct.className='group-buildings';gd.buildings.forEach(b=>{const it=document.createElement('div');it.className='building-item';it.style.paddingLeft=(35+l*15)+'px';it.setAttribute('data-building-id',b.id);it.setAttribute('data-search-text',[b.name,b.nummer,b.gruppe].filter(Boolean).join(' ').toLowerCase());const nd=document.createElement('div');nd.className='building-name';nd.textContent=b.name;it.appendChild(nd);it.addEventListener('mouseenter',()=>highlightBuilding(b.id));it.addEventListener('mouseleave',()=>unhighlightBuilding(b.id));it.addEventListener('click',()=>showPopup(b));ct.appendChild(it)});sn(Object.keys(gd.subgroups)).forEach(sn2=>{ct.appendChild(rg(sn2,gd.subgroups[sn2],l+1))});g.appendChild(ct);return g}sidebar.innerHTML='';sn(Object.keys(gh)).forEach(gn=>{sidebar.appendChild(rg(gn,gh[gn],0))})}
         function highlightBuilding(id){currentHighlighted.add(id);const b=buildingsData.buildings.find(x=>x.id===id);const hc=b?.highlightColor||'#FFC107';const rgb=hexToRgb(hc);document.querySelectorAll('.building-polygon[data-building-id="'+id+'"]').forEach(p=>{p.style.fill='rgba('+rgb.r+','+rgb.g+','+rgb.b+',0.35)';p.style.stroke=hc;p.style.strokeWidth='3'});const mi=document.querySelector('.building-item[data-building-id="'+id+'"]');if(mi){mi.classList.add('highlighted');mi.style.borderLeftColor=hc}}
         function unhighlightBuilding(id){currentHighlighted.delete(id);if(id===selectedBuildingId)return;document.querySelectorAll('.building-polygon[data-building-id="'+id+'"]').forEach(p=>{p.style.fill='rgba(255,255,0,0)';p.style.stroke='rgba(255,255,0,0)';p.style.strokeWidth='2'});const mi=document.querySelector('.building-item[data-building-id="'+id+'"]');if(mi){mi.classList.remove('highlighted');mi.style.borderLeftColor=''}}
         function hexToRgb(hex){const r=/^#?([a-f\\d]{2})([a-f\\d]{2})([a-f\\d]{2})$/i.exec(hex);return r?{r:parseInt(r[1],16),g:parseInt(r[2],16),b:parseInt(r[3],16)}:{r:255,g:193,b:7}}
-        function showPopup(building){hidePopup();selectedBuildingId=building.id;highlightBuilding(building.id);const polygon=document.querySelector('.building-polygon[data-building-id="'+building.id+'"]');if(!polygon)return;const polys=building.polygons||[building.polygon];let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;polys.forEach(poly=>poly.forEach(([x,y])=>{minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y)}));const centerX=(minX+maxX)/2,centerY=(minY+maxY)/2;const bW=maxX-minX,bH=maxY-minY;const calcR=Math.max(bW,bH)/2*1.8;const radius=Math.max(calcR,0.04);const svg=polygon.closest('svg');const vb=svg.getAttribute('viewBox').split(' ');const svgW=parseFloat(vb[2]),svgH=parseFloat(vb[3]);let defs=svg.querySelector('defs');if(!defs){defs=document.createElementNS('http://www.w3.org/2000/svg','defs');svg.insertBefore(defs,svg.firstChild)}const mask=document.createElementNS('http://www.w3.org/2000/svg','mask');mask.setAttribute('id','selection-mask');const mr=document.createElementNS('http://www.w3.org/2000/svg','rect');mr.setAttribute('width',svgW);mr.setAttribute('height',svgH);mr.setAttribute('fill','white');mask.appendChild(mr);const mc=document.createElementNS('http://www.w3.org/2000/svg','circle');mc.setAttribute('cx',centerX*svgW);mc.setAttribute('cy',centerY*svgH);mc.setAttribute('r',radius*Math.max(svgW,svgH));mc.setAttribute('fill','black');mask.appendChild(mc);defs.appendChild(mask);const dr=document.createElementNS('http://www.w3.org/2000/svg','rect');dr.setAttribute('class','dim-overlay');dr.setAttribute('width',svgW);dr.setAttribute('height',svgH);dr.setAttribute('mask','url(#selection-mask)');svg.appendChild(dr);const circle=document.createElementNS('http://www.w3.org/2000/svg','circle');circle.setAttribute('class','selection-circle');circle.setAttribute('cx',centerX*svgW);circle.setAttribute('cy',centerY*svgH);circle.setAttribute('r',radius*Math.max(svgW,svgH));svg.appendChild(circle);const modal=document.getElementById('modal-overlay');const modalContent=document.querySelector('.modal-content');const ne=document.getElementById('modal-nummer');if(building.nummer&&building.nummer.trim()){ne.textContent=building.nummer;ne.style.display='block'}else{ne.style.display='none'}document.getElementById('modal-title').textContent=building.name;const bc=document.getElementById('modal-breadcrumb');const gruppe=(building.gruppe||'').trim();if(gruppe){const parts=gruppe.split(/\s*>\s*/);bc.innerHTML=parts.map(p=>'<span>'+p+'</span>').join('');bc.style.display='block'}else{bc.style.display='none'}const bd=document.getElementById('modal-beschreibung');if(building.beschreibung&&building.beschreibung.trim()){bd.innerHTML=building.beschreibung;bd.style.display='block'}else{bd.style.display='none'}modal.classList.add('active');requestAnimationFrame(()=>{const ic=document.querySelector('.image-container');if(!ic)return;const img=ic.querySelector('img');const iw=img.offsetWidth,ih=img.offsetHeight;const mR=modalContent.getBoundingClientRect();const bx=centerX*iw,by=centerY*ih;const crPx=radius*Math.max(iw,ih);const gap=20,margin=15;let left,top;const isRight=centerX>0.5;const cle=bx-crPx,cre=bx+crPx;if(isRight){const tl=cle-gap-mR.width;if(tl>=margin){left=tl;top=by-(mR.height/2)}else{left=bx-(mR.width/2);top=by+crPx+gap}}else{const tl=cre+gap;if(tl+mR.width<=iw-margin){left=tl;top=by-(mR.height/2)}else{left=bx-(mR.width/2);top=by+crPx+gap}}if(left===bx-(mR.width/2)&&top!==undefined){if(top+mR.height>ih-margin){const ta=by-crPx-gap-mR.height;if(ta>=margin)top=ta}}left=Math.max(margin,Math.min(left,iw-mR.width-margin));top=Math.max(margin,Math.min(top,ih-mR.height-margin));modalContent.style.left=left+'px';modalContent.style.top=top+'px'})}
+        function showPopup(building){hidePopup();selectedBuildingId=building.id;highlightBuilding(building.id);const polygon=document.querySelector('.building-polygon[data-building-id="'+building.id+'"]');if(!polygon)return;const polys=building.polygons||[building.polygon];let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;polys.forEach(poly=>poly.forEach(([x,y])=>{minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y)}));const centerX=(minX+maxX)/2,centerY=(minY+maxY)/2;const bW=maxX-minX,bH=maxY-minY;const calcR=Math.max(bW,bH)/2*1.8;const radius=Math.max(calcR,0.04);const svg=polygon.closest('svg');const vb=svg.getAttribute('viewBox').split(' ');const svgW=parseFloat(vb[2]),svgH=parseFloat(vb[3]);let defs=svg.querySelector('defs');if(!defs){defs=document.createElementNS('http://www.w3.org/2000/svg','defs');svg.insertBefore(defs,svg.firstChild)}const mask=document.createElementNS('http://www.w3.org/2000/svg','mask');mask.setAttribute('id','selection-mask');const mr=document.createElementNS('http://www.w3.org/2000/svg','rect');mr.setAttribute('width',svgW);mr.setAttribute('height',svgH);mr.setAttribute('fill','white');mask.appendChild(mr);const mc=document.createElementNS('http://www.w3.org/2000/svg','circle');mc.setAttribute('cx',centerX*svgW);mc.setAttribute('cy',centerY*svgH);mc.setAttribute('r',radius*Math.max(svgW,svgH));mc.setAttribute('fill','black');mask.appendChild(mc);defs.appendChild(mask);const dr=document.createElementNS('http://www.w3.org/2000/svg','rect');dr.setAttribute('class','dim-overlay');dr.setAttribute('width',svgW);dr.setAttribute('height',svgH);dr.setAttribute('mask','url(#selection-mask)');svg.appendChild(dr);const circle=document.createElementNS('http://www.w3.org/2000/svg','circle');circle.setAttribute('class','selection-circle');circle.setAttribute('cx',centerX*svgW);circle.setAttribute('cy',centerY*svgH);circle.setAttribute('r',radius*Math.max(svgW,svgH));svg.appendChild(circle);const modal=document.getElementById('modal-overlay');const modalContent=document.querySelector('.modal-content');const ne=document.getElementById('modal-nummer');if(building.nummer&&building.nummer.trim()){ne.textContent=building.nummer;ne.style.display='block'}else{ne.style.display='none'}document.getElementById('modal-title').textContent=building.name;const bc=document.getElementById('modal-breadcrumb');const gruppe=(building.gruppe||'').trim();if(gruppe){const parts=gruppe.split(/\s*>\s*/);bc.innerHTML=parts.map(p=>'<span>'+esc(p)+'</span>').join('');bc.style.display='block'}else{bc.style.display='none'}const bd=document.getElementById('modal-beschreibung');if(building.beschreibung&&building.beschreibung.trim()){bd.textContent=building.beschreibung;bd.style.display='block'}else{bd.style.display='none'}modal.classList.add('active');requestAnimationFrame(()=>{const ic=document.querySelector('.image-container');if(!ic)return;const img=ic.querySelector('img');const iw=img.offsetWidth,ih=img.offsetHeight;const mR=modalContent.getBoundingClientRect();const bx=centerX*iw,by=centerY*ih;const crPx=radius*Math.max(iw,ih);const gap=20,margin=15;let left,top;const isRight=centerX>0.5;const cle=bx-crPx,cre=bx+crPx;if(isRight){const tl=cle-gap-mR.width;if(tl>=margin){left=tl;top=by-(mR.height/2)}else{left=bx-(mR.width/2);top=by+crPx+gap}}else{const tl=cre+gap;if(tl+mR.width<=iw-margin){left=tl;top=by-(mR.height/2)}else{left=bx-(mR.width/2);top=by+crPx+gap}}if(left===bx-(mR.width/2)&&top!==undefined){if(top+mR.height>ih-margin){const ta=by-crPx-gap-mR.height;if(ta>=margin)top=ta}}left=Math.max(margin,Math.min(left,iw-mR.width-margin));top=Math.max(margin,Math.min(top,ih-mR.height-margin));modalContent.style.left=left+'px';modalContent.style.top=top+'px'})}
         function hidePopup(){if(selectedBuildingId){const prev=selectedBuildingId;selectedBuildingId=null;unhighlightBuilding(prev)}const c=document.querySelector('.selection-circle');const d=document.querySelector('.dim-overlay');const m=document.getElementById('selection-mask');const mo=document.getElementById('modal-overlay');if(c)c.remove();if(d)d.remove();if(m)m.remove();if(mo)mo.classList.remove('active')}
         document.addEventListener('keydown',e=>{if(e.key==='Escape')hidePopup()});
         document.addEventListener('click',e=>{if(!e.target.closest('.building-polygon')&&!e.target.closest('.building-item')&&!e.target.closest('.sidebar')&&!e.target.closest('.modal-content'))hidePopup()});
@@ -1794,7 +1849,7 @@ function createStandaloneHtml(buildingsData, canvasElement, sourcePolygon, param
     const inlineData = { ...buildingsData, image: { ...buildingsData.image, dataUrl: imageDataUrl } };
     if (sourcePolygon) inlineData.sourcePolygon = sourcePolygon;
     if (params) inlineData.params = params;
-    html = html.replace('</head>', '<script>window.__buildingsData = ' + JSON.stringify(inlineData) + ';<\/script>\n</head>');
+    html = html.replace('</head>', '<script>window.__buildingsData = ' + JSON.stringify(inlineData).replace(/<\//g, '<\\/') + ';<\/script>\n</head>');
     return html;
 }
 
@@ -1865,7 +1920,7 @@ class Pipeline {
                 }
                 return editorData;
             }
-        } catch(e) {}
+        } catch(e) { console.warn('[pipeline] Editor-Daten nicht verfügbar, verwende Pipeline-Daten:', e.message); }
         return this.buildingJson;
     }
     async exportStandalone(sourcePolygon, params) {
@@ -1971,9 +2026,9 @@ function vpShowPopup(building) {
     document.getElementById('vp-modal-title').textContent = building.name;
     const bc = document.getElementById('vp-modal-breadcrumb');
     const gruppe = (building.gruppe || '').trim();
-    if (gruppe) { bc.innerHTML = gruppe.split(/\s*>\s*/).map(p => '<span>' + p + '</span>').join(''); bc.style.display = 'block'; } else { bc.style.display = 'none'; }
+    if (gruppe) { bc.innerHTML = gruppe.split(/\s*>\s*/).map(p => '<span>' + escapeHtml(p) + '</span>').join(''); bc.style.display = 'block'; } else { bc.style.display = 'none'; }
     const bd = document.getElementById('vp-modal-beschreibung');
-    if (building.beschreibung && building.beschreibung.trim()) { bd.innerHTML = building.beschreibung; bd.style.display = 'block'; } else { bd.style.display = 'none'; }
+    if (building.beschreibung && building.beschreibung.trim()) { bd.textContent = building.beschreibung; bd.style.display = 'block'; } else { bd.style.display = 'none'; }
     modal.classList.add('active');
 
     requestAnimationFrame(() => {
@@ -2008,7 +2063,7 @@ function renderViewerPreview(buildingJson) {
 
     // Render sidebar
     const sidebar = document.getElementById('vpSidebar');
-    sidebar.innerHTML = '<div class="vp-sidebar-header"><h3>' + (buildingJson.title || 'Gebäudekarte') + '</h3><p>Interaktive Vorschau</p></div>';
+    sidebar.innerHTML = '<div class="vp-sidebar-header"><h3>' + escapeHtml(buildingJson.title || 'Gebäudekarte') + '</h3><p>Interaktive Vorschau</p></div>';
 
     // Search bar
     const vpSearchBar = document.createElement('div');
@@ -2047,7 +2102,7 @@ function renderViewerPreview(buildingJson) {
         const g = document.createElement('div'); g.className = 'vp-group'; g.style.marginLeft = (level * 12) + 'px';
         const bids = getAllIds(gd);
         const h = document.createElement('div'); h.className = 'vp-group-header'; h.style.paddingLeft = (16 - level * 4) + 'px';
-        h.innerHTML = '<h4>' + gn + '</h4><span class="vp-group-toggle">\u25BC</span>';
+        h.innerHTML = '<h4>' + escapeHtml(gn) + '</h4><span class="vp-group-toggle">\u25BC</span>';
         h.addEventListener('click', () => g.classList.toggle('collapsed'));
         h.addEventListener('mouseenter', () => bids.forEach(id => vpHighlight(id)));
         h.addEventListener('mouseleave', () => bids.forEach(id => vpUnhighlight(id)));
@@ -2057,7 +2112,7 @@ function renderViewerPreview(buildingJson) {
             const it = document.createElement('div'); it.className = 'vp-building-item'; it.style.paddingLeft = (28 + level * 12) + 'px';
             it.setAttribute('data-building-id', b.id);
             it.setAttribute('data-search-text', [b.name, b.nummer, b.gruppe].filter(Boolean).join(' ').toLowerCase());
-            it.innerHTML = '<div class="vp-building-name">' + b.name + '</div>';
+            it.innerHTML = '<div class="vp-building-name">' + escapeHtml(b.name) + '</div>';
             it.addEventListener('mouseenter', () => vpHighlight(b.id));
             it.addEventListener('mouseleave', () => vpUnhighlight(b.id));
             it.addEventListener('click', () => vpShowPopup(b));
@@ -2183,7 +2238,7 @@ async function loadParams() {
         const data = await PipelineDB.get('meta', 'params');
         if (!data) return;
         applyParams(data);
-    } catch(e) {}
+    } catch(e) { console.warn('[pipeline] Parameter konnten nicht geladen werden:', e.message); }
 }
 
 function syncAllDisplays() {
@@ -2232,7 +2287,7 @@ async function loadGeojson() {
         fileInfo.textContent = name + ' (aus letzter Sitzung)';
         fileInfo.classList.remove('hidden');
         btnRun.disabled = false;
-    } catch(e) {}
+    } catch(e) { console.warn('[pipeline] GeoJSON konnte nicht geladen werden:', e.message); }
 }
 
 // ---- Restore cached buildings (enables re-render after reload) ----
@@ -2242,7 +2297,7 @@ async function loadBuildingsCache() {
         if (!data) return;
         pipeline.buildingsGeojson = data;
         btnRerender.classList.remove('hidden'); btnRerender2.classList.remove('hidden');        document.getElementById('rerenderTip').classList.remove('hidden');
-    } catch(e) {}
+    } catch(e) { console.warn('[pipeline] Gebäude-Cache konnte nicht geladen werden:', e.message); }
 }
 
 async function loadResultCache() {
@@ -2458,8 +2513,12 @@ async function saveProject(result) {
     } catch(e) { console.warn('[projects] Projekt konnte nicht gespeichert werden:', e); }
 }
 
+let _projectThumbUrls = [];
 async function renderProjectList() {
     try {
+        // Revoke previous blob URLs to prevent memory leaks
+        _projectThumbUrls.forEach(u => URL.revokeObjectURL(u));
+        _projectThumbUrls = [];
         const projects = await PipelineDB.getAll('projects');
         projects.sort((a, b) => b.timestamp - a.timestamp);
         projectsGrid.innerHTML = '';
@@ -2475,12 +2534,13 @@ async function renderProjectList() {
             const item = document.createElement('div');
             item.className = 'project-item' + (p.id === activeProjectId ? ' active' : '');
             const thumbUrl = p.thumbnail ? URL.createObjectURL(p.thumbnail) : '';
+            if (thumbUrl) _projectThumbUrls.push(thumbUrl);
             const date = new Date(p.timestamp);
             const dateStr = date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ', ' + date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
             item.innerHTML =
                 (thumbUrl ? '<img class="project-thumb" src="' + thumbUrl + '" alt="">' : '<div class="project-thumb"></div>') +
                 '<div class="project-meta">' +
-                    '<div class="project-name" title="' + (p.name || 'Unbenannt').replace(/"/g, '&quot;') + '">' + (p.name || 'Unbenannt') + '</div>' +
+                    '<div class="project-name" title="' + escapeHtml(p.name || 'Unbenannt') + '">' + escapeHtml(p.name || 'Unbenannt') + '</div>' +
                     '<div class="project-info">' + p.buildingCount + ' Gebäude &middot; ' + dateStr + '</div>' +
                 '</div>' +
                 '<button class="project-delete" title="Projekt löschen">&times;</button>';
@@ -2511,7 +2571,7 @@ async function loadProject(project) {
         if (fullProject.imageBlob) {
             await PipelineDB.put('images', 'rendered_map', fullProject.imageBlob);
         }
-        // Reconstruct buildingJson with dataUrl from Blob
+        // Reconstruct buildingJson with dataUrl from Blob (single clone + reuse)
         const bJson = JSON.parse(JSON.stringify(fullProject.buildingJson));
         if (fullProject.imageBlob) {
             const dataUrl = await blobToDataUrl(fullProject.imageBlob);
@@ -2520,8 +2580,9 @@ async function loadProject(project) {
             bJson.image.width = bJson.image.width || fullProject.imageWidth;
             bJson.image.height = bJson.image.height || fullProject.imageHeight;
         }
-        // Restore result cache
-        const cachedBJson = JSON.parse(JSON.stringify(fullProject.buildingJson));
+        // Restore result cache (reuse stripped clone)
+        const cachedBJson = structuredClone(bJson);
+        if (cachedBJson.image) delete cachedBJson.image.dataUrl;
         await PipelineDB.put('result', 'latest', {
             buildingCount: fullProject.buildingCount,
             imageWidth: fullProject.imageWidth,
@@ -2620,15 +2681,12 @@ function onComplete(result) {
                 imageBlob = await canvasToBlob(pipeline.canvas);
                 await PipelineDB.put('images', 'rendered_map', imageBlob);
             }
-            // Store result metadata without dataUrl
-            const rCopy = JSON.parse(JSON.stringify(result.buildingJson));
-            if (rCopy.image) delete rCopy.image.dataUrl;
-            const cached = { buildingCount: result.buildingCount, imageWidth: result.imageWidth, imageHeight: result.imageHeight, avgPoints: result.avgPoints, buildingJson: rCopy };
+            // Store result metadata and editor data without dataUrl (single clone)
+            const strippedCopy = JSON.parse(JSON.stringify(result.buildingJson));
+            if (strippedCopy.image) delete strippedCopy.image.dataUrl;
+            const cached = { buildingCount: result.buildingCount, imageWidth: result.imageWidth, imageHeight: result.imageHeight, avgPoints: result.avgPoints, buildingJson: strippedCopy };
             await PipelineDB.put('result', 'latest', cached);
-            // Store editor data without dataUrl
-            const editorCopy = JSON.parse(JSON.stringify(result.buildingJson));
-            if (editorCopy.image) delete editorCopy.image.dataUrl;
-            await PipelineDB.put('editor', 'buildingsData', editorCopy);
+            await PipelineDB.put('editor', 'buildingsData', structuredClone(strippedCopy));
             // Signal editor to reset undo history
             try { sessionStorage.setItem('editor_freshData', 'true'); } catch(e2) {}
             // Auto-save project
@@ -2701,7 +2759,7 @@ const btnDownloadPolygon = document.getElementById('btnDownloadPolygon');
 
 const drawMap = L.map('drawMap').setView([51.1, 10.4], 6);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom: 19
 }).addTo(drawMap);
 
@@ -2835,7 +2893,7 @@ async function restoreMapState() {
             const bounds = uploadedLayer.getBounds();
             if (bounds.isValid()) drawMap.fitBounds(bounds.pad(0.2));
         }
-    } catch(e) {}
+    } catch(e) { console.warn('[map] Kartenstatus konnte nicht wiederhergestellt werden:', e.message); }
 }
 </script>
 

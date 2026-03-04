@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gebäude Editor - Albkaserne</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'">
+    <title>Gebäude Editor</title>
     <style>
         * {
             margin: 0;
@@ -413,9 +414,6 @@
             pointer-events: none;
         }
 
-        .building-polygon:hover {
-            /* Hover styles applied via JavaScript */
-        }
 
         .editor-panel {
             background: #ffffff;
@@ -493,13 +491,6 @@
 
         .color-hex {
             flex: 1;
-        }
-
-        .color-preview {
-            width: 60px;
-            height: 40px;
-            border-radius: 2px;
-            border: 1px solid #c0bda8;
         }
 
         .empty-state {
@@ -1079,8 +1070,9 @@
 
             function clearAll() {
                 return new Promise((resolve, reject) => {
-                    const tx = _db.transaction(STORES, 'readwrite');
-                    STORES.forEach(name => tx.objectStore(name).clear());
+                    const clearStores = STORES.filter(s => s !== 'projects');
+                    const tx = _db.transaction(clearStores, 'readwrite');
+                    clearStores.forEach(name => tx.objectStore(name).clear());
                     tx.oncomplete = () => resolve();
                     tx.onerror = (e) => reject(e.target.error);
                 });
@@ -1089,9 +1081,17 @@
             return { open, get, put, remove, clearAll };
         })();
 
+        function escapeHtml(s) {
+            if (typeof s !== 'string') return '';
+            return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
+
         function dataUrlToBlob(dataUrl) {
+            if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.includes(',')) throw new Error('Invalid data URL');
             const [header, b64] = dataUrl.split(',');
-            const mime = header.match(/:(.*?);/)[1];
+            const mimeMatch = header.match(/:(.*?);/);
+            if (!mimeMatch) throw new Error('Invalid data URL: missing MIME type');
+            const mime = mimeMatch[1];
             const bin = atob(b64);
             const arr = new Uint8Array(bin.length);
             for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
@@ -1134,10 +1134,12 @@
         let currentBuilding = null;
         let hasChanges = false;
 
+        let _mapResizeObserver = null;
+
         // Persist current state to IndexedDB (strips dataUrl to save as Blob separately)
         function persistToIDB() {
             try {
-                const copy = JSON.parse(JSON.stringify(buildingsData));
+                const copy = structuredClone(buildingsData);
                 if (copy.image) delete copy.image.dataUrl;
                 PipelineDB.put('editor', 'buildingsData', copy).catch(e => {
                     console.warn('[editor] IDB-Speicherung fehlgeschlagen:', e.message);
@@ -1158,7 +1160,7 @@
             let debounceStateCaptured = false;
 
             function snapshot() {
-                return JSON.parse(JSON.stringify(buildingsData.buildings));
+                return structuredClone(buildingsData.buildings);
             }
 
             function pushState() {
@@ -1279,8 +1281,12 @@
                 }, 100);
 
             } catch (error) {
-                document.getElementById('sidebar-content').innerHTML =
-                    '<div class="error">Fehler beim Laden der Daten: ' + error.message + '</div>';
+                const errContainer = document.getElementById('sidebar-content');
+                errContainer.textContent = '';
+                const errDiv = document.createElement('div');
+                errDiv.className = 'error';
+                errDiv.textContent = 'Fehler beim Laden der Daten: ' + error.message;
+                errContainer.appendChild(errDiv);
                 console.error('Initialization error:', error);
             }
         }
@@ -1288,6 +1294,10 @@
         // Render the map with SVG overlays
         function renderMap() {
             const mapContainer = document.getElementById('map-container');
+            if (!buildingsData || !buildingsData.image) {
+                mapContainer.innerHTML = '<div class="error" style="padding:40px;text-align:center;">Keine Bilddaten vorhanden</div>';
+                return;
+            }
             const { filename, width, height, dataUrl } = buildingsData.image;
 
             // Create container
@@ -1297,7 +1307,7 @@
             // Add image
             const img = document.createElement('img');
             img.src = dataUrl || filename;
-            img.alt = 'Albkaserne Karte';
+            img.alt = (buildingsData.title || 'Gebäudekarte') + ' Karte';
             container.appendChild(img);
 
             // Create SVG overlay
@@ -1348,13 +1358,14 @@
                 svg.style.height = imgRect.height + 'px';
             });
 
-            // Also handle window resize
-            const resizeObserver = new ResizeObserver(() => {
+            // Also handle window resize (disconnect previous observer to prevent leaks)
+            if (_mapResizeObserver) _mapResizeObserver.disconnect();
+            _mapResizeObserver = new ResizeObserver(() => {
                 const imgRect = img.getBoundingClientRect();
                 svg.style.width = imgRect.width + 'px';
                 svg.style.height = imgRect.height + 'px';
             });
-            resizeObserver.observe(img);
+            _mapResizeObserver.observe(img);
         }
 
         // Highlight polygon on hover
@@ -1462,10 +1473,10 @@
                 item.innerHTML = `
                     <span class="drag-handle">\u22EE\u22EE</span>
                     <div class="building-info">
-                        <div class="building-name">${building.name}</div>
-                        <div class="building-id">${building.nummer || ''}</div>
+                        <div class="building-name">${escapeHtml(building.name)}</div>
+                        <div class="building-id">${escapeHtml(building.nummer || '')}</div>
                     </div>
-                    <div class="color-indicator" style="background-color: ${building.highlightColor || '#FFC107'}"></div>
+                    <div class="color-indicator" style="background-color: ${escapeHtml(building.highlightColor || '#FFC107')}"></div>
                 `;
                 item.addEventListener('click', (e) => {
                     if (e.target.classList.contains('drag-handle')) return;
@@ -1499,7 +1510,7 @@
                 header.className = 'group-header';
                 header.style.paddingLeft = (20 - level * 5) + 'px';
                 header.innerHTML = `
-                    <h2>${groupName}</h2>
+                    <h2>${escapeHtml(groupName)}</h2>
                     <span class="group-toggle">\u25BC</span>
                 `;
                 header.addEventListener('click', () => {
@@ -1725,7 +1736,7 @@
                     <label class="form-label" for="building-nummer">Nummer <span class="info-tip" tabindex="0"><span class="info-tip-text">Optionale Gebäudenummer oder -kennzeichnung (z.B. „B3"). Wird in der Karte vor dem Namen angezeigt.</span></span></label>
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <input type="text" id="building-nummer" class="form-input"
-                               value="${currentBuilding.nummer || ''}"
+                               value="${escapeHtml(currentBuilding.nummer || '')}"
                                placeholder="z.B. B3"
                                style="width: 100px; flex: none;">
                         <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px; color: #4b5320; white-space: nowrap;">
@@ -1739,21 +1750,21 @@
                 <div class="form-group">
                     <label class="form-label" for="building-name">Name <span class="info-tip" tabindex="0"><span class="info-tip-text">Anzeigename des Gebäudes. Wird in der Karte und Seitenleiste angezeigt.</span></span></label>
                     <input type="text" id="building-name" class="form-input"
-                           value="${currentBuilding.name}"
+                           value="${escapeHtml(currentBuilding.name)}"
                            placeholder="z.B. Hauptgebäude">
                 </div>
 
                 <div class="form-group">
                     <label class="form-label" for="building-gruppe">Gruppe <span class="info-tip" tabindex="0"><span class="info-tip-text">Ordnet das Gebäude einer Kategorie zu. Verschachtelte Gruppen mit &quot; &gt; &quot; trennen (z.B. &quot;Verwaltung &gt; Hauptgebäude&quot;).</span></span></label>
                     <input type="text" id="building-gruppe" class="form-input"
-                           value="${currentBuilding.gruppe}"
+                           value="${escapeHtml(currentBuilding.gruppe)}"
                            placeholder="Verwaltung > Hauptgebäude">
                 </div>
 
                 <div class="form-group">
                     <label class="form-label" for="building-beschreibung">Beschreibung <span class="info-tip" tabindex="0"><span class="info-tip-text">Optionaler Freitext. Wird beim Klick auf das Gebäude in der fertigen Karte angezeigt.</span></span></label>
                     <textarea id="building-beschreibung" class="form-input"
-                              placeholder="Optionale Beschreibung des Gebäudes">${currentBuilding.beschreibung}</textarea>
+                              placeholder="Optionale Beschreibung des Gebäudes">${escapeHtml(currentBuilding.beschreibung)}</textarea>
                 </div>
 
                 <div class="form-group">
@@ -1766,8 +1777,6 @@
                         <input type="text" id="building-color-hex" class="form-input color-hex"
                                value="${currentBuilding.highlightColor || '#FFC107'}"
                                placeholder="#FFC107">
-                        <div class="color-preview" id="color-preview"
-                             style="background-color: ${currentBuilding.highlightColor || '#FFC107'}"></div>
                         <button type="button" class="btn" id="random-color-btn"
                                 title="Zufällige Farbe"
                                 style="padding: 0; width: 40px; height: 40px; min-width: 40px; font-size: 18px; line-height: 1; letter-spacing: 0;">&#x1f3b2;</button>
@@ -1810,7 +1819,6 @@
                 autoEnable();
                 const color = e.target.value;
                 document.getElementById('building-color-hex').value = color;
-                document.getElementById('color-preview').style.backgroundColor = color;
                 saveBuilding();
             });
 
@@ -1819,8 +1827,7 @@
                 const color = e.target.value;
                 if (/^#[0-9A-F]{6}$/i.test(color)) {
                     document.getElementById('building-color').value = color;
-                    document.getElementById('color-preview').style.backgroundColor = color;
-                    saveBuilding();
+                        saveBuilding();
                 }
             });
 
@@ -1839,7 +1846,6 @@
                 const color = '#' + toHex(f(0)) + toHex(f(8)) + toHex(f(4));
                 document.getElementById('building-color').value = color;
                 document.getElementById('building-color-hex').value = color;
-                document.getElementById('color-preview').style.backgroundColor = color;
                 saveBuilding();
             });
 
@@ -1907,7 +1913,7 @@
             hint.id = 'merge-hint';
             hint.className = 'info-message';
             hint.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:500;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.2);';
-            hint.innerHTML = '<strong>Zusammenführen:</strong> Klicke auf das Gebäude, das zu „' + mergeTarget.name + '" hinzugefügt werden soll. <em>ESC</em> zum Abbrechen.';
+            hint.innerHTML = '<strong>Zusammenführen:</strong> Klicke auf das Gebäude, das zu \u201E' + escapeHtml(mergeTarget.name) + '\u201C hinzugefügt werden soll. <em>ESC</em> zum Abbrechen.';
             document.body.appendChild(hint);
         }
 
@@ -2102,8 +2108,8 @@
                 // Remove the dragged building from its original position
                 const [draggedBuilding] = buildingsData.buildings.splice(draggedIndex, 1);
 
-                // Calculate new index (adjust if dragging downward)
-                const newIndex = draggedIndex < dropIndex ? dropIndex : dropIndex;
+                // Calculate new index (adjust for splice-induced shift when dragging downward)
+                const newIndex = draggedIndex < dropIndex ? dropIndex - 1 : dropIndex;
 
                 // Insert at the new position
                 buildingsData.buildings.splice(newIndex, 0, draggedBuilding);
@@ -2237,9 +2243,9 @@
             document.getElementById('vo-modal-title').textContent = building.name;
             const bc = document.getElementById('vo-modal-breadcrumb');
             const gruppe = (building.gruppe || '').trim();
-            if (gruppe) { bc.innerHTML = gruppe.split(/\s*>\s*/).map(p => '<span>' + p + '</span>').join(''); bc.style.display = 'block'; } else { bc.style.display = 'none'; }
+            if (gruppe) { bc.innerHTML = gruppe.split(/\s*>\s*/).map(p => '<span>' + escapeHtml(p) + '</span>').join(''); bc.style.display = 'block'; } else { bc.style.display = 'none'; }
             const bd = document.getElementById('vo-modal-beschreibung');
-            if (building.beschreibung && building.beschreibung.trim()) { bd.innerHTML = building.beschreibung; bd.style.display = 'block'; } else { bd.style.display = 'none'; }
+            if (building.beschreibung && building.beschreibung.trim()) { bd.textContent = building.beschreibung; bd.style.display = 'block'; } else { bd.style.display = 'none'; }
             modal.classList.add('active');
 
             requestAnimationFrame(() => {
@@ -2274,7 +2280,7 @@
             // Header
             const header = document.createElement('div');
             header.className = 'vo-sidebar-header';
-            header.innerHTML = '<h3>' + (buildingsData.title || 'Gebäudekarte') + '</h3><p>Interaktive Vorschau</p>';
+            header.innerHTML = '<h3>' + escapeHtml(buildingsData.title || 'Gebäudekarte') + '</h3><p>Interaktive Vorschau</p>';
             sidebar.appendChild(header);
 
             // Search bar
@@ -2313,7 +2319,7 @@
                 const g = document.createElement('div'); g.className = 'vo-group'; g.style.marginLeft = (level * 15) + 'px';
                 const bids = getAllIds(gd);
                 const h = document.createElement('div'); h.className = 'vo-group-header'; h.style.paddingLeft = (20 - level * 5) + 'px';
-                h.innerHTML = '<h4>' + gn + '</h4><span class="vo-group-toggle">\u25BC</span>';
+                h.innerHTML = '<h4>' + escapeHtml(gn) + '</h4><span class="vo-group-toggle">\u25BC</span>';
                 h.addEventListener('click', () => g.classList.toggle('collapsed'));
                 h.addEventListener('mouseenter', () => bids.forEach(id => voHighlight(id)));
                 h.addEventListener('mouseleave', () => bids.forEach(id => voUnhighlight(id)));
@@ -2323,7 +2329,7 @@
                     const it = document.createElement('div'); it.className = 'vo-building-item'; it.style.paddingLeft = (35 + level * 15) + 'px';
                     it.setAttribute('data-building-id', b.id);
                     it.setAttribute('data-search-text', [b.name, b.nummer, b.gruppe].filter(Boolean).join(' ').toLowerCase());
-                    it.innerHTML = '<div class="vo-building-name">' + b.name + '</div>';
+                    it.innerHTML = '<div class="vo-building-name">' + escapeHtml(b.name) + '</div>';
                     it.addEventListener('mouseenter', () => voHighlight(b.id));
                     it.addEventListener('mouseleave', () => voUnhighlight(b.id));
                     it.addEventListener('click', () => voShowPopup(b));
