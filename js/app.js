@@ -2243,6 +2243,30 @@ const EditorModule = (() => {
     }
     function handleDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
 
+    // ---- Load JSON ----
+    function loadJSONFromFile() {
+        if (!buildingsData || !buildingsData.buildings) {
+            alert('Kein Pipeline-Ergebnis vorhanden. Bitte zuerst die Pipeline ausführen oder eine HTML-Datei importieren.');
+            return;
+        }
+        document.getElementById('edLoadFileInput').click();
+    }
+
+    function handleLoadedFile(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const metadata = JSON.parse(e.target.result);
+                if (!metadata.buildings || !Array.isArray(metadata.buildings)) {
+                    alert('Ungültige Datei: Kein buildings-Array gefunden.');
+                    return;
+                }
+                handleMetadataImport(metadata, file);
+            } catch (err) { alert('Fehler beim Lesen der Datei: ' + err.message); }
+        };
+        reader.readAsText(file);
+    }
+
     // ---- Download JSON ----
     function saveJSONToFile() {
         const blob = new Blob([JSON.stringify(buildingsData, null, 2)], { type: 'application/json' });
@@ -2303,6 +2327,8 @@ const EditorModule = (() => {
 
     /** Bind all editor event listeners. Call once after DOM is ready. */
     function bindEvents() {
+        document.getElementById('edLoadBtn').addEventListener('click', loadJSONFromFile);
+        document.getElementById('edLoadFileInput').addEventListener('change', (e) => { if (e.target.files[0]) { handleLoadedFile(e.target.files[0]); e.target.value = ''; } });
         document.getElementById('edSaveBtn').addEventListener('click', saveJSONToFile);
         document.getElementById('edPreviewBtn').addEventListener('click', () => { if (buildingsData) showViewerOverlay(); });
         document.getElementById('voCloseBtn').addEventListener('click', hideViewerOverlay);
