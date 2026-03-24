@@ -501,11 +501,21 @@ class Building25DRenderer {
       if (this.calculateBuildingArea(coords) < this.minArea) continue;
       const gp = coords.map(([lon, lat]) => this.lonLatToPixel(lon, lat));
       const rp = gp.map(([x, y]) => [x + Math.round(height * isoOffsetX), y - Math.round(height * isoOffsetY)]);
-      // Draw wall faces: set styles once, batch all wall quads into a single path
+      // Draw only front-facing wall faces (back-face culling)
+      // Determine polygon winding via signed area (shoelace)
+      let sa2 = 0;
+      for (let k = 0; k < gp.length; k++) {
+        const l = (k + 1) % gp.length;
+        sa2 += gp[k][0] * gp[l][1] - gp[l][0] * gp[k][1];
+      }
+      const ws = sa2 > 0 ? 1 : -1; // winding sign
       ctx.fillStyle = wc; ctx.strokeStyle = this.outlineColor; ctx.lineWidth = 1;
       ctx.beginPath();
       for (let i = 0; i < gp.length; i++) {
         const j = (i+1) % gp.length;
+        const dx = gp[j][0] - gp[i][0], dy = gp[j][1] - gp[i][1];
+        // Outward normal dot extrusion direction — skip back-facing walls
+        if (ws * (dy * isoOffsetX + dx * isoOffsetY) > 0) continue;
         ctx.moveTo(gp[i][0],gp[i][1]); ctx.lineTo(gp[j][0],gp[j][1]); ctx.lineTo(rp[j][0],rp[j][1]); ctx.lineTo(rp[i][0],rp[i][1]); ctx.closePath();
       }
       ctx.fill(); ctx.stroke();
@@ -1819,17 +1829,29 @@ const EditorModule = (() => {
             group.className = 'ed-group';
             group.style.marginLeft = (level * 15) + 'px';
             const buildingIds = getAllBuildingIds(groupData);
+            // Check if a building shares the group name → merge into header
+            const nameMatch = groupData.buildings.find(b => b.name === groupName);
             const header = document.createElement('div');
             header.className = 'ed-group-header';
+            if (nameMatch) header.classList.add('ed-group-header-building');
             header.style.paddingLeft = (20 - level * 5) + 'px';
-            header.innerHTML = '<h2>' + escapeHtml(groupName) + '</h2><span class="ed-group-toggle">\u25BC</span>';
-            header.addEventListener('click', () => group.classList.toggle('collapsed'));
+            header.setAttribute('data-search-text', nameMatch ? [nameMatch.name, nameMatch.nummer, nameMatch.gruppe].filter(Boolean).join(' ').toLowerCase() : '');
+            header.innerHTML = '<h2>' + escapeHtml(groupName) + '</h2>'
+                + (nameMatch ? '<div class="color-indicator" style="background-color: ' + escapeHtml(nameMatch.highlightColor || '#FFC107') + '"></div>' : '')
+                + '<span class="ed-group-toggle">\u25BC</span>';
+            header.addEventListener('click', () => {
+                group.classList.toggle('collapsed');
+                if (nameMatch) {
+                    if (mergeMode) { handleMergeClick(nameMatch); return; }
+                    selectBuilding(nameMatch);
+                }
+            });
             header.addEventListener('mouseenter', () => buildingIds.forEach(id => highlightPolygon(id)));
             header.addEventListener('mouseleave', () => buildingIds.forEach(id => unhighlightPolygon(id)));
             group.appendChild(header);
             const content = document.createElement('div');
             content.className = 'ed-group-buildings';
-            groupData.buildings.forEach(b => content.appendChild(createBuildingItem(b, 35 + level * 15)));
+            groupData.buildings.filter(b => b !== nameMatch).forEach(b => content.appendChild(createBuildingItem(b, 35 + level * 15)));
             sortGroupNames(Object.keys(groupData.subgroups)).forEach(sn => content.appendChild(renderGroup(sn, groupData.subgroups[sn], level + 1)));
             group.appendChild(content);
             return group;
@@ -1871,7 +1893,9 @@ const EditorModule = (() => {
             it.style.display = (!q || it.getAttribute('data-search-text').includes(q)) ? '' : 'none';
         });
         container.querySelectorAll('.ed-group').forEach(g => {
-            g.style.display = Array.from(g.querySelectorAll('.building-item')).some(it => it.style.display !== 'none') ? '' : 'none';
+            const headerMatch = q && g.querySelector('.ed-group-header').getAttribute('data-search-text')?.includes(q);
+            const childMatch = Array.from(g.querySelectorAll('.building-item')).some(it => it.style.display !== 'none');
+            g.style.display = (!q || headerMatch || childMatch) ? '' : 'none';
         });
     }
 

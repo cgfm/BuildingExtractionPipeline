@@ -658,6 +658,7 @@ body {
     letter-spacing: 0.03em;
     margin: 0;
 }
+.viewer-preview .vp-group-header-building h4 { text-decoration: underline; text-decoration-color: #b0ad98; text-underline-offset: 3px; }
 .viewer-preview .vp-group-toggle {
     font-size: 11px;
     color: #b0ad98;
@@ -1030,6 +1031,8 @@ body {
     font-size: 0.85rem; font-weight: 700; color: #4b5320;
     text-transform: uppercase; letter-spacing: 0.03em;
 }
+.ed-group-header-building .color-indicator { margin-left: auto; margin-right: 8px; }
+.ed-group-header-building h2 { text-decoration: underline; text-decoration-color: #b0ad98; text-underline-offset: 3px; }
 .ed-group-toggle { font-size: 12px; color: #b0ad98; transition: transform 0.3s; }
 .ed-group.collapsed .ed-group-toggle { transform: rotate(-90deg); }
 .ed-group-buildings { max-height: 2000px; overflow: hidden; transition: max-height 0.3s ease; }
@@ -1166,6 +1169,7 @@ textarea.ed-form-input { min-height: 100px; resize: vertical; }
     font-size: 0.85rem; font-weight: 700; color: #4b5320;
     text-transform: uppercase; letter-spacing: 0.03em; margin: 0;
 }
+.viewer-overlay .vo-group-header-building h4 { text-decoration: underline; text-decoration-color: #b0ad98; text-underline-offset: 3px; }
 .viewer-overlay .vo-group-toggle { font-size: 12px; color: #b0ad98; transition: transform 0.3s; }
 .viewer-overlay .vo-group.collapsed .vo-group-toggle { transform: rotate(-90deg); }
 .viewer-overlay .vo-group-buildings { max-height: 1000px; overflow: hidden; transition: max-height 0.3s ease; }

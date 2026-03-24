@@ -248,19 +248,26 @@ const ViewerWidget = (function() {
                 g.className = prefix + '-group';
                 g.style.marginLeft = (level * 12) + 'px';
                 const bids = getAllGroupIds(groupData);
+                // Check if a building shares the group name → merge into header
+                const nameMatch = groupData.buildings.find(b => b.name === groupName);
 
                 const h = document.createElement('div');
                 h.className = prefix + '-group-header';
+                if (nameMatch) h.classList.add(prefix + '-group-header-building');
                 h.style.paddingLeft = (16 - level * 4) + 'px';
+                h.setAttribute('data-search-text', nameMatch ? [nameMatch.name, nameMatch.nummer, nameMatch.gruppe].filter(Boolean).join(' ').toLowerCase() : '');
                 h.innerHTML = '<h4>' + escapeHtml(groupName) + '</h4><span class="' + prefix + '-group-toggle">\u25BC</span>';
-                h.addEventListener('click', () => g.classList.toggle('collapsed'));
+                h.addEventListener('click', () => {
+                    g.classList.toggle('collapsed');
+                    if (nameMatch && onBuildingClick) onBuildingClick(nameMatch);
+                });
                 h.addEventListener('mouseenter', () => bids.forEach(id => highlight(id)));
                 h.addEventListener('mouseleave', () => bids.forEach(id => unhighlight(id)));
                 g.appendChild(h);
 
                 const ct = document.createElement('div');
                 ct.className = prefix + '-group-buildings';
-                groupData.buildings.forEach(b => {
+                groupData.buildings.filter(b => b !== nameMatch).forEach(b => {
                     let item;
                     if (buildingItemRenderer) {
                         item = buildingItemRenderer(b, 28 + level * 12);
@@ -354,7 +361,9 @@ const ViewerWidget = (function() {
                 it.style.display = (!q || it.getAttribute('data-search-text').includes(q)) ? '' : 'none';
             });
             container.querySelectorAll('.' + prefix + '-group').forEach(g => {
-                g.style.display = Array.from(g.querySelectorAll('.' + prefix + '-building-item')).some(it => it.style.display !== 'none') ? '' : 'none';
+                const headerMatch = q && g.querySelector('.' + prefix + '-group-header').getAttribute('data-search-text')?.includes(q);
+                const childMatch = Array.from(g.querySelectorAll('.' + prefix + '-building-item')).some(it => it.style.display !== 'none');
+                g.style.display = (!q || headerMatch || childMatch) ? '' : 'none';
             });
         }
 
