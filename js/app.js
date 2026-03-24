@@ -501,42 +501,19 @@ class Building25DRenderer {
       if (this.calculateBuildingArea(coords) < this.minArea) continue;
       const gp = coords.map(([lon, lat]) => this.lonLatToPixel(lon, lat));
       const rp = gp.map(([x, y]) => [x + Math.round(height * isoOffsetX), y - Math.round(height * isoOffsetY)]);
-      // Determine front/back facing walls via winding + extrusion direction
-      let sa2 = 0;
-      for (let k = 0; k < gp.length; k++) {
-        const l = (k + 1) % gp.length;
-        sa2 += gp[k][0] * gp[l][1] - gp[l][0] * gp[k][1];
-      }
-      const ws = sa2 > 0 ? 1 : -1;
-      const wallDots = [];
-      for (let i = 0; i < gp.length; i++) {
-        const j = (i+1) % gp.length;
-        const dx = gp[j][0] - gp[i][0], dy = gp[j][1] - gp[i][1];
-        wallDots.push(ws * (dy * isoOffsetX + dx * isoOffsetY));
-      }
-      // Pass 1: back-facing walls (fill only — roof will cover them)
+      // Draw all wall faces (fill only, no stroke — color difference provides depth)
       ctx.fillStyle = wc;
-      ctx.beginPath();
       for (let i = 0; i < gp.length; i++) {
-        if (wallDots[i] >= 0) continue;
         const j = (i+1) % gp.length;
+        ctx.beginPath();
         ctx.moveTo(gp[i][0],gp[i][1]); ctx.lineTo(gp[j][0],gp[j][1]); ctx.lineTo(rp[j][0],rp[j][1]); ctx.lineTo(rp[i][0],rp[i][1]); ctx.closePath();
+        ctx.fill();
       }
-      ctx.fill();
-      // Pass 2: roof (covers back wall edges)
+      // Draw roof on top (fill + stroke — outline provides building edge)
       ctx.fillStyle = this.roofColor; ctx.strokeStyle = this.outlineColor; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(rp[0][0],rp[0][1]);
       for (let i = 1; i < rp.length; i++) ctx.lineTo(rp[i][0],rp[i][1]);
       ctx.closePath(); ctx.fill(); ctx.stroke();
-      // Pass 3: front-facing walls (fill + stroke, on top of roof)
-      ctx.fillStyle = wc; ctx.strokeStyle = this.outlineColor; ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let i = 0; i < gp.length; i++) {
-        if (wallDots[i] < 0) continue;
-        const j = (i+1) % gp.length;
-        ctx.moveTo(gp[i][0],gp[i][1]); ctx.lineTo(gp[j][0],gp[j][1]); ctx.lineTo(rp[j][0],rp[j][1]); ctx.lineTo(rp[i][0],rp[i][1]); ctx.closePath();
-      }
-      ctx.fill(); ctx.stroke();
       allPixels.push(...gp, ...rp);
       for (const [lon, lat] of coords) { totalLon += lon; totalLat += lat; totalPts++; }
     }
@@ -616,7 +593,9 @@ class Building25DRenderer {
       const img = new Image(); img.crossOrigin='anonymous';
       img.onload = () => { Building25DRenderer._tileCache.set(key, img); resolve(img); };
       img.onerror = () => reject(new Error('Tile failed'));
-      img.src = 'https://tile.openstreetmap.org/'+zoom+'/'+tx+'/'+ty+'.png';
+      const provKey = Building25DRenderer._tileProvider || 'osm';
+      const prov = TILE_PROVIDERS[provKey] || TILE_PROVIDERS.osm;
+      img.src = prov.url.replace('{z}',zoom).replace('{x}',tx).replace('{y}',ty);
     });
   }
 
@@ -966,6 +945,8 @@ class Pipeline {
         this._cleanupBeforeRender();
         const polygon = extractPolygonCoords(geojsonData);
         const renderer = new Building25DRenderer(this.buildingsGeojson, polygon, params);
+        Building25DRenderer._tileProvider = params.tileProvider || 'osm';
+        Building25DRenderer._tileCache.clear();
         this.canvas = await renderer.render();
         this.callbacks.onLog('[INFO] ' + renderer.buildingPolygons.length + ' Gebäude gerendert');
         this.callbacks.onProgress(3, 'Extracting...');
@@ -1089,6 +1070,14 @@ const paramEls = {
     minArea:      { el: document.getElementById('paramMinArea'),      type: 'number' },
     simplify:     { el: document.getElementById('paramSimplify'),     type: 'checkbox' },
     uniformHeight:{ el: document.getElementById('paramUniformHeight'), type: 'checkbox' },
+    tileProvider: { el: document.getElementById('paramTileProvider'), type: 'select' },
+};
+
+const TILE_PROVIDERS = {
+    osm:           { url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',                          leaflet: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',           subdomains: 'abc', maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' },
+    carto_voyager: { url: 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',     leaflet: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', subdomains: 'abcd', maxZoom: 20, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>' },
+    carto_light:   { url: 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',               leaflet: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',           subdomains: 'abcd', maxZoom: 20, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>' },
+    carto_dark:    { url: 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',                 leaflet: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',             subdomains: 'abcd', maxZoom: 20, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>' },
 };
 
 // ---- IndexedDB persistence ----
@@ -1103,6 +1092,7 @@ function applyParams(data) {
     for (const [key, cfg] of Object.entries(paramEls)) {
         if (data[key] === undefined) continue;
         if (cfg.type === 'checkbox') cfg.el.checked = !!data[key];
+        else if (cfg.type === 'select') { if (data[key]) cfg.el.value = data[key]; }
         else cfg.el.value = data[key];
     }
     syncAllDisplays();
@@ -1136,6 +1126,7 @@ function getParams() {
         minArea: parseInt(paramEls.minArea.el.value, 10),
         simplify: paramEls.simplify.el.checked,
         uniformHeight: paramEls.uniformHeight.el.checked,
+        tileProvider: paramEls.tileProvider.el.value,
     };
 }
 
@@ -1370,6 +1361,32 @@ function createThumbnail(canvas, maxWidth = 200) {
     });
 }
 
+function computeGeojsonFingerprint(geojson) {
+    if (!geojson) return null;
+    try {
+        const coords = [];
+        const features = geojson.features || [];
+        for (const f of features) {
+            if (f.geometry && f.geometry.coordinates) {
+                coords.push(JSON.stringify(f.geometry.coordinates));
+            }
+        }
+        coords.sort();
+        return coords.join('|');
+    } catch(e) { return null; }
+}
+
+async function findExistingProject(fingerprint) {
+    if (!fingerprint) return null;
+    try {
+        const projects = await PipelineDB.getAll('projects');
+        for (const p of projects) {
+            if (p.geojsonFingerprint === fingerprint) return p;
+        }
+    } catch(e) {}
+    return null;
+}
+
 async function saveProject(result) {
     try {
         const sourceCanvas = pipeline.canvas || result.canvas;
@@ -1384,11 +1401,13 @@ async function saveProject(result) {
         const geojson = await PipelineDB.get('geojson', 'input');
         const buildingsCache = pipeline.buildingsGeojson || await PipelineDB.get('buildings_cache', 'osm');
         const params = getParams();
-        const projectId = Date.now();
+        const fingerprint = computeGeojsonFingerprint(geojson);
+        const existing = await findExistingProject(fingerprint);
+        const projectId = existing ? existing.id : Date.now();
         const project = {
             id: projectId,
-            name: geojsonName,
-            timestamp: projectId,
+            name: existing ? existing.name : geojsonName,
+            timestamp: Date.now(),
             buildingCount: result.buildingCount,
             imageWidth: result.imageWidth,
             imageHeight: result.imageHeight,
@@ -1397,11 +1416,39 @@ async function saveProject(result) {
             imageBlob,
             buildingJson,
             geojson: geojson || null,
+            geojsonFingerprint: fingerprint,
             params,
             hasBuildingsCache: !!buildingsCache
         };
+        // Merge existing building metadata (names, descriptions, groups) into new data
+        if (existing && existing.buildingJson && existing.buildingJson.buildings) {
+            const oldMap = {};
+            for (const b of existing.buildingJson.buildings) {
+                oldMap[b.id] = b;
+            }
+            if (project.buildingJson && project.buildingJson.buildings) {
+                for (const b of project.buildingJson.buildings) {
+                    const old = oldMap[b.id];
+                    if (old) {
+                        if (old.name && !b.name) b.name = old.name;
+                        if (old.description && !b.description) b.description = old.description;
+                        if (old.group !== undefined) b.group = old.group;
+                        if (old.highlightColor) b.highlightColor = old.highlightColor;
+                        if (old.roofColor) b.roofColor = old.roofColor;
+                    }
+                }
+            }
+            // Preserve groups
+            if (existing.buildingJson.groups && !project.buildingJson.groups) {
+                project.buildingJson.groups = existing.buildingJson.groups;
+            }
+        }
         await PipelineDB.put('projects', project.id, project);
         if (buildingsCache) {
+            // Clean up old cache key if overwriting
+            if (existing) {
+                try { await PipelineDB.delete('buildings_cache', 'project_' + existing.id); } catch(e) {}
+            }
             await PipelineDB.put('buildings_cache', 'project_' + projectId, buildingsCache);
         }
         activeProjectId = project.id;
@@ -1803,7 +1850,7 @@ const EditorModule = (() => {
         document.querySelectorAll('.ed-svg-overlay .ed-building-polygon[data-building-id="' + buildingId + '"]').forEach(p => {
             if (!p.classList.contains('selected')) {
                 p.style.fill = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.25)';
-                p.style.stroke = hc; p.style.strokeWidth = '2';
+                p.style.stroke = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.7)';
             }
         });
     }
@@ -1813,8 +1860,7 @@ const EditorModule = (() => {
         document.querySelectorAll('.ed-svg-overlay .ed-building-polygon[data-building-id="' + buildingId + '"]').forEach(p => {
             if (!p.classList.contains('selected')) {
                 p.style.fill = 'rgba(255,193,7,0)';
-                p.style.stroke = 'rgba(255,193,7,0)';
-                p.style.strokeWidth = '2';
+                p.style.stroke = 'none';
             }
         });
     }
@@ -1949,7 +1995,7 @@ const EditorModule = (() => {
 
         document.querySelectorAll('.ed-svg-overlay .ed-building-polygon').forEach(p => {
             p.classList.remove('selected');
-            p.style.fill = 'rgba(255,193,7,0)'; p.style.stroke = 'rgba(255,193,7,0)'; p.style.strokeWidth = '2';
+            p.style.fill = 'rgba(255,193,7,0)'; p.style.stroke = 'none';
         });
         const existingCircle = document.querySelector('.ed-selection-circle');
         const existingDim = document.querySelector('.ed-dim-overlay');
@@ -1965,7 +2011,7 @@ const EditorModule = (() => {
             mapPolygons.forEach(mp => {
                 mp.classList.add('selected');
                 mp.style.fill = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.35)';
-                mp.style.stroke = hc; mp.style.strokeWidth = '3';
+                mp.style.stroke = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.85)';
             });
         }
         // Add selection circle + dim overlay
@@ -2115,7 +2161,7 @@ const EditorModule = (() => {
         document.querySelectorAll('.ed-svg-overlay .ed-building-polygon[data-building-id="' + building.id + '"]').forEach(p => {
             if (p.classList.contains('selected')) {
                 p.style.fill = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.35)';
-                p.style.stroke = hc;
+                p.style.stroke = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.85)';
             }
         });
     }

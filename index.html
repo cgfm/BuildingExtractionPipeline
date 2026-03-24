@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://unpkg.com; connect-src 'self' https://overpass-api.de https://unpkg.com; font-src 'self'">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com https://unpkg.com; connect-src 'self' https://overpass-api.de https://unpkg.com; font-src 'self'">
     <title>Building Extraction Pipeline</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" integrity="sha384-NZLkVuBRMEeB4VeZz27WwTRvlhec30biQ8Xx7zG7JJnkvEKRg5qi6BNbEXo9ydwv" crossorigin="anonymous" />
@@ -158,6 +159,15 @@
                         <input type="checkbox" id="paramUniformHeight">
                         <label for="paramUniformHeight">Einheitliche Höhe <span class="info-tip" tabindex="0"><span class="info-tip-text">Ignoriert Höhendaten aus OpenStreetMap (height, building:levels) und verwendet für alle Gebäude den 3D-Tiefe-Wert.</span></span></label>
                     </div>
+                </div>
+                <div class="param-group">
+                    <label for="paramTileProvider">Kartenkacheln</label>
+                    <select id="paramTileProvider">
+                        <option value="osm">OpenStreetMap (Referer nötig)</option>
+                        <option value="carto_voyager">CartoDB Voyager</option>
+                        <option value="carto_light">CartoDB Positron (Hell)</option>
+                        <option value="carto_dark">CartoDB Dark Matter</option>
+                    </select>
                 </div>
             </div>
         </div>
