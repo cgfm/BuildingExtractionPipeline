@@ -755,18 +755,29 @@ function createBuildingJson(canvas, buildingPolygons, imageFilename, previousBui
     // Migrate metadata from previous buildings if available
     if (previousBuildings && previousBuildings.length > 0) {
         const used = new Set();
-        for (const bNew of buildings) {
-            if (!bNew.centroid) continue;
+        const hasCentroids = previousBuildings.some(b => b.centroid);
+        for (let n = 0; n < buildings.length; n++) {
+            const bNew = buildings[n];
             let bestMatch = null;
             let bestDist = Infinity;
-            for (let i = 0; i < previousBuildings.length; i++) {
-                if (used.has(i)) continue;
-                const bOld = previousBuildings[i];
-                if (!bOld.centroid) continue;
-                const d = _haversineMeters(bNew.centroid, bOld.centroid);
-                if (d < bestDist) { bestDist = d; bestMatch = i; }
+            if (hasCentroids && bNew.centroid) {
+                // Primary: centroid-based matching
+                for (let i = 0; i < previousBuildings.length; i++) {
+                    if (used.has(i)) continue;
+                    const bOld = previousBuildings[i];
+                    if (!bOld.centroid) continue;
+                    const d = _haversineMeters(bNew.centroid, bOld.centroid);
+                    if (d < bestDist) { bestDist = d; bestMatch = i; }
+                }
+                if (bestMatch !== null && bestDist > MIGRATION_THRESHOLD_M) bestMatch = null;
             }
-            if (bestMatch !== null && bestDist <= MIGRATION_THRESHOLD_M) {
+            if (bestMatch === null && !hasCentroids) {
+                // Fallback: match by ID or index for old data without centroids
+                const byId = previousBuildings.findIndex((b, i) => !used.has(i) && b.id && b.id === bNew.id);
+                if (byId >= 0) { bestMatch = byId; }
+                else if (n < previousBuildings.length && !used.has(n)) { bestMatch = n; }
+            }
+            if (bestMatch !== null) {
                 const old = previousBuildings[bestMatch];
                 used.add(bestMatch);
                 bNew.nummer = old.nummer;
@@ -959,7 +970,11 @@ class Pipeline {
         this.callbacks.onLog('[INFO] ' + renderer.buildingPolygons.length + ' Gebäude gerendert');
         this.callbacks.onProgress(3, 'Extracting...');
         this.callbacks.onLog('[INFO] Extrahiere Polygone...');
-        const prevBuildings = this.buildingJson ? this.buildingJson.buildings : null;
+        // EditorModule is the single source of truth; fall back to pipeline cache
+        const editorData = EditorModule.getBuildingsData();
+        const prevBuildings = (editorData && editorData.buildings && editorData.buildings.length > 0)
+            ? editorData.buildings
+            : (this.buildingJson ? this.buildingJson.buildings : null);
         this.buildingJson = createBuildingJson(this.canvas, renderer.buildingPolygons, 'rendered.png', prevBuildings);
         if (prevBuildings) {
             const migrated = this.buildingJson.buildings.filter(b => b.name && !b.name.startsWith('Gebäude ')).length;
@@ -1252,18 +1267,30 @@ function handleMetadataImport(metadata, file) {
     const source = metadata.buildings;
     const used = new Set();
     let merged = 0;
-    for (const bTarget of target) {
-        if (!bTarget.centroid) continue;
+    // Check if source data has centroids for geo-matching
+    const hasCentroids = source.some(b => b.centroid);
+    for (let t = 0; t < target.length; t++) {
+        const bTarget = target[t];
         let bestMatch = null;
         let bestDist = Infinity;
-        for (let i = 0; i < source.length; i++) {
-            if (used.has(i)) continue;
-            const bSrc = source[i];
-            if (!bSrc.centroid) continue;
-            const d = _haversineMeters(bTarget.centroid, bSrc.centroid);
-            if (d < bestDist) { bestDist = d; bestMatch = i; }
+        if (hasCentroids && bTarget.centroid) {
+            // Primary: centroid-based matching
+            for (let i = 0; i < source.length; i++) {
+                if (used.has(i)) continue;
+                const bSrc = source[i];
+                if (!bSrc.centroid) continue;
+                const d = _haversineMeters(bTarget.centroid, bSrc.centroid);
+                if (d < bestDist) { bestDist = d; bestMatch = i; }
+            }
+            if (bestMatch !== null && bestDist > MIGRATION_THRESHOLD_M) bestMatch = null;
         }
-        if (bestMatch !== null && bestDist <= MIGRATION_THRESHOLD_M) {
+        if (bestMatch === null && !hasCentroids) {
+            // Fallback: match by ID or index for old JSON without centroids
+            const byId = source.findIndex((b, i) => !used.has(i) && b.id && b.id === bTarget.id);
+            if (byId >= 0) { bestMatch = byId; }
+            else if (t < source.length && !used.has(t)) { bestMatch = t; }
+        }
+        if (bestMatch !== null) {
             const src = source[bestMatch];
             used.add(bestMatch);
             bTarget.nummer = sanitizeString(src.nummer, 500);
@@ -1502,7 +1529,8 @@ async function loadProject(project) {
         btnRerender.classList.remove('hidden');
         btnRerender2.classList.remove('hidden');
         document.getElementById('rerenderTip').classList.remove('hidden');
-        // Initialize editor with project data
+        // Initialize editor with project data and keep pipeline in sync
+        pipeline.buildingJson = bJson;
         EditorModule.init(bJson);
         // Update active state in list
         await renderProjectList();
