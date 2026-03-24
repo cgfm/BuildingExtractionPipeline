@@ -501,26 +501,16 @@ class Building25DRenderer {
       if (this.calculateBuildingArea(coords) < this.minArea) continue;
       const gp = coords.map(([lon, lat]) => this.lonLatToPixel(lon, lat));
       const rp = gp.map(([x, y]) => [x + Math.round(height * isoOffsetX), y - Math.round(height * isoOffsetY)]);
-      // Draw only front-facing wall faces (back-face culling)
-      // Determine polygon winding via signed area (shoelace)
-      let sa2 = 0;
-      for (let k = 0; k < gp.length; k++) {
-        const l = (k + 1) % gp.length;
-        sa2 += gp[k][0] * gp[l][1] - gp[l][0] * gp[k][1];
-      }
-      const ws = sa2 > 0 ? 1 : -1; // winding sign
-      ctx.fillStyle = wc; ctx.strokeStyle = this.outlineColor; ctx.lineWidth = 1;
-      ctx.beginPath();
+      // Draw all wall faces (fill only, no stroke — color difference provides depth)
+      ctx.fillStyle = wc;
       for (let i = 0; i < gp.length; i++) {
         const j = (i+1) % gp.length;
-        const dx = gp[j][0] - gp[i][0], dy = gp[j][1] - gp[i][1];
-        // Outward normal dot extrusion direction — skip back-facing walls
-        if (ws * (dy * isoOffsetX + dx * isoOffsetY) > 0) continue;
+        ctx.beginPath();
         ctx.moveTo(gp[i][0],gp[i][1]); ctx.lineTo(gp[j][0],gp[j][1]); ctx.lineTo(rp[j][0],rp[j][1]); ctx.lineTo(rp[i][0],rp[i][1]); ctx.closePath();
+        ctx.fill();
       }
-      ctx.fill(); ctx.stroke();
-      // Draw roof polygon
-      ctx.fillStyle = this.roofColor;
+      // Draw roof on top (fill + stroke — outline provides building edge)
+      ctx.fillStyle = this.roofColor; ctx.strokeStyle = this.outlineColor; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(rp[0][0],rp[0][1]);
       for (let i = 1; i < rp.length; i++) ctx.lineTo(rp[i][0],rp[i][1]);
       ctx.closePath(); ctx.fill(); ctx.stroke();
@@ -603,7 +593,9 @@ class Building25DRenderer {
       const img = new Image(); img.crossOrigin='anonymous';
       img.onload = () => { Building25DRenderer._tileCache.set(key, img); resolve(img); };
       img.onerror = () => reject(new Error('Tile failed'));
-      img.src = 'https://tile.openstreetmap.org/'+zoom+'/'+tx+'/'+ty+'.png';
+      const provKey = Building25DRenderer._tileProvider || 'osm';
+      const prov = TILE_PROVIDERS[provKey] || TILE_PROVIDERS.osm;
+      img.src = prov.url.replace('{z}',zoom).replace('{x}',tx).replace('{y}',ty);
     });
   }
 
@@ -742,18 +734,29 @@ function createBuildingJson(canvas, buildingPolygons, imageFilename, previousBui
     // Migrate metadata from previous buildings if available
     if (previousBuildings && previousBuildings.length > 0) {
         const used = new Set();
-        for (const bNew of buildings) {
-            if (!bNew.centroid) continue;
+        const hasCentroids = previousBuildings.some(b => b.centroid);
+        for (let n = 0; n < buildings.length; n++) {
+            const bNew = buildings[n];
             let bestMatch = null;
             let bestDist = Infinity;
-            for (let i = 0; i < previousBuildings.length; i++) {
-                if (used.has(i)) continue;
-                const bOld = previousBuildings[i];
-                if (!bOld.centroid) continue;
-                const d = _haversineMeters(bNew.centroid, bOld.centroid);
-                if (d < bestDist) { bestDist = d; bestMatch = i; }
+            if (hasCentroids && bNew.centroid) {
+                // Primary: centroid-based matching
+                for (let i = 0; i < previousBuildings.length; i++) {
+                    if (used.has(i)) continue;
+                    const bOld = previousBuildings[i];
+                    if (!bOld.centroid) continue;
+                    const d = _haversineMeters(bNew.centroid, bOld.centroid);
+                    if (d < bestDist) { bestDist = d; bestMatch = i; }
+                }
+                if (bestMatch !== null && bestDist > MIGRATION_THRESHOLD_M) bestMatch = null;
             }
-            if (bestMatch !== null && bestDist <= MIGRATION_THRESHOLD_M) {
+            if (bestMatch === null && !hasCentroids) {
+                // Fallback: match by ID or index for old data without centroids
+                const byId = previousBuildings.findIndex((b, i) => !used.has(i) && b.id && b.id === bNew.id);
+                if (byId >= 0) { bestMatch = byId; }
+                else if (n < previousBuildings.length && !used.has(n)) { bestMatch = n; }
+            }
+            if (bestMatch !== null) {
                 const old = previousBuildings[bestMatch];
                 used.add(bestMatch);
                 bNew.nummer = old.nummer;
@@ -942,11 +945,17 @@ class Pipeline {
         this._cleanupBeforeRender();
         const polygon = extractPolygonCoords(geojsonData);
         const renderer = new Building25DRenderer(this.buildingsGeojson, polygon, params);
+        Building25DRenderer._tileProvider = params.tileProvider || 'osm';
+        Building25DRenderer._tileCache.clear();
         this.canvas = await renderer.render();
         this.callbacks.onLog('[INFO] ' + renderer.buildingPolygons.length + ' Gebäude gerendert');
         this.callbacks.onProgress(3, 'Extracting...');
         this.callbacks.onLog('[INFO] Extrahiere Polygone...');
-        const prevBuildings = this.buildingJson ? this.buildingJson.buildings : null;
+        // EditorModule is the single source of truth; fall back to pipeline cache
+        const editorData = EditorModule.getBuildingsData();
+        const prevBuildings = (editorData && editorData.buildings && editorData.buildings.length > 0)
+            ? editorData.buildings
+            : (this.buildingJson ? this.buildingJson.buildings : null);
         this.buildingJson = createBuildingJson(this.canvas, renderer.buildingPolygons, 'rendered.png', prevBuildings);
         if (prevBuildings) {
             const migrated = this.buildingJson.buildings.filter(b => b.name && !b.name.startsWith('Gebäude ')).length;
@@ -1061,6 +1070,14 @@ const paramEls = {
     minArea:      { el: document.getElementById('paramMinArea'),      type: 'number' },
     simplify:     { el: document.getElementById('paramSimplify'),     type: 'checkbox' },
     uniformHeight:{ el: document.getElementById('paramUniformHeight'), type: 'checkbox' },
+    tileProvider: { el: document.getElementById('paramTileProvider'), type: 'select' },
+};
+
+const TILE_PROVIDERS = {
+    osm:           { url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',                          leaflet: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',           subdomains: 'abc', maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' },
+    carto_voyager: { url: 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',     leaflet: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', subdomains: 'abcd', maxZoom: 20, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>' },
+    carto_light:   { url: 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',               leaflet: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',           subdomains: 'abcd', maxZoom: 20, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>' },
+    carto_dark:    { url: 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',                 leaflet: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',             subdomains: 'abcd', maxZoom: 20, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>' },
 };
 
 // ---- IndexedDB persistence ----
@@ -1075,6 +1092,7 @@ function applyParams(data) {
     for (const [key, cfg] of Object.entries(paramEls)) {
         if (data[key] === undefined) continue;
         if (cfg.type === 'checkbox') cfg.el.checked = !!data[key];
+        else if (cfg.type === 'select') { if (data[key]) cfg.el.value = data[key]; }
         else cfg.el.value = data[key];
     }
     syncAllDisplays();
@@ -1108,6 +1126,7 @@ function getParams() {
         minArea: parseInt(paramEls.minArea.el.value, 10),
         simplify: paramEls.simplify.el.checked,
         uniformHeight: paramEls.uniformHeight.el.checked,
+        tileProvider: paramEls.tileProvider.el.value,
     };
 }
 
@@ -1239,18 +1258,30 @@ function handleMetadataImport(metadata, file) {
     const source = metadata.buildings;
     const used = new Set();
     let merged = 0;
-    for (const bTarget of target) {
-        if (!bTarget.centroid) continue;
+    // Check if source data has centroids for geo-matching
+    const hasCentroids = source.some(b => b.centroid);
+    for (let t = 0; t < target.length; t++) {
+        const bTarget = target[t];
         let bestMatch = null;
         let bestDist = Infinity;
-        for (let i = 0; i < source.length; i++) {
-            if (used.has(i)) continue;
-            const bSrc = source[i];
-            if (!bSrc.centroid) continue;
-            const d = _haversineMeters(bTarget.centroid, bSrc.centroid);
-            if (d < bestDist) { bestDist = d; bestMatch = i; }
+        if (hasCentroids && bTarget.centroid) {
+            // Primary: centroid-based matching
+            for (let i = 0; i < source.length; i++) {
+                if (used.has(i)) continue;
+                const bSrc = source[i];
+                if (!bSrc.centroid) continue;
+                const d = _haversineMeters(bTarget.centroid, bSrc.centroid);
+                if (d < bestDist) { bestDist = d; bestMatch = i; }
+            }
+            if (bestMatch !== null && bestDist > MIGRATION_THRESHOLD_M) bestMatch = null;
         }
-        if (bestMatch !== null && bestDist <= MIGRATION_THRESHOLD_M) {
+        if (bestMatch === null && !hasCentroids) {
+            // Fallback: match by ID or index for old JSON without centroids
+            const byId = source.findIndex((b, i) => !used.has(i) && b.id && b.id === bTarget.id);
+            if (byId >= 0) { bestMatch = byId; }
+            else if (t < source.length && !used.has(t)) { bestMatch = t; }
+        }
+        if (bestMatch !== null) {
             const src = source[bestMatch];
             used.add(bestMatch);
             bTarget.nummer = sanitizeString(src.nummer, 500);
@@ -1330,6 +1361,32 @@ function createThumbnail(canvas, maxWidth = 200) {
     });
 }
 
+function computeGeojsonFingerprint(geojson) {
+    if (!geojson) return null;
+    try {
+        const coords = [];
+        const features = geojson.features || [];
+        for (const f of features) {
+            if (f.geometry && f.geometry.coordinates) {
+                coords.push(JSON.stringify(f.geometry.coordinates));
+            }
+        }
+        coords.sort();
+        return coords.join('|');
+    } catch(e) { return null; }
+}
+
+async function findExistingProject(fingerprint) {
+    if (!fingerprint) return null;
+    try {
+        const projects = await PipelineDB.getAll('projects');
+        for (const p of projects) {
+            if (p.geojsonFingerprint === fingerprint) return p;
+        }
+    } catch(e) {}
+    return null;
+}
+
 async function saveProject(result) {
     try {
         const sourceCanvas = pipeline.canvas || result.canvas;
@@ -1344,11 +1401,13 @@ async function saveProject(result) {
         const geojson = await PipelineDB.get('geojson', 'input');
         const buildingsCache = pipeline.buildingsGeojson || await PipelineDB.get('buildings_cache', 'osm');
         const params = getParams();
-        const projectId = Date.now();
+        const fingerprint = computeGeojsonFingerprint(geojson);
+        const existing = await findExistingProject(fingerprint);
+        const projectId = existing ? existing.id : Date.now();
         const project = {
             id: projectId,
-            name: geojsonName,
-            timestamp: projectId,
+            name: existing ? existing.name : geojsonName,
+            timestamp: Date.now(),
             buildingCount: result.buildingCount,
             imageWidth: result.imageWidth,
             imageHeight: result.imageHeight,
@@ -1357,11 +1416,39 @@ async function saveProject(result) {
             imageBlob,
             buildingJson,
             geojson: geojson || null,
+            geojsonFingerprint: fingerprint,
             params,
             hasBuildingsCache: !!buildingsCache
         };
+        // Merge existing building metadata (names, descriptions, groups) into new data
+        if (existing && existing.buildingJson && existing.buildingJson.buildings) {
+            const oldMap = {};
+            for (const b of existing.buildingJson.buildings) {
+                oldMap[b.id] = b;
+            }
+            if (project.buildingJson && project.buildingJson.buildings) {
+                for (const b of project.buildingJson.buildings) {
+                    const old = oldMap[b.id];
+                    if (old) {
+                        if (old.name && !b.name) b.name = old.name;
+                        if (old.description && !b.description) b.description = old.description;
+                        if (old.group !== undefined) b.group = old.group;
+                        if (old.highlightColor) b.highlightColor = old.highlightColor;
+                        if (old.roofColor) b.roofColor = old.roofColor;
+                    }
+                }
+            }
+            // Preserve groups
+            if (existing.buildingJson.groups && !project.buildingJson.groups) {
+                project.buildingJson.groups = existing.buildingJson.groups;
+            }
+        }
         await PipelineDB.put('projects', project.id, project);
         if (buildingsCache) {
+            // Clean up old cache key if overwriting
+            if (existing) {
+                try { await PipelineDB.delete('buildings_cache', 'project_' + existing.id); } catch(e) {}
+            }
             await PipelineDB.put('buildings_cache', 'project_' + projectId, buildingsCache);
         }
         activeProjectId = project.id;
@@ -1489,7 +1576,8 @@ async function loadProject(project) {
         btnRerender.classList.remove('hidden');
         btnRerender2.classList.remove('hidden');
         document.getElementById('rerenderTip').classList.remove('hidden');
-        // Initialize editor with project data
+        // Initialize editor with project data and keep pipeline in sync
+        pipeline.buildingJson = bJson;
         EditorModule.init(bJson);
         // Update active state in list
         await renderProjectList();
@@ -1762,7 +1850,7 @@ const EditorModule = (() => {
         document.querySelectorAll('.ed-svg-overlay .ed-building-polygon[data-building-id="' + buildingId + '"]').forEach(p => {
             if (!p.classList.contains('selected')) {
                 p.style.fill = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.25)';
-                p.style.stroke = hc; p.style.strokeWidth = '2';
+                p.style.stroke = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.7)';
             }
         });
     }
@@ -1772,8 +1860,7 @@ const EditorModule = (() => {
         document.querySelectorAll('.ed-svg-overlay .ed-building-polygon[data-building-id="' + buildingId + '"]').forEach(p => {
             if (!p.classList.contains('selected')) {
                 p.style.fill = 'rgba(255,193,7,0)';
-                p.style.stroke = 'rgba(255,193,7,0)';
-                p.style.strokeWidth = '2';
+                p.style.stroke = 'none';
             }
         });
     }
@@ -1908,7 +1995,7 @@ const EditorModule = (() => {
 
         document.querySelectorAll('.ed-svg-overlay .ed-building-polygon').forEach(p => {
             p.classList.remove('selected');
-            p.style.fill = 'rgba(255,193,7,0)'; p.style.stroke = 'rgba(255,193,7,0)'; p.style.strokeWidth = '2';
+            p.style.fill = 'rgba(255,193,7,0)'; p.style.stroke = 'none';
         });
         const existingCircle = document.querySelector('.ed-selection-circle');
         const existingDim = document.querySelector('.ed-dim-overlay');
@@ -1924,7 +2011,7 @@ const EditorModule = (() => {
             mapPolygons.forEach(mp => {
                 mp.classList.add('selected');
                 mp.style.fill = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.35)';
-                mp.style.stroke = hc; mp.style.strokeWidth = '3';
+                mp.style.stroke = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.85)';
             });
         }
         // Add selection circle + dim overlay
@@ -2074,7 +2161,7 @@ const EditorModule = (() => {
         document.querySelectorAll('.ed-svg-overlay .ed-building-polygon[data-building-id="' + building.id + '"]').forEach(p => {
             if (p.classList.contains('selected')) {
                 p.style.fill = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.35)';
-                p.style.stroke = hc;
+                p.style.stroke = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.85)';
             }
         });
     }
@@ -2202,6 +2289,30 @@ const EditorModule = (() => {
     }
     function handleDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
 
+    // ---- Load JSON ----
+    function loadJSONFromFile() {
+        if (!buildingsData || !buildingsData.buildings) {
+            alert('Kein Pipeline-Ergebnis vorhanden. Bitte zuerst die Pipeline ausführen oder eine HTML-Datei importieren.');
+            return;
+        }
+        document.getElementById('edLoadFileInput').click();
+    }
+
+    function handleLoadedFile(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const metadata = JSON.parse(e.target.result);
+                if (!metadata.buildings || !Array.isArray(metadata.buildings)) {
+                    alert('Ungültige Datei: Kein buildings-Array gefunden.');
+                    return;
+                }
+                handleMetadataImport(metadata, file);
+            } catch (err) { alert('Fehler beim Lesen der Datei: ' + err.message); }
+        };
+        reader.readAsText(file);
+    }
+
     // ---- Download JSON ----
     function saveJSONToFile() {
         const blob = new Blob([JSON.stringify(buildingsData, null, 2)], { type: 'application/json' });
@@ -2262,6 +2373,8 @@ const EditorModule = (() => {
 
     /** Bind all editor event listeners. Call once after DOM is ready. */
     function bindEvents() {
+        document.getElementById('edLoadBtn').addEventListener('click', loadJSONFromFile);
+        document.getElementById('edLoadFileInput').addEventListener('change', (e) => { if (e.target.files[0]) { handleLoadedFile(e.target.files[0]); e.target.value = ''; } });
         document.getElementById('edSaveBtn').addEventListener('click', saveJSONToFile);
         document.getElementById('edPreviewBtn').addEventListener('click', () => { if (buildingsData) showViewerOverlay(); });
         document.getElementById('voCloseBtn').addEventListener('click', hideViewerOverlay);

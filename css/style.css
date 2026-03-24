@@ -192,6 +192,27 @@ body {
     outline: none;
     border-color: #4b5320;
 }
+.param-group select {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    border: 1px solid #c0bda8;
+    border-radius: 2px;
+    background: #fff;
+    color: #1a1a1a;
+    transition: border-color 0.15s;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234b5320'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+}
+.param-group select:focus {
+    outline: none;
+    border-color: #4b5320;
+}
 
 /* Color picker row */
 .color-group {
@@ -629,8 +650,7 @@ body {
 }
 .viewer-preview .vp-building-polygon {
     fill: rgba(255, 255, 0, 0);
-    stroke: rgba(255, 255, 0, 0);
-    stroke-width: 2;
+    stroke: none; stroke-width: 2;
     pointer-events: auto;
     cursor: pointer;
     transition: fill 0.2s, stroke 0.2s;
@@ -1057,11 +1077,10 @@ body {
 .ed-image-container img { display: block; width: auto; height: auto; max-width: 100%; }
 .ed-svg-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .ed-building-polygon {
-    fill: rgba(255, 193, 7, 0); stroke: rgba(255, 193, 7, 0);
-    stroke-width: 2; pointer-events: auto; cursor: pointer;
+    fill: rgba(255, 193, 7, 0); stroke: none; stroke-width: 2;
+    pointer-events: auto; cursor: pointer;
     transition: fill 0.2s, stroke 0.2s;
 }
-.ed-building-polygon.selected { stroke-width: 3; }
 .ed-dim-overlay { fill: rgba(0, 0, 0, 0.6); pointer-events: none; }
 .ed-selection-circle { fill: none; stroke: #4b5320; stroke-width: 3; pointer-events: none; }
 .ed-editor-panel {
@@ -1154,8 +1173,8 @@ textarea.ed-form-input { min-height: 100px; resize: vertical; }
     position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;
 }
 .viewer-overlay .vo-building-polygon {
-    fill: rgba(255, 255, 0, 0); stroke: rgba(255, 255, 0, 0);
-    stroke-width: 2; pointer-events: auto; cursor: pointer;
+    fill: rgba(255, 255, 0, 0); stroke: none; stroke-width: 2;
+    pointer-events: auto; cursor: pointer;
     transition: fill 0.2s, stroke 0.2s;
 }
 .viewer-overlay .vo-group { border-bottom: 1px solid #e8e6df; }

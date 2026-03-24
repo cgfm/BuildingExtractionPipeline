@@ -103,8 +103,7 @@ const ViewerWidget = (function() {
             const rgb = hexToRgb(hc);
             document.querySelectorAll('.' + prefix + '-building-polygon[data-building-id="' + buildingId + '"]').forEach(p => {
                 p.style.fill = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',' + highlightOpacity + ')';
-                p.style.stroke = hc;
-                p.style.strokeWidth = String(highlightStroke);
+                p.style.stroke = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.7)';
             });
             const item = document.querySelector('.' + prefix + '-building-item[data-building-id="' + buildingId + '"]');
             if (item) { item.classList.add('highlighted'); item.style.borderLeftColor = hc; }
@@ -115,8 +114,7 @@ const ViewerWidget = (function() {
             if (buildingId === selectedBuildingId) return;
             document.querySelectorAll('.' + prefix + '-building-polygon[data-building-id="' + buildingId + '"]').forEach(p => {
                 p.style.fill = 'rgba(255,255,0,0)';
-                p.style.stroke = 'rgba(255,255,0,0)';
-                p.style.strokeWidth = String(normalStroke);
+                p.style.stroke = 'none';
             });
             const item = document.querySelector('.' + prefix + '-building-item[data-building-id="' + buildingId + '"]');
             if (item) { item.classList.remove('highlighted'); item.style.borderLeftColor = ''; }
