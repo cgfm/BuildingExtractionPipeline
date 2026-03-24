@@ -518,7 +518,7 @@ class Building25DRenderer {
       ctx.fillStyle = wc;
       ctx.beginPath();
       for (let i = 0; i < gp.length; i++) {
-        if (wallDots[i] <= 0) continue;
+        if (wallDots[i] >= 0) continue;
         const j = (i+1) % gp.length;
         ctx.moveTo(gp[i][0],gp[i][1]); ctx.lineTo(gp[j][0],gp[j][1]); ctx.lineTo(rp[j][0],rp[j][1]); ctx.lineTo(rp[i][0],rp[i][1]); ctx.closePath();
       }
@@ -532,7 +532,7 @@ class Building25DRenderer {
       ctx.fillStyle = wc; ctx.strokeStyle = this.outlineColor; ctx.lineWidth = 1;
       ctx.beginPath();
       for (let i = 0; i < gp.length; i++) {
-        if (wallDots[i] > 0) continue;
+        if (wallDots[i] < 0) continue;
         const j = (i+1) % gp.length;
         ctx.moveTo(gp[i][0],gp[i][1]); ctx.lineTo(gp[j][0],gp[j][1]); ctx.lineTo(rp[j][0],rp[j][1]); ctx.lineTo(rp[i][0],rp[i][1]); ctx.closePath();
       }
