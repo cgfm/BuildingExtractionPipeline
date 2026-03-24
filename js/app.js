@@ -501,29 +501,42 @@ class Building25DRenderer {
       if (this.calculateBuildingArea(coords) < this.minArea) continue;
       const gp = coords.map(([lon, lat]) => this.lonLatToPixel(lon, lat));
       const rp = gp.map(([x, y]) => [x + Math.round(height * isoOffsetX), y - Math.round(height * isoOffsetY)]);
-      // Draw only front-facing wall faces (back-face culling)
-      // Determine polygon winding via signed area (shoelace)
+      // Determine front/back facing walls via winding + extrusion direction
       let sa2 = 0;
       for (let k = 0; k < gp.length; k++) {
         const l = (k + 1) % gp.length;
         sa2 += gp[k][0] * gp[l][1] - gp[l][0] * gp[k][1];
       }
-      const ws = sa2 > 0 ? 1 : -1; // winding sign
-      ctx.fillStyle = wc; ctx.strokeStyle = this.outlineColor; ctx.lineWidth = 1;
-      ctx.beginPath();
+      const ws = sa2 > 0 ? 1 : -1;
+      const wallDots = [];
       for (let i = 0; i < gp.length; i++) {
         const j = (i+1) % gp.length;
         const dx = gp[j][0] - gp[i][0], dy = gp[j][1] - gp[i][1];
-        // Outward normal dot extrusion direction — skip back-facing walls
-        if (ws * (dy * isoOffsetX + dx * isoOffsetY) > 0) continue;
+        wallDots.push(ws * (dy * isoOffsetX + dx * isoOffsetY));
+      }
+      // Pass 1: back-facing walls (fill only — roof will cover them)
+      ctx.fillStyle = wc;
+      ctx.beginPath();
+      for (let i = 0; i < gp.length; i++) {
+        if (wallDots[i] <= 0) continue;
+        const j = (i+1) % gp.length;
         ctx.moveTo(gp[i][0],gp[i][1]); ctx.lineTo(gp[j][0],gp[j][1]); ctx.lineTo(rp[j][0],rp[j][1]); ctx.lineTo(rp[i][0],rp[i][1]); ctx.closePath();
       }
-      ctx.fill(); ctx.stroke();
-      // Draw roof polygon
-      ctx.fillStyle = this.roofColor;
+      ctx.fill();
+      // Pass 2: roof (covers back wall edges)
+      ctx.fillStyle = this.roofColor; ctx.strokeStyle = this.outlineColor; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(rp[0][0],rp[0][1]);
       for (let i = 1; i < rp.length; i++) ctx.lineTo(rp[i][0],rp[i][1]);
       ctx.closePath(); ctx.fill(); ctx.stroke();
+      // Pass 3: front-facing walls (fill + stroke, on top of roof)
+      ctx.fillStyle = wc; ctx.strokeStyle = this.outlineColor; ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 0; i < gp.length; i++) {
+        if (wallDots[i] > 0) continue;
+        const j = (i+1) % gp.length;
+        ctx.moveTo(gp[i][0],gp[i][1]); ctx.lineTo(gp[j][0],gp[j][1]); ctx.lineTo(rp[j][0],rp[j][1]); ctx.lineTo(rp[i][0],rp[i][1]); ctx.closePath();
+      }
+      ctx.fill(); ctx.stroke();
       allPixels.push(...gp, ...rp);
       for (const [lon, lat] of coords) { totalLon += lon; totalLat += lat; totalPts++; }
     }
