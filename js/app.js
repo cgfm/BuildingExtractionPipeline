@@ -1689,6 +1689,7 @@ const EditorModule = (() => {
     let mergeTarget = null;
     let draggedElement = null;
     let draggedBuildingId = null;
+    let draggedGroupName = null;
     let _mapResizeObserver = null;
 
     // ---- UndoManager ----
@@ -1923,10 +1924,13 @@ const EditorModule = (() => {
             if (nameMatch) header.classList.add('ed-group-header-building');
             header.style.paddingLeft = (20 - level * 5) + 'px';
             header.setAttribute('data-search-text', nameMatch ? [nameMatch.name, nameMatch.nummer, nameMatch.gruppe].filter(Boolean).join(' ').toLowerCase() : '');
-            header.innerHTML = '<h2>' + escapeHtml(groupName) + '</h2>'
+            header.innerHTML = '<span class="drag-handle">\u22EE\u22EE</span><h2>' + escapeHtml(groupName) + '</h2>'
                 + (nameMatch ? '<div class="color-indicator" style="background-color: ' + escapeHtml(nameMatch.highlightColor || '#FFC107') + '"></div>' : '')
                 + '<span class="ed-group-toggle">\u25BC</span>';
-            header.addEventListener('click', () => {
+            header.setAttribute('draggable', 'true');
+            header.setAttribute('data-group-name', groupName);
+            header.addEventListener('click', (e) => {
+                if (e.target.closest('.drag-handle')) return;
                 group.classList.toggle('collapsed');
                 if (nameMatch) {
                     if (mergeMode) { handleMergeClick(nameMatch); return; }
@@ -1935,6 +1939,11 @@ const EditorModule = (() => {
             });
             header.addEventListener('mouseenter', () => buildingIds.forEach(id => highlightPolygon(id)));
             header.addEventListener('mouseleave', () => buildingIds.forEach(id => unhighlightPolygon(id)));
+            header.addEventListener('dragstart', handleGroupDragStart);
+            header.addEventListener('dragend', handleGroupDragEnd);
+            header.addEventListener('dragover', handleGroupDragOver);
+            header.addEventListener('drop', handleGroupDrop);
+            header.addEventListener('dragleave', handleGroupDragLeave);
             group.appendChild(header);
             const content = document.createElement('div');
             content.className = 'ed-group-buildings';
@@ -2252,16 +2261,24 @@ const EditorModule = (() => {
     }
 
     // ---- Drag and Drop ----
+    function getGroupBuildings(groupName) {
+        return buildingsData.buildings.filter(b => {
+            const g = (b.gruppe || '').trim();
+            return g === groupName || g.startsWith(groupName + ' > ');
+        });
+    }
+
     function handleDragStart(e) {
         draggedElement = e.currentTarget;
         draggedBuildingId = draggedElement.getAttribute('data-building-id');
+        draggedGroupName = null;
         draggedElement.classList.add('dragging');
         e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/html', draggedElement.innerHTML);
+        e.dataTransfer.setData('text/plain', draggedBuildingId);
     }
     function handleDragEnd(e) {
         e.currentTarget.classList.remove('dragging');
-        document.querySelectorAll('#edSidebarContent .building-item').forEach(it => it.classList.remove('drag-over'));
+        document.querySelectorAll('#edSidebarContent .building-item, #edSidebarContent .ed-group-header').forEach(it => it.classList.remove('drag-over'));
     }
     function handleDragOver(e) {
         e.preventDefault(); e.dataTransfer.dropEffect = 'move';
@@ -2270,6 +2287,16 @@ const EditorModule = (() => {
     }
     function handleDrop(e) {
         e.stopPropagation(); e.preventDefault();
+        e.currentTarget.classList.remove('drag-over');
+        // Handle group drop on building
+        if (draggedGroupName) {
+            const dropBuildingId = e.currentTarget.getAttribute('data-building-id');
+            if (!dropBuildingId) return false;
+            const dropIndex = buildingsData.buildings.findIndex(b => b.id === dropBuildingId);
+            if (dropIndex === -1) return false;
+            moveGroupToIndex(draggedGroupName, dropIndex);
+            return false;
+        }
         const dropBuildingId = e.currentTarget.getAttribute('data-building-id');
         if (draggedBuildingId === dropBuildingId) return false;
         const draggedIndex = buildingsData.buildings.findIndex(b => b.id === draggedBuildingId);
@@ -2288,6 +2315,92 @@ const EditorModule = (() => {
         return false;
     }
     function handleDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+
+    // ---- Group Drag and Drop ----
+    function handleGroupDragStart(e) {
+        draggedElement = e.currentTarget;
+        draggedGroupName = draggedElement.getAttribute('data-group-name');
+        draggedBuildingId = null;
+        draggedElement.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', 'group:' + draggedGroupName);
+    }
+    function handleGroupDragEnd(e) {
+        e.currentTarget.classList.remove('dragging');
+        document.querySelectorAll('#edSidebarContent .building-item, #edSidebarContent .ed-group-header').forEach(it => it.classList.remove('drag-over'));
+        draggedGroupName = null;
+    }
+    function handleGroupDragOver(e) {
+        e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+        if (e.currentTarget !== draggedElement) e.currentTarget.classList.add('drag-over');
+        return false;
+    }
+    function handleGroupDrop(e) {
+        e.stopPropagation(); e.preventDefault();
+        e.currentTarget.classList.remove('drag-over');
+        const dropGroupName = e.currentTarget.getAttribute('data-group-name');
+        if (!dropGroupName) return false;
+        // Building dropped on group header
+        if (draggedBuildingId && !draggedGroupName) {
+            const firstInGroup = buildingsData.buildings.find(b => {
+                const g = (b.gruppe || '').trim();
+                return g === dropGroupName || g.startsWith(dropGroupName + ' > ');
+            });
+            if (!firstInGroup) return false;
+            const draggedIndex = buildingsData.buildings.findIndex(b => b.id === draggedBuildingId);
+            const dropIndex = buildingsData.buildings.indexOf(firstInGroup);
+            if (draggedIndex !== -1 && dropIndex !== -1 && draggedIndex !== dropIndex) {
+                UndoManager.pushState();
+                const [db] = buildingsData.buildings.splice(draggedIndex, 1);
+                buildingsData.buildings.splice(draggedIndex < dropIndex ? dropIndex - 1 : dropIndex, 0, db);
+                hasChanges = true; persistToIDB();
+                renderSidebar();
+                if (currentBuilding) {
+                    const it = document.querySelector('#edSidebarContent .building-item[data-building-id="' + currentBuilding.id + '"]');
+                    if (it) it.classList.add('selected');
+                }
+            }
+            return false;
+        }
+        // Group dropped on group header
+        if (draggedGroupName && draggedGroupName !== dropGroupName) {
+            const firstInDrop = buildingsData.buildings.find(b => {
+                const g = (b.gruppe || '').trim();
+                return g === dropGroupName || g.startsWith(dropGroupName + ' > ');
+            });
+            if (!firstInDrop) return false;
+            const dropIndex = buildingsData.buildings.indexOf(firstInDrop);
+            moveGroupToIndex(draggedGroupName, dropIndex);
+        }
+        return false;
+    }
+    function handleGroupDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+
+    function moveGroupToIndex(groupName, targetIndex) {
+        const groupBuildings = getGroupBuildings(groupName);
+        if (groupBuildings.length === 0) return;
+        UndoManager.pushState();
+        // Remove group buildings from array
+        const ids = new Set(groupBuildings.map(b => b.id));
+        const remaining = buildingsData.buildings.filter(b => !ids.has(b.id));
+        // Find adjusted target index in remaining array
+        let insertAt = targetIndex;
+        // Count how many removed buildings were before the target
+        let removedBefore = 0;
+        for (let i = 0; i < targetIndex && i < buildingsData.buildings.length; i++) {
+            if (ids.has(buildingsData.buildings[i].id)) removedBefore++;
+        }
+        insertAt = Math.min(targetIndex - removedBefore, remaining.length);
+        // Insert group buildings at target position
+        remaining.splice(insertAt, 0, ...groupBuildings);
+        buildingsData.buildings = remaining;
+        hasChanges = true; persistToIDB();
+        renderSidebar();
+        if (currentBuilding) {
+            const it = document.querySelector('#edSidebarContent .building-item[data-building-id="' + currentBuilding.id + '"]');
+            if (it) it.classList.add('selected');
+        }
+    }
 
     // ---- Load JSON ----
     function loadJSONFromFile() {

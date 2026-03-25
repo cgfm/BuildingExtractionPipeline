@@ -1043,14 +1043,22 @@ body {
 .ed-group { border-bottom: 1px solid #e8e6df; }
 .ed-group-header {
     padding: 12px 20px; background: #f5f4ee; cursor: pointer;
-    display: flex; justify-content: space-between; align-items: center;
+    display: flex; align-items: center; gap: 8px;
     transition: background 0.2s;
 }
 .ed-group-header:hover { background: #e8e6df; }
+.ed-group-header.drag-over { border-top: 2px solid #4b5320; }
+.ed-group-header.dragging { opacity: 0.4; }
+.ed-group-header .drag-handle {
+    cursor: grab; color: #b0ad98; font-size: 0.75rem;
+    letter-spacing: -2px; user-select: none; flex-shrink: 0;
+}
+.ed-group-header .drag-handle:active { cursor: grabbing; }
 .ed-group-header h2 {
     font-size: 0.85rem; font-weight: 700; color: #4b5320;
-    text-transform: uppercase; letter-spacing: 0.03em;
+    text-transform: uppercase; letter-spacing: 0.03em; flex: 1;
 }
+.ed-group-header .ed-group-toggle { margin-left: auto; }
 .ed-group-header-building .color-indicator { margin-left: auto; margin-right: 8px; }
 .ed-group-header-building h2 { text-decoration: underline; text-decoration-color: #b0ad98; text-underline-offset: 3px; }
 .ed-group-toggle { font-size: 12px; color: #b0ad98; transition: transform 0.3s; }
