@@ -34,16 +34,13 @@ const ViewerWidget = (function() {
     }
 
     /**
-     * Sort group names alphabetically, with "Unbekannt"/"Sonstige" always last.
+     * Preserve insertion order (from buildings array), with "Unbekannt"/"Sonstige" always last.
      * @param {string[]} names
-     * @returns {string[]} Sorted names (mutates input)
+     * @returns {string[]} Ordered names
      */
     function sortGroupNames(names) {
-        return names.sort((a, b) => {
-            if (a === 'Unbekannt' || a === 'Sonstige') return 1;
-            if (b === 'Unbekannt' || b === 'Sonstige') return -1;
-            return a.localeCompare(b);
-        });
+        const last = new Set(['Unbekannt', 'Sonstige']);
+        return names.filter(n => !last.has(n)).concat(names.filter(n => last.has(n)));
     }
 
     /**
@@ -237,16 +234,39 @@ const ViewerWidget = (function() {
             searchBar.innerHTML = '<input type="text" class="' + prefix + '-search-input" placeholder="Gebäude suchen...">';
             fragment.appendChild(searchBar);
 
-            // Build group hierarchy
+            // Build group hierarchy (ungrouped buildings go into "Sonstige")
             const buildings = filterDisabled ? buildingsData.buildings.filter(b => !b.disabled) : buildingsData.buildings;
             const groupHierarchy = buildGroupHierarchy(buildings, false);
+
+            function firstBuildingIndex(gd) {
+                for (const b of gd.buildings) { const i = buildings.indexOf(b); if (i !== -1) return i; }
+                for (const sn of Object.keys(gd.subgroups)) { const i = firstBuildingIndex(gd.subgroups[sn]); if (i !== -1) return i; }
+                return Infinity;
+            }
+
+            function createBuildingEl(b, paddingLeft) {
+                let item;
+                if (buildingItemRenderer) {
+                    item = buildingItemRenderer(b, paddingLeft);
+                } else {
+                    item = document.createElement('div');
+                    item.className = prefix + '-building-item';
+                    item.style.paddingLeft = paddingLeft + 'px';
+                    item.setAttribute('data-building-id', b.id);
+                    item.setAttribute('data-search-text', [b.name, b.nummer, b.gruppe].filter(Boolean).join(' ').toLowerCase());
+                    item.innerHTML = '<div class="' + prefix + '-building-name">' + escapeHtml(b.name) + '</div>';
+                    item.addEventListener('mouseenter', () => highlight(b.id));
+                    item.addEventListener('mouseleave', () => unhighlight(b.id));
+                    item.addEventListener('click', () => { if (onBuildingClick) onBuildingClick(b); });
+                }
+                return item;
+            }
 
             function renderGroup(groupName, groupData, level) {
                 const g = document.createElement('div');
                 g.className = prefix + '-group';
                 g.style.marginLeft = (level * 12) + 'px';
                 const bids = getAllGroupIds(groupData);
-                // Check if a building shares the group name → merge into header
                 const nameMatch = groupData.buildings.find(b => b.name === groupName);
 
                 const h = document.createElement('div');
@@ -265,30 +285,31 @@ const ViewerWidget = (function() {
 
                 const ct = document.createElement('div');
                 ct.className = prefix + '-group-buildings';
+                // Interleave direct buildings and subgroups by array position
+                const contentItems = [];
                 groupData.buildings.filter(b => b !== nameMatch).forEach(b => {
-                    let item;
-                    if (buildingItemRenderer) {
-                        item = buildingItemRenderer(b, 28 + level * 12);
-                    } else {
-                        item = document.createElement('div');
-                        item.className = prefix + '-building-item';
-                        item.style.paddingLeft = (28 + level * 12) + 'px';
-                        item.setAttribute('data-building-id', b.id);
-                        item.setAttribute('data-search-text', [b.name, b.nummer, b.gruppe].filter(Boolean).join(' ').toLowerCase());
-                        item.innerHTML = '<div class="' + prefix + '-building-name">' + escapeHtml(b.name) + '</div>';
-                        item.addEventListener('mouseenter', () => highlight(b.id));
-                        item.addEventListener('mouseleave', () => unhighlight(b.id));
-                        item.addEventListener('click', () => { if (onBuildingClick) onBuildingClick(b); });
-                    }
-                    ct.appendChild(item);
+                    contentItems.push({ type: 'b', building: b, sortKey: buildings.indexOf(b) });
                 });
-                sortGroupNames(Object.keys(groupData.subgroups)).forEach(sn => ct.appendChild(renderGroup(sn, groupData.subgroups[sn], level + 1)));
+                sortGroupNames(Object.keys(groupData.subgroups)).forEach(sn => {
+                    contentItems.push({ type: 'g', name: sn, data: groupData.subgroups[sn], sortKey: firstBuildingIndex(groupData.subgroups[sn]) });
+                });
+                contentItems.sort((a, b) => a.sortKey - b.sortKey);
+                contentItems.forEach(item => {
+                    if (item.type === 'b') ct.appendChild(createBuildingEl(item.building, 28 + level * 12));
+                    else ct.appendChild(renderGroup(item.name, item.data, level + 1));
+                });
                 g.appendChild(ct);
                 return g;
             }
 
             const sidebarContent = document.createElement('div');
-            sortGroupNames(Object.keys(groupHierarchy)).forEach(gn => sidebarContent.appendChild(renderGroup(gn, groupHierarchy[gn], 0)));
+            // Render top-level groups ordered by first building position in array
+            const topItems = [];
+            sortGroupNames(Object.keys(groupHierarchy)).forEach(gn => {
+                topItems.push({ name: gn, data: groupHierarchy[gn], sortKey: firstBuildingIndex(groupHierarchy[gn]) });
+            });
+            topItems.sort((a, b) => a.sortKey - b.sortKey);
+            topItems.forEach(item => sidebarContent.appendChild(renderGroup(item.name, item.data, 0)));
             fragment.appendChild(sidebarContent);
 
             // Single DOM update: clear and append fragment
