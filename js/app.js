@@ -1936,6 +1936,7 @@ const EditorModule = (() => {
                 + '<span class="ed-group-toggle">\u25BC</span>';
             header.setAttribute('draggable', 'true');
             header.setAttribute('data-group-name', fullPath);
+            header.setAttribute('data-parent-group', parentPath || '');
             header.addEventListener('click', (e) => {
                 if (e.target.closest('.drag-handle')) return;
                 group.classList.toggle('collapsed');
@@ -1954,15 +1955,47 @@ const EditorModule = (() => {
             group.appendChild(header);
             const content = document.createElement('div');
             content.className = 'ed-group-buildings';
-            groupData.buildings.filter(b => b !== nameMatch).forEach(b => content.appendChild(createBuildingItem(b, 35 + level * 15)));
-            insertionOrder(Object.keys(groupData.subgroups)).forEach(sn => content.appendChild(renderGroup(sn, groupData.subgroups[sn], level + 1, fullPath)));
+            // Interleave direct buildings and subgroups by their position in the flat array
+            const contentItems = [];
+            groupData.buildings.filter(b => b !== nameMatch).forEach(b => {
+                contentItems.push({ type: 'b', building: b, sortKey: buildingsData.buildings.indexOf(b) });
+            });
+            function firstBuildingIndex(gd) {
+                for (const b of gd.buildings) { const i = buildingsData.buildings.indexOf(b); if (i !== -1) return i; }
+                for (const sn of Object.keys(gd.subgroups)) { const i = firstBuildingIndex(gd.subgroups[sn]); if (i !== -1) return i; }
+                return Infinity;
+            }
+            insertionOrder(Object.keys(groupData.subgroups)).forEach(sn => {
+                contentItems.push({ type: 'g', name: sn, data: groupData.subgroups[sn], sortKey: firstBuildingIndex(groupData.subgroups[sn]) });
+            });
+            contentItems.sort((a, b) => a.sortKey - b.sortKey);
+            contentItems.forEach(item => {
+                if (item.type === 'b') content.appendChild(createBuildingItem(item.building, 35 + level * 15));
+                else content.appendChild(renderGroup(item.name, item.data, level + 1, fullPath));
+            });
             group.appendChild(content);
             return group;
         }
 
         sidebar.innerHTML = '';
-        ungroupedBuildings.forEach(b => sidebar.appendChild(createBuildingItem(b, 20)));
-        insertionOrder(Object.keys(groupHierarchy)).forEach(gn => sidebar.appendChild(renderGroup(gn, groupHierarchy[gn], 0, '')));
+        // Interleave ungrouped buildings and top-level groups by position
+        const topItems = [];
+        ungroupedBuildings.forEach(b => {
+            topItems.push({ type: 'b', building: b, sortKey: buildingsData.buildings.indexOf(b) });
+        });
+        function firstBuildingIndexTop(gd) {
+            for (const b of gd.buildings) { const i = buildingsData.buildings.indexOf(b); if (i !== -1) return i; }
+            for (const sn of Object.keys(gd.subgroups)) { const i = firstBuildingIndexTop(gd.subgroups[sn]); if (i !== -1) return i; }
+            return Infinity;
+        }
+        insertionOrder(Object.keys(groupHierarchy)).forEach(gn => {
+            topItems.push({ type: 'g', name: gn, data: groupHierarchy[gn], sortKey: firstBuildingIndexTop(groupHierarchy[gn]) });
+        });
+        topItems.sort((a, b) => a.sortKey - b.sortKey);
+        topItems.forEach(item => {
+            if (item.type === 'b') sidebar.appendChild(createBuildingItem(item.building, 20));
+            else sidebar.appendChild(renderGroup(item.name, item.data, 0, ''));
+        });
 
         if (disabledBuildings.length > 0) {
             const hiddenGroup = document.createElement('div');
@@ -2302,18 +2335,26 @@ const EditorModule = (() => {
         e.currentTarget.classList.remove('dragging');
         clearAllDragOver();
     }
+    function getDragParent() {
+        if (draggedBuildingId) {
+            const b = buildingsData.buildings.find(b => b.id === draggedBuildingId);
+            return (b?.gruppe || '').trim();
+        }
+        if (draggedGroupName) {
+            return draggedGroupName.includes(' > ') ? draggedGroupName.substring(0, draggedGroupName.lastIndexOf(' > ')) : '';
+        }
+        return null;
+    }
+
     function handleDragOver(e) {
         const target = e.currentTarget;
         if (target === draggedElement) return false;
-        // When dragging a group, buildings are not valid drop targets
-        if (draggedGroupName) { e.preventDefault(); return false; }
-        // When dragging a building, only allow drop on same-group buildings
-        if (draggedBuildingId) {
-            const draggedBuilding = buildingsData.buildings.find(b => b.id === draggedBuildingId);
-            const draggedGroup = (draggedBuilding?.gruppe || '').trim();
-            const targetGroup = target.getAttribute('data-group-path') || '';
-            if (targetGroup !== draggedGroup) { e.preventDefault(); return false; }
-        }
+        const dragParent = getDragParent();
+        if (dragParent === null) return false;
+        const targetGroup = target.getAttribute('data-group-path') || '';
+        // Building on building: same group; Group on building: building must be in dragged group's parent
+        if (draggedBuildingId && targetGroup !== dragParent) return false;
+        if (draggedGroupName && targetGroup !== dragParent) return false;
         e.preventDefault(); e.dataTransfer.dropEffect = 'move';
         target.classList.add('drag-over');
         return false;
@@ -2321,16 +2362,19 @@ const EditorModule = (() => {
     function handleDrop(e) {
         e.stopPropagation(); e.preventDefault();
         e.currentTarget.classList.remove('drag-over');
-        if (!draggedBuildingId || draggedGroupName) return false;
         const dropBuildingId = e.currentTarget.getAttribute('data-building-id');
-        if (draggedBuildingId === dropBuildingId) return false;
-        // Validate same group
-        const draggedBuilding = buildingsData.buildings.find(b => b.id === draggedBuildingId);
-        const dropBuilding = buildingsData.buildings.find(b => b.id === dropBuildingId);
-        if (!draggedBuilding || !dropBuilding) return false;
-        if ((draggedBuilding.gruppe || '').trim() !== (dropBuilding.gruppe || '').trim()) return false;
-        const draggedIndex = buildingsData.buildings.indexOf(draggedBuilding);
-        const dropIndex = buildingsData.buildings.indexOf(dropBuilding);
+        if (!dropBuildingId) return false;
+        const dropIndex = buildingsData.buildings.findIndex(b => b.id === dropBuildingId);
+        if (dropIndex === -1) return false;
+        // Group dropped on a building item
+        if (draggedGroupName) {
+            moveGroupToIndex(draggedGroupName, dropIndex);
+            return false;
+        }
+        // Building dropped on a building item
+        if (!draggedBuildingId || draggedBuildingId === dropBuildingId) return false;
+        const draggedIndex = buildingsData.buildings.findIndex(b => b.id === draggedBuildingId);
+        if (draggedIndex === -1) return false;
         UndoManager.pushState();
         const [db] = buildingsData.buildings.splice(draggedIndex, 1);
         buildingsData.buildings.splice(draggedIndex < dropIndex ? dropIndex - 1 : dropIndex, 0, db);
@@ -2358,18 +2402,17 @@ const EditorModule = (() => {
         const target = e.currentTarget;
         if (target === draggedElement) return false;
         const dropGroupName = target.getAttribute('data-group-name');
+        const dropParent = target.getAttribute('data-parent-group') || '';
         if (!dropGroupName) return false;
+        const dragParent = getDragParent();
+        if (dragParent === null) return false;
         if (draggedGroupName) {
-            // Group dragged → only valid on other groups (not self, not own subgroups)
             if (dropGroupName === draggedGroupName) return false;
             if (dropGroupName.startsWith(draggedGroupName + ' > ')) return false;
-            // Only allow drop on siblings (same parent level)
-            const dragParent = draggedGroupName.includes(' > ') ? draggedGroupName.substring(0, draggedGroupName.lastIndexOf(' > ')) : '';
-            const dropParent = dropGroupName.includes(' > ') ? dropGroupName.substring(0, dropGroupName.lastIndexOf(' > ')) : '';
             if (dragParent !== dropParent) return false;
         }
-        // Building dragged on group header → not a valid target
-        if (draggedBuildingId) return false;
+        // Building dragged on group header → valid if same parent
+        if (draggedBuildingId && dragParent !== dropParent) return false;
         e.preventDefault(); e.dataTransfer.dropEffect = 'move';
         target.classList.add('drag-over');
         return false;
@@ -2377,17 +2420,32 @@ const EditorModule = (() => {
     function handleGroupDrop(e) {
         e.stopPropagation(); e.preventDefault();
         e.currentTarget.classList.remove('drag-over');
-        if (!draggedGroupName) return false;
         const dropGroupName = e.currentTarget.getAttribute('data-group-name');
-        if (!dropGroupName || dropGroupName === draggedGroupName) return false;
-        if (dropGroupName.startsWith(draggedGroupName + ' > ')) return false;
+        if (!dropGroupName) return false;
+        // Find the first building in the drop group
         const firstInDrop = buildingsData.buildings.find(b => {
             const g = (b.gruppe || '').trim();
             return g === dropGroupName || g.startsWith(dropGroupName + ' > ');
         });
         if (!firstInDrop) return false;
         const dropIndex = buildingsData.buildings.indexOf(firstInDrop);
-        moveGroupToIndex(draggedGroupName, dropIndex);
+        // Group dropped on group header
+        if (draggedGroupName) {
+            if (dropGroupName === draggedGroupName) return false;
+            if (dropGroupName.startsWith(draggedGroupName + ' > ')) return false;
+            moveGroupToIndex(draggedGroupName, dropIndex);
+            return false;
+        }
+        // Building dropped on group header
+        if (draggedBuildingId) {
+            const draggedIndex = buildingsData.buildings.findIndex(b => b.id === draggedBuildingId);
+            if (draggedIndex === -1 || draggedIndex === dropIndex) return false;
+            UndoManager.pushState();
+            const [db] = buildingsData.buildings.splice(draggedIndex, 1);
+            buildingsData.buildings.splice(draggedIndex < dropIndex ? dropIndex - 1 : dropIndex, 0, db);
+            afterReorder();
+            return false;
+        }
         return false;
     }
     function handleGroupDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
