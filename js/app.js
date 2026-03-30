@@ -1773,13 +1773,21 @@ const EditorModule = (() => {
     let _persistTimer = null;
     function persistToIDB() {
         clearTimeout(_persistTimer);
-        _persistTimer = setTimeout(() => {
+        _persistTimer = setTimeout(async () => {
             try {
                 const copy = structuredClone(buildingsData);
                 if (copy.image) delete copy.image.dataUrl;
-                PipelineDB.put('editor', 'buildingsData', copy).catch(e => {
-                    console.warn('[editor] IDB-Speicherung fehlgeschlagen:', e.message);
-                });
+                await PipelineDB.put('editor', 'buildingsData', copy);
+                // Sync changes back to the active project
+                if (activeProjectId) {
+                    const project = await PipelineDB.get('projects', activeProjectId);
+                    if (project) {
+                        project.buildingJson = structuredClone(copy);
+                        project.buildingCount = (copy.buildings || []).filter(b => !b.disabled).length;
+                        project.timestamp = Date.now();
+                        await PipelineDB.put('projects', activeProjectId, project);
+                    }
+                }
             } catch(e) { console.warn('[editor] IDB-Speicherung fehlgeschlagen:', e.message); }
         }, 1500);
     }
