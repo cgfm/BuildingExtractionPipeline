@@ -1875,8 +1875,39 @@ const EditorModule = (() => {
     }
 
     // ---- Render sidebar ----
+    function getCollapsedGroups() {
+        const collapsed = new Set();
+        document.querySelectorAll('#edSidebarContent .ed-group.collapsed').forEach(g => {
+            const header = g.querySelector(':scope > .ed-group-header');
+            if (header) {
+                const name = header.getAttribute('data-group-name');
+                if (name) collapsed.add(name);
+            }
+        });
+        // Check hidden group
+        if (document.querySelector('#edSidebarContent .ed-group.collapsed[style*="opacity"]')) {
+            collapsed.add('__hidden__');
+        }
+        return collapsed;
+    }
+
+    function restoreCollapsedGroups(collapsed) {
+        if (collapsed.size === 0) return;
+        document.querySelectorAll('#edSidebarContent .ed-group-header').forEach(header => {
+            const name = header.getAttribute('data-group-name');
+            if (name && collapsed.has(name)) {
+                header.parentElement.classList.add('collapsed');
+            }
+        });
+        if (collapsed.has('__hidden__')) {
+            const hiddenGroup = document.querySelector('#edSidebarContent .ed-group[style*="opacity"]');
+            if (hiddenGroup) hiddenGroup.classList.add('collapsed');
+        }
+    }
+
     function renderSidebar() {
         const sidebar = document.getElementById('edSidebarContent');
+        const collapsedState = getCollapsedGroups();
         const groupHierarchy = {};
         const ungroupedBuildings = [];
         const disabledBuildings = [];
@@ -2022,6 +2053,7 @@ const EditorModule = (() => {
             sidebar.appendChild(hiddenGroup);
         }
 
+        restoreCollapsedGroups(collapsedState);
         document.getElementById('edSearchInput').value = '';
         // Update sidebar info
         document.getElementById('edSidebarInfo').textContent = buildingsData.buildings.length + ' Gebäude geladen';
