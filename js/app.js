@@ -1886,14 +1886,20 @@ const EditorModule = (() => {
             });
         });
 
-        const sortGroupNames = ViewerWidget.sortGroupNames;
         const getAllBuildingIds = ViewerWidget.getAllGroupIds;
+        // Use insertion order (from buildings array) instead of alphabetical sort,
+        // but still push "Unbekannt"/"Sonstige" to the end.
+        function insertionOrder(names) {
+            const last = new Set(['Unbekannt', 'Sonstige']);
+            return names.filter(n => !last.has(n)).concat(names.filter(n => last.has(n)));
+        }
 
         function createBuildingItem(building, paddingLeft) {
             const item = document.createElement('div');
             item.className = 'building-item';
             item.style.paddingLeft = paddingLeft + 'px';
             item.setAttribute('data-building-id', building.id);
+            item.setAttribute('data-group-path', (building.gruppe || '').trim());
             item.setAttribute('data-search-text', [building.name, building.nummer, building.gruppe].filter(Boolean).join(' ').toLowerCase());
             item.setAttribute('draggable', 'true');
             item.innerHTML = '<span class="drag-handle">\u22EE\u22EE</span><div class="building-info"><div class="building-name">' + escapeHtml(building.name) + '</div><div class="building-id">' + escapeHtml(building.nummer || '') + '</div></div><div class="color-indicator" style="background-color: ' + escapeHtml(building.highlightColor || '#FFC107') + '"></div>';
@@ -1949,14 +1955,14 @@ const EditorModule = (() => {
             const content = document.createElement('div');
             content.className = 'ed-group-buildings';
             groupData.buildings.filter(b => b !== nameMatch).forEach(b => content.appendChild(createBuildingItem(b, 35 + level * 15)));
-            sortGroupNames(Object.keys(groupData.subgroups)).forEach(sn => content.appendChild(renderGroup(sn, groupData.subgroups[sn], level + 1, fullPath)));
+            insertionOrder(Object.keys(groupData.subgroups)).forEach(sn => content.appendChild(renderGroup(sn, groupData.subgroups[sn], level + 1, fullPath)));
             group.appendChild(content);
             return group;
         }
 
         sidebar.innerHTML = '';
         ungroupedBuildings.forEach(b => sidebar.appendChild(createBuildingItem(b, 20)));
-        sortGroupNames(Object.keys(groupHierarchy)).forEach(gn => sidebar.appendChild(renderGroup(gn, groupHierarchy[gn], 0, '')));
+        insertionOrder(Object.keys(groupHierarchy)).forEach(gn => sidebar.appendChild(renderGroup(gn, groupHierarchy[gn], 0, '')));
 
         if (disabledBuildings.length > 0) {
             const hiddenGroup = document.createElement('div');
@@ -2269,7 +2275,22 @@ const EditorModule = (() => {
         });
     }
 
+    function clearAllDragOver() {
+        document.querySelectorAll('#edSidebarContent .building-item, #edSidebarContent .ed-group-header').forEach(it => it.classList.remove('drag-over'));
+    }
+
+    function afterReorder() {
+        hasChanges = true; persistToIDB();
+        renderSidebar();
+        if (currentBuilding) {
+            const it = document.querySelector('#edSidebarContent .building-item[data-building-id="' + currentBuilding.id + '"]');
+            if (it) it.classList.add('selected');
+        }
+    }
+
+    // -- Building item drag handlers --
     function handleDragStart(e) {
+        e.stopPropagation();
         draggedElement = e.currentTarget;
         draggedBuildingId = draggedElement.getAttribute('data-building-id');
         draggedGroupName = null;
@@ -2279,45 +2300,46 @@ const EditorModule = (() => {
     }
     function handleDragEnd(e) {
         e.currentTarget.classList.remove('dragging');
-        document.querySelectorAll('#edSidebarContent .building-item, #edSidebarContent .ed-group-header').forEach(it => it.classList.remove('drag-over'));
+        clearAllDragOver();
     }
     function handleDragOver(e) {
+        const target = e.currentTarget;
+        if (target === draggedElement) return false;
+        // When dragging a group, buildings are not valid drop targets
+        if (draggedGroupName) { e.preventDefault(); return false; }
+        // When dragging a building, only allow drop on same-group buildings
+        if (draggedBuildingId) {
+            const draggedBuilding = buildingsData.buildings.find(b => b.id === draggedBuildingId);
+            const draggedGroup = (draggedBuilding?.gruppe || '').trim();
+            const targetGroup = target.getAttribute('data-group-path') || '';
+            if (targetGroup !== draggedGroup) { e.preventDefault(); return false; }
+        }
         e.preventDefault(); e.dataTransfer.dropEffect = 'move';
-        if (e.currentTarget !== draggedElement) e.currentTarget.classList.add('drag-over');
+        target.classList.add('drag-over');
         return false;
     }
     function handleDrop(e) {
         e.stopPropagation(); e.preventDefault();
         e.currentTarget.classList.remove('drag-over');
-        // Handle group drop on building
-        if (draggedGroupName) {
-            const dropBuildingId = e.currentTarget.getAttribute('data-building-id');
-            if (!dropBuildingId) return false;
-            const dropIndex = buildingsData.buildings.findIndex(b => b.id === dropBuildingId);
-            if (dropIndex === -1) return false;
-            moveGroupToIndex(draggedGroupName, dropIndex);
-            return false;
-        }
+        if (!draggedBuildingId || draggedGroupName) return false;
         const dropBuildingId = e.currentTarget.getAttribute('data-building-id');
         if (draggedBuildingId === dropBuildingId) return false;
-        const draggedIndex = buildingsData.buildings.findIndex(b => b.id === draggedBuildingId);
-        const dropIndex = buildingsData.buildings.findIndex(b => b.id === dropBuildingId);
-        if (draggedIndex !== -1 && dropIndex !== -1) {
-            UndoManager.pushState();
-            const [db] = buildingsData.buildings.splice(draggedIndex, 1);
-            buildingsData.buildings.splice(draggedIndex < dropIndex ? dropIndex - 1 : dropIndex, 0, db);
-            hasChanges = true; persistToIDB();
-            renderSidebar();
-            if (currentBuilding) {
-                const it = document.querySelector('#edSidebarContent .building-item[data-building-id="' + currentBuilding.id + '"]');
-                if (it) it.classList.add('selected');
-            }
-        }
+        // Validate same group
+        const draggedBuilding = buildingsData.buildings.find(b => b.id === draggedBuildingId);
+        const dropBuilding = buildingsData.buildings.find(b => b.id === dropBuildingId);
+        if (!draggedBuilding || !dropBuilding) return false;
+        if ((draggedBuilding.gruppe || '').trim() !== (dropBuilding.gruppe || '').trim()) return false;
+        const draggedIndex = buildingsData.buildings.indexOf(draggedBuilding);
+        const dropIndex = buildingsData.buildings.indexOf(dropBuilding);
+        UndoManager.pushState();
+        const [db] = buildingsData.buildings.splice(draggedIndex, 1);
+        buildingsData.buildings.splice(draggedIndex < dropIndex ? dropIndex - 1 : dropIndex, 0, db);
+        afterReorder();
         return false;
     }
     function handleDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
 
-    // ---- Group Drag and Drop ----
+    // -- Group header drag handlers --
     function handleGroupDragStart(e) {
         e.stopPropagation();
         draggedElement = e.currentTarget;
@@ -2329,52 +2351,43 @@ const EditorModule = (() => {
     }
     function handleGroupDragEnd(e) {
         e.currentTarget.classList.remove('dragging');
-        document.querySelectorAll('#edSidebarContent .building-item, #edSidebarContent .ed-group-header').forEach(it => it.classList.remove('drag-over'));
+        clearAllDragOver();
         draggedGroupName = null;
     }
     function handleGroupDragOver(e) {
+        const target = e.currentTarget;
+        if (target === draggedElement) return false;
+        const dropGroupName = target.getAttribute('data-group-name');
+        if (!dropGroupName) return false;
+        if (draggedGroupName) {
+            // Group dragged → only valid on other groups (not self, not own subgroups)
+            if (dropGroupName === draggedGroupName) return false;
+            if (dropGroupName.startsWith(draggedGroupName + ' > ')) return false;
+            // Only allow drop on siblings (same parent level)
+            const dragParent = draggedGroupName.includes(' > ') ? draggedGroupName.substring(0, draggedGroupName.lastIndexOf(' > ')) : '';
+            const dropParent = dropGroupName.includes(' > ') ? dropGroupName.substring(0, dropGroupName.lastIndexOf(' > ')) : '';
+            if (dragParent !== dropParent) return false;
+        }
+        // Building dragged on group header → not a valid target
+        if (draggedBuildingId) return false;
         e.preventDefault(); e.dataTransfer.dropEffect = 'move';
-        if (e.currentTarget !== draggedElement) e.currentTarget.classList.add('drag-over');
+        target.classList.add('drag-over');
         return false;
     }
     function handleGroupDrop(e) {
         e.stopPropagation(); e.preventDefault();
         e.currentTarget.classList.remove('drag-over');
+        if (!draggedGroupName) return false;
         const dropGroupName = e.currentTarget.getAttribute('data-group-name');
-        if (!dropGroupName) return false;
-        // Building dropped on group header
-        if (draggedBuildingId && !draggedGroupName) {
-            const firstInGroup = buildingsData.buildings.find(b => {
-                const g = (b.gruppe || '').trim();
-                return g === dropGroupName || g.startsWith(dropGroupName + ' > ');
-            });
-            if (!firstInGroup) return false;
-            const draggedIndex = buildingsData.buildings.findIndex(b => b.id === draggedBuildingId);
-            const dropIndex = buildingsData.buildings.indexOf(firstInGroup);
-            if (draggedIndex !== -1 && dropIndex !== -1 && draggedIndex !== dropIndex) {
-                UndoManager.pushState();
-                const [db] = buildingsData.buildings.splice(draggedIndex, 1);
-                buildingsData.buildings.splice(draggedIndex < dropIndex ? dropIndex - 1 : dropIndex, 0, db);
-                hasChanges = true; persistToIDB();
-                renderSidebar();
-                if (currentBuilding) {
-                    const it = document.querySelector('#edSidebarContent .building-item[data-building-id="' + currentBuilding.id + '"]');
-                    if (it) it.classList.add('selected');
-                }
-            }
-            return false;
-        }
-        // Group dropped on group header
-        if (draggedGroupName && draggedGroupName !== dropGroupName
-            && !dropGroupName.startsWith(draggedGroupName + ' > ')) {
-            const firstInDrop = buildingsData.buildings.find(b => {
-                const g = (b.gruppe || '').trim();
-                return g === dropGroupName || g.startsWith(dropGroupName + ' > ');
-            });
-            if (!firstInDrop) return false;
-            const dropIndex = buildingsData.buildings.indexOf(firstInDrop);
-            moveGroupToIndex(draggedGroupName, dropIndex);
-        }
+        if (!dropGroupName || dropGroupName === draggedGroupName) return false;
+        if (dropGroupName.startsWith(draggedGroupName + ' > ')) return false;
+        const firstInDrop = buildingsData.buildings.find(b => {
+            const g = (b.gruppe || '').trim();
+            return g === dropGroupName || g.startsWith(dropGroupName + ' > ');
+        });
+        if (!firstInDrop) return false;
+        const dropIndex = buildingsData.buildings.indexOf(firstInDrop);
+        moveGroupToIndex(draggedGroupName, dropIndex);
         return false;
     }
     function handleGroupDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
@@ -2383,26 +2396,17 @@ const EditorModule = (() => {
         const groupBuildings = getGroupBuildings(groupName);
         if (groupBuildings.length === 0) return;
         UndoManager.pushState();
-        // Remove group buildings from array
         const ids = new Set(groupBuildings.map(b => b.id));
         const remaining = buildingsData.buildings.filter(b => !ids.has(b.id));
-        // Find adjusted target index in remaining array
-        let insertAt = targetIndex;
-        // Count how many removed buildings were before the target
+        // Adjust target index for removed items
         let removedBefore = 0;
         for (let i = 0; i < targetIndex && i < buildingsData.buildings.length; i++) {
             if (ids.has(buildingsData.buildings[i].id)) removedBefore++;
         }
-        insertAt = Math.min(targetIndex - removedBefore, remaining.length);
-        // Insert group buildings at target position
+        const insertAt = Math.min(targetIndex - removedBefore, remaining.length);
         remaining.splice(insertAt, 0, ...groupBuildings);
         buildingsData.buildings = remaining;
-        hasChanges = true; persistToIDB();
-        renderSidebar();
-        if (currentBuilding) {
-            const it = document.querySelector('#edSidebarContent .building-item[data-building-id="' + currentBuilding.id + '"]');
-            if (it) it.classList.add('selected');
-        }
+        afterReorder();
     }
 
     // ---- Load JSON ----
