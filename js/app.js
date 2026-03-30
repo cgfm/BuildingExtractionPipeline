@@ -1912,7 +1912,8 @@ const EditorModule = (() => {
             return item;
         }
 
-        function renderGroup(groupName, groupData, level) {
+        function renderGroup(groupName, groupData, level, parentPath) {
+            const fullPath = parentPath ? parentPath + ' > ' + groupName : groupName;
             const group = document.createElement('div');
             group.className = 'ed-group';
             group.style.marginLeft = (level * 15) + 'px';
@@ -1928,7 +1929,7 @@ const EditorModule = (() => {
                 + (nameMatch ? '<div class="color-indicator" style="background-color: ' + escapeHtml(nameMatch.highlightColor || '#FFC107') + '"></div>' : '')
                 + '<span class="ed-group-toggle">\u25BC</span>';
             header.setAttribute('draggable', 'true');
-            header.setAttribute('data-group-name', groupName);
+            header.setAttribute('data-group-name', fullPath);
             header.addEventListener('click', (e) => {
                 if (e.target.closest('.drag-handle')) return;
                 group.classList.toggle('collapsed');
@@ -1948,14 +1949,14 @@ const EditorModule = (() => {
             const content = document.createElement('div');
             content.className = 'ed-group-buildings';
             groupData.buildings.filter(b => b !== nameMatch).forEach(b => content.appendChild(createBuildingItem(b, 35 + level * 15)));
-            sortGroupNames(Object.keys(groupData.subgroups)).forEach(sn => content.appendChild(renderGroup(sn, groupData.subgroups[sn], level + 1)));
+            sortGroupNames(Object.keys(groupData.subgroups)).forEach(sn => content.appendChild(renderGroup(sn, groupData.subgroups[sn], level + 1, fullPath)));
             group.appendChild(content);
             return group;
         }
 
         sidebar.innerHTML = '';
         ungroupedBuildings.forEach(b => sidebar.appendChild(createBuildingItem(b, 20)));
-        sortGroupNames(Object.keys(groupHierarchy)).forEach(gn => sidebar.appendChild(renderGroup(gn, groupHierarchy[gn], 0)));
+        sortGroupNames(Object.keys(groupHierarchy)).forEach(gn => sidebar.appendChild(renderGroup(gn, groupHierarchy[gn], 0, '')));
 
         if (disabledBuildings.length > 0) {
             const hiddenGroup = document.createElement('div');
@@ -2318,6 +2319,7 @@ const EditorModule = (() => {
 
     // ---- Group Drag and Drop ----
     function handleGroupDragStart(e) {
+        e.stopPropagation();
         draggedElement = e.currentTarget;
         draggedGroupName = draggedElement.getAttribute('data-group-name');
         draggedBuildingId = null;
@@ -2363,7 +2365,8 @@ const EditorModule = (() => {
             return false;
         }
         // Group dropped on group header
-        if (draggedGroupName && draggedGroupName !== dropGroupName) {
+        if (draggedGroupName && draggedGroupName !== dropGroupName
+            && !dropGroupName.startsWith(draggedGroupName + ' > ')) {
             const firstInDrop = buildingsData.buildings.find(b => {
                 const g = (b.gruppe || '').trim();
                 return g === dropGroupName || g.startsWith(dropGroupName + ' > ');
