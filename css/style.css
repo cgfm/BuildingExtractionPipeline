@@ -1004,6 +1004,11 @@ body {
     border-bottom: 1px solid #c0bda8;
     display: flex; gap: 10px; flex-wrap: wrap;
 }
+.editor-toolbar-secondary {
+    padding: 8px 20px; background: #eceade;
+    border-bottom: 1px solid #d5d2c4;
+}
+.editor-toolbar-secondary .btn { flex: 0 1 auto; }
 .editor-toolbar .btn { flex: 1; min-width: 0; }
 .editor-toolbar .info-tip { background: #b0ad98; color: #2d331a; flex: 0; }
 .ed-search-bar {

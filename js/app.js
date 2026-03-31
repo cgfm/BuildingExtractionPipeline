@@ -2569,7 +2569,7 @@ const EditorModule = (() => {
         });
         const btn = document.getElementById('edToggleAreasBtn');
         if (btn) {
-            btn.innerHTML = '&#x25A1; ' + (areasVisible ? 'Ein' : 'Aus');
+            btn.innerHTML = '&#x25A1; Flächen ' + (areasVisible ? 'ein' : 'aus');
             btn.style.background = areasVisible ? '#90CAF9' : '#e0e0e0';
             btn.style.color = areasVisible ? '#1565C0' : '#888';
         }
