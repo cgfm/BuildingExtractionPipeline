@@ -250,7 +250,7 @@ const ViewerWidget = (function() {
                     item = buildingItemRenderer(b, paddingLeft);
                 } else {
                     item = document.createElement('div');
-                    item.className = prefix + '-building-item';
+                    item.className = prefix + '-building-item' + (b.isArea ? ' ed-area-item' : '');
                     item.style.paddingLeft = paddingLeft + 'px';
                     item.setAttribute('data-building-id', b.id);
                     item.setAttribute('data-search-text', [b.name, b.nummer, b.gruppe].filter(Boolean).join(' ').toLowerCase());
@@ -335,13 +335,25 @@ const ViewerWidget = (function() {
             svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
             svg.setAttribute('preserveAspectRatio', aspectRatio);
 
-            buildings.forEach(b => {
+            // Render areas first (behind), then regular buildings on top
+            const sortedBuildings = [...buildings.filter(b => b.isArea), ...buildings.filter(b => !b.isArea)];
+            sortedBuildings.forEach(b => {
                 const polys = b.polygons || [b.polygon];
                 polys.forEach(poly => {
+                    if (!poly) return;
                     const p = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
                     p.setAttribute('points', poly.map(([x, y]) => (x * width) + ',' + (y * height)).join(' '));
-                    p.setAttribute('class', prefix + '-building-polygon');
+                    p.setAttribute('class', prefix + '-building-polygon' + (b.isArea ? ' ' + prefix + '-area-polygon' : ''));
                     p.setAttribute('data-building-id', b.id);
+                    if (b.isArea) {
+                        const hc = b.highlightColor || '#2196F3';
+                        const m = hc.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+                        if (m) {
+                            const r = parseInt(m[1], 16), g = parseInt(m[2], 16), bl = parseInt(m[3], 16);
+                            p.style.fill = 'rgba(' + r + ',' + g + ',' + bl + ',0.15)';
+                            p.style.stroke = 'rgba(' + r + ',' + g + ',' + bl + ',0.5)';
+                        }
+                    }
                     p.addEventListener('mouseenter', () => highlight(b.id));
                     p.addEventListener('mouseleave', () => unhighlight(b.id));
                     p.addEventListener('click', (e) => {

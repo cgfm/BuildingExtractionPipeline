@@ -1294,8 +1294,31 @@ function handleMetadataImport(metadata, file) {
             bTarget.highlightColor = sanitizeColor(src.highlightColor);
             if (src.polygons) bTarget.polygons = JSON.parse(JSON.stringify(src.polygons));
             if ('disabled' in src) bTarget.disabled = src.disabled;
+            if (src.isArea) bTarget.isArea = true; else delete bTarget.isArea;
             merged++;
         }
+    }
+    // Add unmatched source buildings (duplicates, hand-drawn areas, etc.)
+    let added = 0;
+    for (let i = 0; i < source.length; i++) {
+        if (used.has(i)) continue;
+        const src = source[i];
+        // Only add if it has a polygon (valid building/area)
+        if (!src.polygon && !(src.polygons && src.polygons.length)) continue;
+        let maxId = buildingsData.buildings.reduce((max, b) => {
+            const m = b.id.match(/building_(\d+)/);
+            return m ? Math.max(max, parseInt(m[1])) : max;
+        }, 0);
+        const newBuilding = JSON.parse(JSON.stringify(src));
+        newBuilding.id = 'building_' + (maxId + 1);
+        newBuilding.nummer = sanitizeString(src.nummer, 500);
+        newBuilding.name = sanitizeString(src.name, 500);
+        newBuilding.gruppe = sanitizeString(src.gruppe, 500);
+        newBuilding.beschreibung = sanitizeString(src.beschreibung, 5000);
+        newBuilding.highlightColor = sanitizeColor(src.highlightColor);
+        target.push(newBuilding);
+        matchMap.set(target.length - 1, i);
+        added++;
     }
     // Reorder target buildings to match the source file order.
     // Matched buildings are sorted by their source index; unmatched go to the end.
@@ -1304,7 +1327,8 @@ function handleMetadataImport(metadata, file) {
     buildingsData.buildings = indexed.map(e => e.building);
     // Re-init editor with updated data and persist
     EditorModule.init(buildingsData);
-    alert(merged + ' von ' + target.length + ' Gebäuden aktualisiert (' + source.length + ' in Quelldatei).');
+    const msg = merged + ' aktualisiert' + (added ? ', ' + added + ' neu hinzugefügt' : '') + ' (' + source.length + ' in Quelldatei, ' + target.length + ' gesamt).';
+    alert(msg);
 }
 
 function handleHtmlImport(text, file) {
@@ -1699,6 +1723,8 @@ const EditorModule = (() => {
     let draggedBuildingId = null;
     let draggedGroupName = null;
     let _mapResizeObserver = null;
+    let drawingMode = false;
+    let drawingPoints = [];
 
     // ---- UndoManager ----
     const UndoManager = (() => {
@@ -1822,23 +1848,42 @@ const EditorModule = (() => {
         svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
         svg.setAttribute('preserveAspectRatio', 'xMinYMin meet');
 
-        buildingsData.buildings.forEach(building => {
+        // Render areas first (behind buildings), then regular buildings on top
+        const areas = buildingsData.buildings.filter(b => b.isArea && !b.disabled);
+        const regular = buildingsData.buildings.filter(b => !b.isArea && !b.disabled);
+        [...areas, ...regular].forEach(building => {
             const polys = building.polygons || [building.polygon];
             polys.forEach(poly => {
+                if (!poly) return;
                 const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
                 const points = poly.map(([x, y]) => (x * width) + ',' + (y * height)).join(' ');
                 polygon.setAttribute('points', points);
-                polygon.setAttribute('class', 'ed-building-polygon');
+                polygon.setAttribute('class', 'ed-building-polygon' + (building.isArea ? ' ed-area-polygon' : ''));
                 polygon.setAttribute('data-building-id', building.id);
+                if (building.isArea) {
+                    const hc = building.highlightColor || '#2196F3';
+                    const rgb = hexToRgb(hc);
+                    polygon.style.fill = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.15)';
+                    polygon.style.stroke = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.5)';
+                }
                 polygon.addEventListener('mouseenter', () => highlightPolygon(building.id));
                 polygon.addEventListener('mouseleave', () => unhighlightPolygon(building.id));
                 polygon.addEventListener('click', (e) => {
                     e.stopPropagation();
+                    if (drawingMode) { handleDrawingClick(e); return; }
                     if (mergeMode) { handleMergeClick(building); }
                     else { selectBuilding(building); }
                 });
                 svg.appendChild(polygon);
             });
+        });
+        // SVG click handler for drawing on empty space
+        svg.addEventListener('click', (e) => {
+            if (!drawingMode) return;
+            if (e.target === svg) handleDrawingClick(e);
+        });
+        svg.addEventListener('dblclick', (e) => {
+            if (drawingMode && drawingPoints.length >= 3) { e.preventDefault(); finishDrawing(); }
         });
 
         container.appendChild(svg);
@@ -1943,7 +1988,7 @@ const EditorModule = (() => {
 
         function createBuildingItem(building, paddingLeft) {
             const item = document.createElement('div');
-            item.className = 'building-item';
+            item.className = 'building-item' + (building.isArea ? ' ed-area-item' : '');
             item.style.paddingLeft = paddingLeft + 'px';
             item.setAttribute('data-building-id', building.id);
             item.setAttribute('data-group-path', (building.gruppe || '').trim());
@@ -2515,6 +2560,103 @@ const EditorModule = (() => {
         afterReorder();
     }
 
+    // ---- Drawing Mode (areas/zones) ----
+    function startDrawingMode() {
+        if (!buildingsData || !buildingsData.image) return;
+        if (mergeMode) return;
+        drawingMode = true;
+        drawingPoints = [];
+        const svg = document.querySelector('.ed-svg-overlay');
+        if (svg) svg.classList.add('drawing-mode');
+        const btn = document.getElementById('edDrawAreaBtn');
+        if (btn) { btn.textContent = 'Abbrechen'; btn.style.background = '#c62828'; }
+        // Hint bar
+        const hint = document.createElement('div');
+        hint.className = 'ed-drawing-hint';
+        hint.id = 'edDrawingHint';
+        hint.innerHTML = 'Klicke Punkte auf die Karte. <b>Doppelklick</b> oder <b>Enter</b> zum Abschliessen. <b>ESC</b> zum Abbrechen. <b>Backspace</b> letzten Punkt entfernen.';
+        document.body.appendChild(hint);
+    }
+
+    function cancelDrawingMode() {
+        drawingMode = false;
+        drawingPoints = [];
+        const svg = document.querySelector('.ed-svg-overlay');
+        if (svg) {
+            svg.classList.remove('drawing-mode');
+            svg.querySelectorAll('.ed-drawing-preview-point, .ed-drawing-preview-line').forEach(el => el.remove());
+        }
+        const btn = document.getElementById('edDrawAreaBtn');
+        if (btn) { btn.textContent = '\u25A1 Fläche'; btn.style.background = '#2196F3'; }
+        const hint = document.getElementById('edDrawingHint');
+        if (hint) hint.remove();
+    }
+
+    function updateDrawingPreview() {
+        const svg = document.querySelector('.ed-svg-overlay');
+        if (!svg || !buildingsData.image) return;
+        const w = buildingsData.image.width, h = buildingsData.image.height;
+        svg.querySelectorAll('.ed-drawing-preview-point, .ed-drawing-preview-line').forEach(el => el.remove());
+        if (drawingPoints.length === 0) return;
+        // Polygon/polyline preview
+        if (drawingPoints.length >= 2) {
+            const poly = document.createElementNS('http://www.w3.org/2000/svg', drawingPoints.length >= 3 ? 'polygon' : 'polyline');
+            poly.setAttribute('class', 'ed-drawing-preview-line');
+            poly.setAttribute('points', drawingPoints.map(p => (p[0] * w) + ',' + (p[1] * h)).join(' '));
+            svg.appendChild(poly);
+        }
+        // Vertex circles
+        drawingPoints.forEach((p, i) => {
+            const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            c.setAttribute('class', 'ed-drawing-preview-point');
+            c.setAttribute('cx', p[0] * w);
+            c.setAttribute('cy', p[1] * h);
+            c.setAttribute('r', Math.max(3, Math.min(w, h) * 0.004));
+            svg.appendChild(c);
+        });
+    }
+
+    function handleDrawingClick(e) {
+        if (!drawingMode) return;
+        // Ignore the second click of a dblclick
+        if (e.detail >= 2) return;
+        const svg = document.querySelector('.ed-svg-overlay');
+        if (!svg || !buildingsData.image) return;
+        const rect = svg.getBoundingClientRect();
+        const w = buildingsData.image.width, h = buildingsData.image.height;
+        // Convert screen coords to normalized using SVG viewBox mapping
+        const scaleX = w / rect.width, scaleY = h / rect.height;
+        const svgX = (e.clientX - rect.left) * scaleX;
+        const svgY = (e.clientY - rect.top) * scaleY;
+        const normX = svgX / w, normY = svgY / h;
+        drawingPoints.push([normX, normY]);
+        updateDrawingPreview();
+    }
+
+    function finishDrawing() {
+        if (drawingPoints.length < 3) { alert('Mindestens 3 Punkte erforderlich.'); return; }
+        const maxId = buildingsData.buildings.reduce((max, b) => {
+            const m = b.id.match(/building_(\d+)/);
+            return m ? Math.max(max, parseInt(m[1])) : max;
+        }, 0);
+        const newArea = {
+            id: 'building_' + (maxId + 1),
+            name: 'Neue Fläche',
+            nummer: '',
+            gruppe: 'Flächen',
+            beschreibung: '',
+            highlightColor: '#2196F3',
+            polygon: drawingPoints.map(p => [p[0], p[1]]),
+            isArea: true
+        };
+        UndoManager.pushState();
+        buildingsData.buildings.push(newArea);
+        hasChanges = true; persistToIDB();
+        cancelDrawingMode();
+        renderMap();
+        requestAnimationFrame(() => { renderSidebar(); selectBuilding(newArea); });
+    }
+
     // ---- Load JSON ----
     function loadJSONFromFile() {
         if (!buildingsData || !buildingsData.buildings) {
@@ -2603,13 +2745,22 @@ const EditorModule = (() => {
         document.getElementById('edLoadFileInput').addEventListener('change', (e) => { if (e.target.files[0]) { handleLoadedFile(e.target.files[0]); e.target.value = ''; } });
         document.getElementById('edSaveBtn').addEventListener('click', saveJSONToFile);
         document.getElementById('edPreviewBtn').addEventListener('click', () => { if (buildingsData) showViewerOverlay(); });
+        document.getElementById('edDrawAreaBtn').addEventListener('click', () => {
+            if (!buildingsData || !buildingsData.image) return;
+            if (drawingMode) cancelDrawingMode(); else startDrawingMode();
+        });
         document.getElementById('voCloseBtn').addEventListener('click', hideViewerOverlay);
         document.getElementById('undoBtn').addEventListener('click', () => UndoManager.undo());
         document.getElementById('redoBtn').addEventListener('click', () => UndoManager.redo());
         document.getElementById('edSearchInput').addEventListener('input', function() { filterSidebar(this.value); });
 
-        // Keyboard: Escape priority: merge > viewer popup > viewer overlay
+        // Keyboard: Escape priority: drawing > merge > viewer popup > viewer overlay
         document.addEventListener('keydown', (e) => {
+            if (drawingMode) {
+                if (e.key === 'Escape') { cancelDrawingMode(); e.stopPropagation(); return; }
+                if (e.key === 'Enter' && drawingPoints.length >= 3) { finishDrawing(); e.stopPropagation(); return; }
+                if (e.key === 'Backspace' && drawingPoints.length > 0) { drawingPoints.pop(); updateDrawingPreview(); e.stopPropagation(); return; }
+            }
             if (e.key === 'Escape' && mergeMode) { cancelMergeMode(); e.stopPropagation(); return; }
             if (e.key === 'Escape' && document.getElementById('viewerOverlay').classList.contains('active')) {
                 if (voWidget && voWidget.getSelectedId()) { voWidget.hidePopup(); } else { hideViewerOverlay(); }

@@ -1089,6 +1089,27 @@ body {
     pointer-events: auto; cursor: pointer;
     transition: fill 0.2s, stroke 0.2s;
 }
+.ed-area-polygon {
+    fill: rgba(33, 150, 243, 0.15) !important; stroke: rgba(33, 150, 243, 0.5) !important;
+    stroke-dasharray: 6 3;
+}
+.ed-area-polygon.selected {
+    fill: rgba(33, 150, 243, 0.3) !important; stroke: rgba(33, 150, 243, 0.85) !important;
+}
+.ed-drawing-preview-point { fill: #e53935; stroke: #fff; stroke-width: 1.5; pointer-events: none; }
+.ed-drawing-preview-line { fill: rgba(233, 30, 99, 0.12); stroke: #e53935; stroke-width: 2; stroke-dasharray: 5 3; pointer-events: none; }
+.ed-drawing-hint {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 2000;
+    background: #1565C0; color: #fff; text-align: center; padding: 10px 20px;
+    font-size: 14px; font-weight: 500;
+}
+.ed-svg-overlay.drawing-mode { pointer-events: auto; cursor: crosshair; }
+.building-item.ed-area-item { border-left: 3px solid #2196F3; }
+.building-item.ed-area-item .building-name::before { content: '\25A1 '; opacity: 0.6; }
+.vo-area-polygon, .vp-area-polygon {
+    fill: rgba(33, 150, 243, 0.15) !important; stroke: rgba(33, 150, 243, 0.5) !important;
+    stroke-dasharray: 6 3;
+}
 .ed-dim-overlay { fill: rgba(0, 0, 0, 0.6); pointer-events: none; }
 .ed-selection-circle { fill: none; stroke: #4b5320; stroke-width: 3; pointer-events: none; }
 .ed-editor-panel {
