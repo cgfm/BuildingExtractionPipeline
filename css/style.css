@@ -981,7 +981,7 @@ body {
 
 /* ---- Editor layout (inside accordion) ---- */
 .editor-layout {
-    display: flex; min-height: 500px;
+    display: flex; min-height: 97vh;
     border: 1px solid #c0bda8; border-radius: 2px;
     overflow: visible; margin: 12px 0; background: #d6d3c8;
 }
