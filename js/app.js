@@ -1850,8 +1850,9 @@ const EditorModule = (() => {
         svg.setAttribute('preserveAspectRatio', 'xMinYMin meet');
 
         // Render areas first (behind buildings), then regular buildings on top
-        const areas = buildingsData.buildings.filter(b => b.isArea && !b.disabled);
-        const regular = buildingsData.buildings.filter(b => !b.isArea && !b.disabled);
+        // Editor shows ALL buildings (including disabled) so they remain clickable
+        const areas = buildingsData.buildings.filter(b => b.isArea);
+        const regular = buildingsData.buildings.filter(b => !b.isArea);
         [...areas, ...regular].forEach(building => {
             const polys = building.polygons || [building.polygon];
             polys.forEach(poly => {
@@ -1859,8 +1860,11 @@ const EditorModule = (() => {
                 const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
                 const points = poly.map(([x, y]) => (x * width) + ',' + (y * height)).join(' ');
                 polygon.setAttribute('points', points);
-                polygon.setAttribute('class', 'ed-building-polygon' + (building.isArea ? ' ed-area-polygon' + (!areasVisible ? ' area-hidden' : '') : ''));
+                polygon.setAttribute('class', 'ed-building-polygon' + (building.isArea ? ' ed-area-polygon' + (!areasVisible ? ' area-hidden' : '') : '') + (building.disabled ? ' ed-disabled-polygon' : ''));
                 polygon.setAttribute('data-building-id', building.id);
+                if (building.disabled) {
+                    polygon.style.opacity = '0.3';
+                }
                 if (building.isArea) {
                     const hc = building.highlightColor || '#2196F3';
                     const rgb = hexToRgb(hc);
