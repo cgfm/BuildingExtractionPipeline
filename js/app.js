@@ -1258,6 +1258,8 @@ function handleMetadataImport(metadata, file) {
     const source = metadata.buildings;
     const used = new Set();
     let merged = 0;
+    // Track which source index each target building matched to (for reordering)
+    const matchMap = new Map(); // targetIndex → sourceIndex
     // Check if source data has centroids for geo-matching
     const hasCentroids = source.some(b => b.centroid);
     for (let t = 0; t < target.length; t++) {
@@ -1284,6 +1286,7 @@ function handleMetadataImport(metadata, file) {
         if (bestMatch !== null) {
             const src = source[bestMatch];
             used.add(bestMatch);
+            matchMap.set(t, bestMatch);
             bTarget.nummer = sanitizeString(src.nummer, 500);
             bTarget.name = sanitizeString(src.name, 500);
             bTarget.gruppe = sanitizeString(src.gruppe, 500);
@@ -1294,6 +1297,11 @@ function handleMetadataImport(metadata, file) {
             merged++;
         }
     }
+    // Reorder target buildings to match the source file order.
+    // Matched buildings are sorted by their source index; unmatched go to the end.
+    const indexed = target.map((b, i) => ({ building: b, sourceIdx: matchMap.has(i) ? matchMap.get(i) : Infinity }));
+    indexed.sort((a, b) => a.sourceIdx - b.sourceIdx);
+    buildingsData.buildings = indexed.map(e => e.building);
     // Re-init editor with updated data and persist
     EditorModule.init(buildingsData);
     alert(merged + ' von ' + target.length + ' Gebäuden aktualisiert (' + source.length + ' in Quelldatei).');
