@@ -1725,6 +1725,7 @@ const EditorModule = (() => {
     let _mapResizeObserver = null;
     let drawingMode = false;
     let drawingPoints = [];
+    let areasVisible = true;
 
     // ---- UndoManager ----
     const UndoManager = (() => {
@@ -1858,7 +1859,7 @@ const EditorModule = (() => {
                 const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
                 const points = poly.map(([x, y]) => (x * width) + ',' + (y * height)).join(' ');
                 polygon.setAttribute('points', points);
-                polygon.setAttribute('class', 'ed-building-polygon' + (building.isArea ? ' ed-area-polygon' : ''));
+                polygon.setAttribute('class', 'ed-building-polygon' + (building.isArea ? ' ed-area-polygon' + (!areasVisible ? ' area-hidden' : '') : ''));
                 polygon.setAttribute('data-building-id', building.id);
                 if (building.isArea) {
                     const hc = building.highlightColor || '#2196F3';
@@ -2560,6 +2561,20 @@ const EditorModule = (() => {
         afterReorder();
     }
 
+    // ---- Area visibility toggle ----
+    function toggleAreas() {
+        areasVisible = !areasVisible;
+        document.querySelectorAll('.ed-svg-overlay .ed-area-polygon').forEach(p => {
+            p.classList.toggle('area-hidden', !areasVisible);
+        });
+        const btn = document.getElementById('edToggleAreasBtn');
+        if (btn) {
+            btn.innerHTML = '&#x25A1; ' + (areasVisible ? 'Ein' : 'Aus');
+            btn.style.background = areasVisible ? '#90CAF9' : '#e0e0e0';
+            btn.style.color = areasVisible ? '#1565C0' : '#888';
+        }
+    }
+
     // ---- Drawing Mode (areas/zones) ----
     function startDrawingMode() {
         if (!buildingsData || !buildingsData.image) return;
@@ -2749,6 +2764,7 @@ const EditorModule = (() => {
             if (!buildingsData || !buildingsData.image) return;
             if (drawingMode) cancelDrawingMode(); else startDrawingMode();
         });
+        document.getElementById('edToggleAreasBtn').addEventListener('click', toggleAreas);
         document.getElementById('voCloseBtn').addEventListener('click', hideViewerOverlay);
         document.getElementById('undoBtn').addEventListener('click', () => UndoManager.undo());
         document.getElementById('redoBtn').addEventListener('click', () => UndoManager.redo());
