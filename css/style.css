@@ -981,7 +981,7 @@ body {
 
 /* ---- Editor layout (inside accordion) ---- */
 .editor-layout {
-    display: flex; min-height: 97vh;
+    display: flex; align-items: stretch;
     border: 1px solid #c0bda8; border-radius: 2px;
     overflow: visible; margin: 12px 0; background: #d6d3c8;
 }
@@ -990,6 +990,7 @@ body {
     background: #fff; overflow-y: auto;
     border-right: 1px solid #c0bda8;
     border-left: 3px solid #4b5320;
+    align-self: stretch;
 }
 .editor-sidebar-header {
     padding: 20px; border-bottom: 1px solid #c0bda8;
