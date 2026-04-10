@@ -830,6 +830,10 @@ body {
     font-size: 14px;
     line-height: 1.5;
 }
+.vp-modal-beschreibung a, .vo-modal-beschreibung a, .modal-beschreibung a { color: #4b5320; text-decoration: underline; }
+.vp-modal-beschreibung ul, .vo-modal-beschreibung ul, .modal-beschreibung ul,
+.vp-modal-beschreibung ol, .vo-modal-beschreibung ol, .modal-beschreibung ol { margin: 4px 0; padding-left: 20px; }
+.vp-modal-beschreibung p, .vo-modal-beschreibung p, .modal-beschreibung p { margin: 4px 0; }
 
 /* ---- Project list ---- */
 .tab-badge {

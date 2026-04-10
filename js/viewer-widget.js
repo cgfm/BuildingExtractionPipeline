@@ -182,7 +182,7 @@ const ViewerWidget = (function() {
             const gruppe = (building.gruppe || '').trim();
             if (gruppe) { bc.innerHTML = gruppe.split(/\s*>\s*/).map(p => '<span>' + escapeHtml(p) + '</span>').join(''); bc.style.display = 'block'; } else { bc.style.display = 'none'; }
             const bd = document.getElementById(prefix + '-modal-beschreibung');
-            if (building.beschreibung && building.beschreibung.trim()) { bd.textContent = building.beschreibung; bd.style.display = 'block'; } else { bd.style.display = 'none'; }
+            if (building.beschreibung && building.beschreibung.trim()) { bd.innerHTML = building.beschreibung; bd.style.display = 'block'; } else { bd.style.display = 'none'; }
             modal.classList.add('active');
 
             requestAnimationFrame(() => {
