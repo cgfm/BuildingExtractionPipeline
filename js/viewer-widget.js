@@ -264,7 +264,7 @@ const ViewerWidget = (function() {
 
             function renderGroup(groupName, groupData, level) {
                 const g = document.createElement('div');
-                g.className = prefix + '-group';
+                g.className = prefix + '-group collapsed';
                 g.style.marginLeft = (level * 12) + 'px';
                 const bids = getAllGroupIds(groupData);
                 const nameMatch = groupData.buildings.find(b => b.name === groupName);
@@ -392,9 +392,11 @@ const ViewerWidget = (function() {
                 it.style.display = (!q || it.getAttribute('data-search-text').includes(q)) ? '' : 'none';
             });
             container.querySelectorAll('.' + prefix + '-group').forEach(g => {
-                const headerMatch = q && g.querySelector('.' + prefix + '-group-header').getAttribute('data-search-text')?.includes(q);
+                const headerMatch = q && g.querySelector(':scope>.' + prefix + '-group-header').getAttribute('data-search-text')?.includes(q);
                 const childMatch = Array.from(g.querySelectorAll('.' + prefix + '-building-item')).some(it => it.style.display !== 'none');
                 g.style.display = (!q || headerMatch || childMatch) ? '' : 'none';
+                if (q && (headerMatch || childMatch)) g.classList.remove('collapsed');
+                if (!q) g.classList.add('collapsed');
             });
         }
 
