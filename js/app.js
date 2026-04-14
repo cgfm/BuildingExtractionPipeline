@@ -1417,6 +1417,10 @@ const projectsEmpty = document.getElementById('projectsEmpty');
 const tabBtnProjects = document.getElementById('tabBtnProjects');
 const projectsBadge = document.getElementById('projectsBadge');
 let activeProjectId = null;
+function setActiveProjectId(id) {
+    activeProjectId = id;
+    PipelineDB.put('meta', 'activeProjectId', id).catch(e => console.warn('[idb] Fehler:', e.message));
+}
 
 function createThumbnail(canvas, maxWidth = 200) {
     return new Promise(resolve => {
@@ -1519,7 +1523,7 @@ async function saveProject(result) {
             }
             await PipelineDB.put('buildings_cache', 'project_' + projectId, buildingsCache);
         }
-        activeProjectId = project.id;
+        setActiveProjectId(project.id);
         await renderProjectList();
     } catch(e) { console.warn('[projects] Projekt konnte nicht gespeichert werden:', e); }
 }
@@ -1569,14 +1573,14 @@ async function deleteProject(id) {
     try {
         await PipelineDB.remove('projects', id);
         await PipelineDB.remove('buildings_cache', 'project_' + id).catch(e => console.warn('[idb] Fehler:', e.message));
-        if (activeProjectId === id) activeProjectId = null;
+        if (activeProjectId === id) setActiveProjectId(null);
         await renderProjectList();
     } catch(e) { console.warn('[projects] Projekt konnte nicht gelöscht werden:', e); }
 }
 
 async function loadProject(project) {
     try {
-        activeProjectId = project.id;
+        setActiveProjectId(project.id);
         // Re-fetch full project from IndexedDB (closure may hold stale structured-clone)
         const fullProject = await PipelineDB.get('projects', project.id) || project;
         // Reconstruct buildingJson with dataUrl from Blob (single clone + reuse)
@@ -2881,6 +2885,7 @@ const EditorModule = (() => {
 (async function initApp() {
     await PipelineDB.open();
     await migrateFromLocalStorage();
+    activeProjectId = await PipelineDB.get('meta', 'activeProjectId') || null;
     await loadParams();
     await loadGeojson();
     pipeline = new Pipeline({ onProgress, onLog, onComplete, onError });
