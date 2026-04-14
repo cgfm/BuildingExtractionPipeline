@@ -1219,8 +1219,9 @@ async function loadResultCache() {
         statAvgPoints.textContent = cached.avgPoints;
         // Use Blob URL for in-memory display (avoids 33% Base64 overhead)
         const imageBlob = await PipelineDB.get('images', 'rendered_map');
+        let imageUrl = null;
         if (imageBlob) {
-            const imageUrl = URL.createObjectURL(imageBlob);
+            imageUrl = URL.createObjectURL(imageBlob);
             if (cached.buildingJson) {
                 cached.buildingJson.image = cached.buildingJson.image || {};
                 cached.buildingJson.image.dataUrl = imageUrl;
@@ -1241,16 +1242,23 @@ async function loadResultCache() {
         // Restore pipelineResult (stats only, no buildingJson reference)
         pipelineResult = { buildingCount: cached.buildingCount, imageWidth: cached.imageWidth, imageHeight: cached.imageHeight, avgPoints: cached.avgPoints };
         resultCard.classList.add('visible');
-        if (cached.buildingJson) {
-            renderViewerPreview(cached.buildingJson);
-            // EditorModule becomes single source of truth
-            EditorModule.init(cached.buildingJson);
+        // Prefer editor store (has user's sort order, edits) over result cache
+        const editorData = await PipelineDB.get('editor', 'buildingsData');
+        const buildingJson = editorData || cached.buildingJson;
+        if (buildingJson) {
+            if (imageUrl) {
+                buildingJson.image = buildingJson.image || {};
+                buildingJson.image.dataUrl = imageUrl;
+            }
+            renderViewerPreview(buildingJson);
+            EditorModule.init(buildingJson);
         }
         btnRerender.classList.remove('hidden'); btnRerender2.classList.remove('hidden');
         document.getElementById('rerenderTip').classList.remove('hidden');
         // Auto-collapse pipeline, open editor when a rendered result exists
         document.getElementById('accordionPipeline').classList.add('collapsed');
         document.getElementById('accordionEditor').classList.remove('collapsed');
+        updateUndoRedoVisibility();
     } catch(e) { console.warn('[pipeline] Ergebnis-Cache konnte nicht geladen werden:', e.message); }
 }
 
