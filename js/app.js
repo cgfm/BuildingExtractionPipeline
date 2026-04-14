@@ -2779,7 +2779,7 @@ const EditorModule = (() => {
         let html = _getViewerTemplate();
         html = html.replace('</head>', '<script>window.__buildingsData = ' + jsonStr + ';</' + 'script>\n</head>');
         // Add ASP.NET Page directive for SharePoint rendering
-        const aspx = '<%@ Page Language="C#" Inherits="System.Web.UI.Page" %>\n' + html;
+        const aspx = '<%@ Page Language="C#" Inherits="System.Web.UI.Page" ResponseEncoding="utf-8" %>\n' + html;
 
         // 1. ASPX page
         _triggerDownload(new Blob([aspx], {type:'application/octet-stream'}), 'building-map.aspx');
