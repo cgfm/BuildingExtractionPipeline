@@ -2772,84 +2772,20 @@ const EditorModule = (() => {
         if (exportData.image) delete exportData.image.dataUrl;
         const imageBlob = await canvasToBlob(pipeline.canvas);
         const imgFilename = 'building-map.png';
-        // Image data uses external file reference instead of inline base64
+
+        // Build ASPX: standalone HTML with Page directive + image as external file
         const inlineData = { ...exportData, image: { ...exportData.image, dataUrl: imgFilename } };
         const jsonStr = JSON.stringify(inlineData).replace(/<\//g, '<\\/');
-        const title = buildingsData.title || 'Gebäudekarte';
+        let html = _getViewerTemplate();
+        html = html.replace('</head>', '<script>window.__buildingsData = ' + jsonStr + ';</' + 'script>\n</head>');
+        // Add ASP.NET Page directive for SharePoint rendering
+        const aspx = '<%@ Page Language="C#" Inherits="System.Web.UI.Page" %>\n' + html;
 
-        // Get CSS + JS from the standalone template
-        const html = _getViewerTemplate();
-        const cssMatch = html.match(/<style>([\s\S]*?)<\/style>/);
-        const jsMatch = html.match(/<script>([\s\S]*?)<\/script>/s);
-        const css = cssMatch ? cssMatch[1] : '';
-        const js = jsMatch ? jsMatch[1] : '';
+        // 1. ASPX page
+        _triggerDownload(new Blob([aspx], {type:'application/octet-stream'}), 'building-map.aspx');
 
-        // 1. Image file (PNG)
-        _triggerDownload(imageBlob, imgFilename);
-
-        // 2. Script file — data + logic (references image by filename)
-        const scriptContent = 'window.__buildingsData = ' + jsonStr + ';\n\n' + js;
-        setTimeout(() => _triggerDownload(new Blob([scriptContent], {type:'text/javascript'}), 'building-map-script.js'), 200);
-
-        // 3. Sidebar HTML
-        const sidebarHtml = '<aside class="sidebar">\n'
-            + '    <div class="sidebar-header">\n'
-            + '        <h1 id="sidebar-title">' + escapeHtml(title) + '</h1>\n'
-            + '        <p>Interaktive Karte</p>\n'
-            + '    </div>\n'
-            + '    <div class="search-bar"><input type="text" class="search-input" id="search-input" placeholder="Gebäude suchen..."></div>\n'
-            + '    <div id="sidebar-content" class="loading">Lade Gebäudedaten...</div>\n'
-            + '</aside>';
-        setTimeout(() => _triggerDownload(new Blob([sidebarHtml], {type:'text/html'}), 'building-map-sidebar.html'), 400);
-
-        // 4. Map HTML
-        const mapHtml = '<main class="main-content">\n'
-            + '    <div id="image-container-wrapper" class="loading">Lade Karte...</div>\n'
-            + '</main>';
-        setTimeout(() => _triggerDownload(new Blob([mapHtml], {type:'text/html'}), 'building-map-map.html'), 600);
-
-        // 5. README
-        const readme = '# SharePoint Einbindung - ' + title + '\n\n'
-            + '## Dateien\n\n'
-            + '| Datei | Beschreibung |\n'
-            + '|-------|-------------|\n'
-            + '| `building-map.png` | Gerendertes Kartenbild |\n'
-            + '| `building-map-script.js` | JavaScript mit Gebäudedaten und Viewer-Logik |\n'
-            + '| `building-map-sidebar.html` | HTML-Fragment für die Sidebar (Gebäudeliste) |\n'
-            + '| `building-map-map.html` | HTML-Fragment für die Kartenansicht |\n\n'
-            + '## Einrichtung in SharePoint\n\n'
-            + '### 1. Dateien hochladen\n'
-            + '- Alle Dateien in eine SharePoint-Dokumentbibliothek hochladen\n'
-            + '- Die URLs zu `building-map.png` und `building-map-script.js` kopieren\n\n'
-            + '### 2. Bild-Pfad anpassen\n'
-            + '- `building-map-script.js` in einem Texteditor öffnen\n'
-            + '- Ganz am Anfang steht `"dataUrl":"building-map.png"`\n'
-            + '- `building-map.png` durch die vollständige SharePoint-URL zum Bild ersetzen\n'
-            + '- z.B. `"dataUrl":"https://firma.sharepoint.com/sites/team/Dokumente/building-map.png"`\n\n'
-            + '### 3. SharePoint-Seite bearbeiten\n'
-            + '- Neue Seite erstellen oder bestehende bearbeiten\n'
-            + '- Ein **Einbetten**-Webpart (Embed) hinzufügen\n'
-            + '- Folgenden HTML-Code einfügen:\n\n'
-            + '```html\n'
-            + '<style>\n' + css + '\n'
-            + '/* Container-Anpassung für SharePoint */\n'
-            + '.container { height: 80vh; }\n'
-            + '</style>\n\n'
-            + '<div class="container">\n'
-            + '    <!-- Inhalt von building-map-sidebar.html hier einfügen -->\n'
-            + '    <!-- Inhalt von building-map-map.html hier einfügen -->\n'
-            + '</div>\n\n'
-            + '<script src="SHAREPOINT_URL/building-map-script.js"></' + 'script>\n'
-            + '```\n\n'
-            + '### 4. Alternativ: Alles inline\n'
-            + 'Falls keine externen Dateien verlinkt werden können:\n'
-            + '- Bild als Base64 kodieren und in den `dataUrl`-Wert im Script einfügen\n'
-            + '- Script-Inhalt direkt in ein `<script>`-Tag einbetten\n\n'
-            + '### Hinweise\n'
-            + '- Der Container benötigt eine feste Höhe (z.B. `80vh`)\n'
-            + '- CSS-Klassen sind spezifisch und kollidieren nicht mit SharePoint-Styles\n'
-            + '- Das Bild wird separat geladen — deutlich kleiner als Base64-Einbettung\n';
-        setTimeout(() => _triggerDownload(new Blob([readme], {type:'text/markdown'}), 'building-map-README.md'), 800);
+        // 2. Image file (PNG) — must be in the same folder as the .aspx
+        setTimeout(() => _triggerDownload(imageBlob, imgFilename), 300);
     }
 
     // ---- Viewer overlay (uses ViewerWidget) ----
