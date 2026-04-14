@@ -1009,6 +1009,12 @@ body {
     border-bottom: 1px solid #c0bda8;
     display: flex; gap: 10px; flex-wrap: wrap;
 }
+.editor-toolbar-save {
+    padding: 8px 20px; background: #e8e6d8;
+    border-bottom: 1px solid #d5d2c4;
+}
+.editor-toolbar-save .btn { flex: 1; min-width: 0; font-size: 12px; }
+.editor-toolbar-save.hidden { display: none; }
 .editor-toolbar-secondary {
     padding: 8px 20px; background: #eceade;
     border-bottom: 1px solid #d5d2c4;

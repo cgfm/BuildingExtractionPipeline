@@ -284,8 +284,13 @@
                     <div class="editor-toolbar">
                         <button class="btn btn-secondary btn-sm" id="edLoadBtn" data-tooltip="Lädt eine zuvor gespeicherte JSON-Datei und übernimmt Bezeichnungen, Beschreibungen und Gruppen.">Laden</button>
                         <input type="file" id="edLoadFileInput" accept=".json" style="display:none">
-                        <button class="btn btn-success btn-sm" id="edSaveBtn" data-tooltip="Lädt eine JSON-Datei mit allen Änderungen herunter.">Speichern</button>
+                        <button class="btn btn-success btn-sm" id="edSaveBtn" data-tooltip="Exportiert die Daten in verschiedenen Formaten.">Speichern &#x25BE;</button>
                         <button class="btn btn-primary btn-sm" id="edPreviewBtn" data-tooltip="Zeigt eine interaktive Vorschau der Karte mit klickbaren Gebäuden.">Vorschau</button>
+                    </div>
+                    <div class="editor-toolbar editor-toolbar-save hidden" id="edSaveMenu">
+                        <button class="btn btn-sm" id="edSaveJson" style="background:#4b5320;color:#fff;" data-tooltip="JSON-Datei mit Gebäudedaten, Gruppen und Beschreibungen.">Gebäudedaten</button>
+                        <button class="btn btn-sm" id="edSaveHtml" style="background:#2d331a;color:#fff;" data-tooltip="Einzelne HTML-Datei mit eingebettetem Bild und interaktivem Viewer.">Standalone HTML</button>
+                        <button class="btn btn-sm" id="edSaveSharePoint" style="background:#0078d4;color:#fff;" data-tooltip="3 Dateien (Script, Sidebar, Map) + Anleitung für SharePoint HTML-Editor.">SharePoint</button>
                     </div>
                     <div class="editor-toolbar editor-toolbar-secondary">
                         <button class="btn btn-sm" id="edDrawAreaBtn" style="background:#2196F3;color:#fff;" data-tooltip="Zeichnet eine neue Fläche/Zone durch Klicken von Punkten auf der Karte.">&#x25A1; Fläche zeichnen</button>

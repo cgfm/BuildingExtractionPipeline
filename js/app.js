@@ -1248,6 +1248,9 @@ async function loadResultCache() {
         }
         btnRerender.classList.remove('hidden'); btnRerender2.classList.remove('hidden');
         document.getElementById('rerenderTip').classList.remove('hidden');
+        // Auto-collapse pipeline, open editor when a rendered result exists
+        document.getElementById('accordionPipeline').classList.add('collapsed');
+        document.getElementById('accordionEditor').classList.remove('collapsed');
     } catch(e) { console.warn('[pipeline] Ergebnis-Cache konnte nicht geladen werden:', e.message); }
 }
 
@@ -2750,6 +2753,103 @@ const EditorModule = (() => {
         hasChanges = false;
     }
 
+    async function exportStandaloneFromEditor() {
+        if (!buildingsData || !pipeline || !pipeline.canvas) {
+            alert('Kein gerendertes Bild vorhanden. Bitte zuerst die Pipeline ausführen.');
+            return;
+        }
+        const exportData = JSON.parse(JSON.stringify(buildingsData));
+        if (exportData.image) delete exportData.image.dataUrl;
+        downloadHtmlFile(await createStandaloneHtml(exportData, pipeline.canvas, geojsonData, getParams()));
+    }
+
+    async function exportSharePoint() {
+        if (!buildingsData || !pipeline || !pipeline.canvas) {
+            alert('Kein gerendertes Bild vorhanden. Bitte zuerst die Pipeline ausführen.');
+            return;
+        }
+        const exportData = JSON.parse(JSON.stringify(buildingsData));
+        if (exportData.image) delete exportData.image.dataUrl;
+        const imageBlob = await canvasToBlob(pipeline.canvas);
+        const imageDataUrl = await blobToDataUrl(imageBlob);
+        const inlineData = { ...exportData, image: { ...exportData.image, dataUrl: imageDataUrl } };
+        const jsonStr = JSON.stringify(inlineData).replace(/<\//g, '<\\/');
+        const title = buildingsData.title || 'Gebäudekarte';
+
+        // Get CSS + JS from the standalone template
+        const html = _getViewerTemplate();
+        const cssMatch = html.match(/<style>([\s\S]*?)<\/style>/);
+        const jsMatch = html.match(/<script>([\s\S]*?)<\/script>/s);
+        const css = cssMatch ? cssMatch[1] : '';
+        const js = jsMatch ? jsMatch[1] : '';
+
+        // 1. Script file — data + logic
+        const scriptContent = 'window.__buildingsData = ' + jsonStr + ';\n\n' + js;
+        _triggerDownload(new Blob([scriptContent], {type:'text/javascript'}), 'building-map-script.js');
+
+        // 2. Sidebar HTML
+        const sidebarHtml = '<aside class="sidebar">\n'
+            + '    <div class="sidebar-header">\n'
+            + '        <h1 id="sidebar-title">' + escapeHtml(title) + '</h1>\n'
+            + '        <p>Interaktive Karte</p>\n'
+            + '    </div>\n'
+            + '    <div class="search-bar"><input type="text" class="search-input" id="search-input" placeholder="Gebäude suchen..."></div>\n'
+            + '    <div id="sidebar-content" class="loading">Lade Gebäudedaten...</div>\n'
+            + '</aside>';
+        setTimeout(() => _triggerDownload(new Blob([sidebarHtml], {type:'text/html'}), 'building-map-sidebar.html'), 200);
+
+        // 3. Map HTML
+        const mapHtml = '<main class="main-content">\n'
+            + '    <div id="image-container-wrapper" class="loading">Lade Karte...</div>\n'
+            + '</main>';
+        setTimeout(() => _triggerDownload(new Blob([mapHtml], {type:'text/html'}), 'building-map-map.html'), 400);
+
+        // 4. README
+        const readme = '# SharePoint Einbindung - ' + title + '\n\n'
+            + '## Dateien\n\n'
+            + '| Datei | Beschreibung |\n'
+            + '|-------|-------------|\n'
+            + '| `building-map-script.js` | JavaScript mit Gebäudedaten und Viewer-Logik |\n'
+            + '| `building-map-sidebar.html` | HTML-Fragment für die Sidebar (Gebäudeliste) |\n'
+            + '| `building-map-map.html` | HTML-Fragment für die Kartenansicht |\n\n'
+            + '## Einrichtung in SharePoint\n\n'
+            + '### 1. Script-Datei hochladen\n'
+            + '- `building-map-script.js` in eine SharePoint-Dokumentbibliothek hochladen\n'
+            + '- Den Link/URL zur Datei kopieren\n\n'
+            + '### 2. SharePoint-Seite bearbeiten\n'
+            + '- Neue Seite erstellen oder bestehende bearbeiten\n'
+            + '- Ein **Einbetten**-Webpart (Embed) hinzufügen\n'
+            + '- Folgenden HTML-Code einfügen:\n\n'
+            + '```html\n'
+            + '<style>\n' + css + '\n'
+            + '/* Container-Anpassung für SharePoint */\n'
+            + '.container { height: 80vh; }\n'
+            + '</style>\n\n'
+            + '<div class="container">\n'
+            + '    <!-- Inhalt von building-map-sidebar.html hier einfügen -->\n'
+            + '    <!-- Inhalt von building-map-map.html hier einfügen -->\n'
+            + '</div>\n\n'
+            + '<script src="LINK_ZUR_SCRIPT_DATEI/building-map-script.js"></' + 'script>\n'
+            + '```\n\n'
+            + '### 3. Alternativ: Alles inline\n'
+            + 'Falls keine externe Datei verlinkt werden kann:\n\n'
+            + '```html\n'
+            + '<style>\n' + css + '\n.container { height: 80vh; }\n</style>\n\n'
+            + '<div class="container">\n'
+            + '    <!-- Sidebar HTML einfügen -->\n'
+            + '    <!-- Map HTML einfügen -->\n'
+            + '</div>\n\n'
+            + '<script>\n'
+            + '// Inhalt von building-map-script.js hier einfügen\n'
+            + '</' + 'script>\n'
+            + '```\n\n'
+            + '### Hinweise\n'
+            + '- Der Container benötigt eine feste Höhe (z.B. `80vh`)\n'
+            + '- CSS-Klassen sind spezifisch und kollidieren nicht mit SharePoint-Styles\n'
+            + '- Die Bilddaten sind als Base64 im Script eingebettet\n';
+        setTimeout(() => _triggerDownload(new Blob([readme], {type:'text/markdown'}), 'building-map-README.md'), 600);
+    }
+
     // ---- Viewer overlay (uses ViewerWidget) ----
     let voWidget = null;
 
@@ -2802,7 +2902,13 @@ const EditorModule = (() => {
     function bindEvents() {
         document.getElementById('edLoadBtn').addEventListener('click', loadJSONFromFile);
         document.getElementById('edLoadFileInput').addEventListener('change', (e) => { if (e.target.files[0]) { handleLoadedFile(e.target.files[0]); e.target.value = ''; } });
-        document.getElementById('edSaveBtn').addEventListener('click', saveJSONToFile);
+        document.getElementById('edSaveBtn').addEventListener('click', () => {
+            const menu = document.getElementById('edSaveMenu');
+            menu.classList.toggle('hidden');
+        });
+        document.getElementById('edSaveJson').addEventListener('click', () => { saveJSONToFile(); document.getElementById('edSaveMenu').classList.add('hidden'); });
+        document.getElementById('edSaveHtml').addEventListener('click', () => { exportStandaloneFromEditor(); document.getElementById('edSaveMenu').classList.add('hidden'); });
+        document.getElementById('edSaveSharePoint').addEventListener('click', () => { exportSharePoint(); document.getElementById('edSaveMenu').classList.add('hidden'); });
         document.getElementById('edPreviewBtn').addEventListener('click', () => { if (buildingsData) showViewerOverlay(); });
         document.getElementById('edDrawAreaBtn').addEventListener('click', () => {
             if (!buildingsData || !buildingsData.image) return;
