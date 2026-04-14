@@ -2771,8 +2771,9 @@ const EditorModule = (() => {
         const exportData = JSON.parse(JSON.stringify(buildingsData));
         if (exportData.image) delete exportData.image.dataUrl;
         const imageBlob = await canvasToBlob(pipeline.canvas);
-        const imageDataUrl = await blobToDataUrl(imageBlob);
-        const inlineData = { ...exportData, image: { ...exportData.image, dataUrl: imageDataUrl } };
+        const imgFilename = 'building-map.png';
+        // Image data uses external file reference instead of inline base64
+        const inlineData = { ...exportData, image: { ...exportData.image, dataUrl: imgFilename } };
         const jsonStr = JSON.stringify(inlineData).replace(/<\//g, '<\\/');
         const title = buildingsData.title || 'Gebäudekarte';
 
@@ -2783,11 +2784,14 @@ const EditorModule = (() => {
         const css = cssMatch ? cssMatch[1] : '';
         const js = jsMatch ? jsMatch[1] : '';
 
-        // 1. Script file — data + logic
-        const scriptContent = 'window.__buildingsData = ' + jsonStr + ';\n\n' + js;
-        _triggerDownload(new Blob([scriptContent], {type:'text/javascript'}), 'building-map-script.js');
+        // 1. Image file (PNG)
+        _triggerDownload(imageBlob, imgFilename);
 
-        // 2. Sidebar HTML
+        // 2. Script file — data + logic (references image by filename)
+        const scriptContent = 'window.__buildingsData = ' + jsonStr + ';\n\n' + js;
+        setTimeout(() => _triggerDownload(new Blob([scriptContent], {type:'text/javascript'}), 'building-map-script.js'), 200);
+
+        // 3. Sidebar HTML
         const sidebarHtml = '<aside class="sidebar">\n'
             + '    <div class="sidebar-header">\n'
             + '        <h1 id="sidebar-title">' + escapeHtml(title) + '</h1>\n'
@@ -2796,27 +2800,33 @@ const EditorModule = (() => {
             + '    <div class="search-bar"><input type="text" class="search-input" id="search-input" placeholder="Gebäude suchen..."></div>\n'
             + '    <div id="sidebar-content" class="loading">Lade Gebäudedaten...</div>\n'
             + '</aside>';
-        setTimeout(() => _triggerDownload(new Blob([sidebarHtml], {type:'text/html'}), 'building-map-sidebar.html'), 200);
+        setTimeout(() => _triggerDownload(new Blob([sidebarHtml], {type:'text/html'}), 'building-map-sidebar.html'), 400);
 
-        // 3. Map HTML
+        // 4. Map HTML
         const mapHtml = '<main class="main-content">\n'
             + '    <div id="image-container-wrapper" class="loading">Lade Karte...</div>\n'
             + '</main>';
-        setTimeout(() => _triggerDownload(new Blob([mapHtml], {type:'text/html'}), 'building-map-map.html'), 400);
+        setTimeout(() => _triggerDownload(new Blob([mapHtml], {type:'text/html'}), 'building-map-map.html'), 600);
 
-        // 4. README
+        // 5. README
         const readme = '# SharePoint Einbindung - ' + title + '\n\n'
             + '## Dateien\n\n'
             + '| Datei | Beschreibung |\n'
             + '|-------|-------------|\n'
+            + '| `building-map.png` | Gerendertes Kartenbild |\n'
             + '| `building-map-script.js` | JavaScript mit Gebäudedaten und Viewer-Logik |\n'
             + '| `building-map-sidebar.html` | HTML-Fragment für die Sidebar (Gebäudeliste) |\n'
             + '| `building-map-map.html` | HTML-Fragment für die Kartenansicht |\n\n'
             + '## Einrichtung in SharePoint\n\n'
-            + '### 1. Script-Datei hochladen\n'
-            + '- `building-map-script.js` in eine SharePoint-Dokumentbibliothek hochladen\n'
-            + '- Den Link/URL zur Datei kopieren\n\n'
-            + '### 2. SharePoint-Seite bearbeiten\n'
+            + '### 1. Dateien hochladen\n'
+            + '- Alle Dateien in eine SharePoint-Dokumentbibliothek hochladen\n'
+            + '- Die URLs zu `building-map.png` und `building-map-script.js` kopieren\n\n'
+            + '### 2. Bild-Pfad anpassen\n'
+            + '- `building-map-script.js` in einem Texteditor öffnen\n'
+            + '- Ganz am Anfang steht `"dataUrl":"building-map.png"`\n'
+            + '- `building-map.png` durch die vollständige SharePoint-URL zum Bild ersetzen\n'
+            + '- z.B. `"dataUrl":"https://firma.sharepoint.com/sites/team/Dokumente/building-map.png"`\n\n'
+            + '### 3. SharePoint-Seite bearbeiten\n'
             + '- Neue Seite erstellen oder bestehende bearbeiten\n'
             + '- Ein **Einbetten**-Webpart (Embed) hinzufügen\n'
             + '- Folgenden HTML-Code einfügen:\n\n'
@@ -2829,25 +2839,17 @@ const EditorModule = (() => {
             + '    <!-- Inhalt von building-map-sidebar.html hier einfügen -->\n'
             + '    <!-- Inhalt von building-map-map.html hier einfügen -->\n'
             + '</div>\n\n'
-            + '<script src="LINK_ZUR_SCRIPT_DATEI/building-map-script.js"></' + 'script>\n'
+            + '<script src="SHAREPOINT_URL/building-map-script.js"></' + 'script>\n'
             + '```\n\n'
-            + '### 3. Alternativ: Alles inline\n'
-            + 'Falls keine externe Datei verlinkt werden kann:\n\n'
-            + '```html\n'
-            + '<style>\n' + css + '\n.container { height: 80vh; }\n</style>\n\n'
-            + '<div class="container">\n'
-            + '    <!-- Sidebar HTML einfügen -->\n'
-            + '    <!-- Map HTML einfügen -->\n'
-            + '</div>\n\n'
-            + '<script>\n'
-            + '// Inhalt von building-map-script.js hier einfügen\n'
-            + '</' + 'script>\n'
-            + '```\n\n'
+            + '### 4. Alternativ: Alles inline\n'
+            + 'Falls keine externen Dateien verlinkt werden können:\n'
+            + '- Bild als Base64 kodieren und in den `dataUrl`-Wert im Script einfügen\n'
+            + '- Script-Inhalt direkt in ein `<script>`-Tag einbetten\n\n'
             + '### Hinweise\n'
             + '- Der Container benötigt eine feste Höhe (z.B. `80vh`)\n'
             + '- CSS-Klassen sind spezifisch und kollidieren nicht mit SharePoint-Styles\n'
-            + '- Die Bilddaten sind als Base64 im Script eingebettet\n';
-        setTimeout(() => _triggerDownload(new Blob([readme], {type:'text/markdown'}), 'building-map-README.md'), 600);
+            + '- Das Bild wird separat geladen — deutlich kleiner als Base64-Einbettung\n';
+        setTimeout(() => _triggerDownload(new Blob([readme], {type:'text/markdown'}), 'building-map-README.md'), 800);
     }
 
     // ---- Viewer overlay (uses ViewerWidget) ----
