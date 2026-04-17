@@ -125,6 +125,9 @@ const SharePointIO = (function () {
             const r = await fetch(dataFileUrl('building.json'), { cache: 'no-store', credentials: 'same-origin' });
             if (r.status === 404) return null;
             if (!r.ok) throw new Error('HTTP ' + r.status);
+            // SharePoint may return 200 with an HTML error page instead of 404
+            const ct = (r.headers.get('Content-Type') || '').toLowerCase();
+            if (!ct.includes('json')) return null;
             return await r.json();
         } catch (e) {
             console.warn('[sp-io] building.json laden fehlgeschlagen:', e.message);

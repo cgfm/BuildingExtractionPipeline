@@ -87,6 +87,8 @@
             try {
                 const r = await fetch('data/building.json' + CB, { cache: 'no-store' });
                 if (!r.ok) throw new Error('Karte noch nicht veröffentlicht (data/building.json fehlt).');
+                const ct = (r.headers.get('Content-Type') || '').toLowerCase();
+                if (!ct.includes('json')) throw new Error('Karte noch nicht veröffentlicht (data/building.json fehlt).');
                 buildingsData = await r.json();
                 // Image is an external file next to the JSON
                 buildingsData.image = buildingsData.image || {};
