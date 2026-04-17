@@ -1,4 +1,4 @@
-<%@ Page Language="C#" Inherits="System.Web.UI.Page" ResponseEncoding="utf-8" %>
+<%@ Page Language="C#" %>
 <!DOCTYPE html>
 <html lang="de">
 <head>
