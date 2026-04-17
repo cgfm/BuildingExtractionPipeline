@@ -1,5 +1,5 @@
 // ==========================================================================
-// PipelineDB — IndexedDB wrapper (async key-value store)
+// PipelineDB \u2014 IndexedDB wrapper (async key-value store)
 // ==========================================================================
 /**
  * @namespace PipelineDB
@@ -239,7 +239,7 @@ async function migrateFromLocalStorage() {
 }
 
 // ==========================================================================
-// All modules inlined — no ES module imports, works from file:// protocol
+// All modules inlined \u2014 no ES module imports, works from file:// protocol
 // ==========================================================================
 
 // --------------------------------------------------------------------------
@@ -276,10 +276,10 @@ function extractPolygonCoords(geojson) {
 }
 
 /**
- * Estimate bounding box area in km² using latitude-corrected approximation.
+ * Estimate bounding box area in km\u00b2 using latitude-corrected approximation.
  * Uses 111.32 km per degree of latitude, with longitude corrected by cos(lat).
  * @param {Array<[number, number]>} coords - Array of [lng, lat] pairs
- * @returns {number} Estimated area in km²
+ * @returns {number} Estimated area in km\u00b2
  */
 function estimateBboxAreaKm2(coords) {
     let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
@@ -312,13 +312,13 @@ async function downloadBuildings(geojsonPolygon) {
     // Check for antimeridian crossing
     const lngs = coords.map(c => c[0]);
     if (Math.max(...lngs) - Math.min(...lngs) > 180) {
-        throw new Error('Polygon kreuzt den Antimeridian (180°). Dies wird nicht unterstützt.');
+        throw new Error('Polygon kreuzt den Antimeridian (180\u00b0). Dies wird nicht unterst\u00fctzt.');
     }
     const area = estimateBboxAreaKm2(coords);
-    if (area > 50) throw new Error('Gebiet zu groß (' + area.toFixed(1) + ' km²). Maximum: 50 km².');
+    if (area > 50) throw new Error('Gebiet zu gro\u00df (' + area.toFixed(1) + ' km\u00b2). Maximum: 50 km\u00b2.');
     if (area > BBOX_AREA_WARN_KM2) {
-        if (!confirm('Das Gebiet ist ' + area.toFixed(1) + ' km² groß. Große Gebiete können zu langen Ladezeiten führen. Fortfahren?')) {
-            throw new Error('Abgebrochen: Gebiet zu groß');
+        if (!confirm('Das Gebiet ist ' + area.toFixed(1) + ' km\u00b2 gro\u00df. Gro\u00dfe Gebiete k\u00f6nnen zu langen Ladezeiten f\u00fchren. Fortfahren?')) {
+            throw new Error('Abgebrochen: Gebiet zu gro\u00df');
         }
     }
     const query = buildOverpassQuery(coords);
@@ -408,7 +408,7 @@ class Building25DRenderer {
    * @param {string} [params.roofColor='#cccccc'] - Roof fill color (hex)
    * @param {string} [params.outlineColor='#333333'] - Outline stroke color (hex)
    * @param {boolean} [params.simplify=true] - Use convex hull simplification for click polygons
-   * @param {number} [params.minArea=25] - Minimum building footprint area in m²
+   * @param {number} [params.minArea=25] - Minimum building footprint area in m\u00b2
    * @param {boolean} [params.uniformHeight=false] - Ignore OSM height tags, use extrude for all
    */
   constructor(buildingsGeojson, boundingPolygon, params = {}) {
@@ -470,7 +470,7 @@ class Building25DRenderer {
     this.refLon=(this.minLon+this.maxLon)/2; this.refLat=(this.minLat+this.maxLat)/2;
   }
 
-  // Calculate building footprint area in m² using Shoelace formula
+  // Calculate building footprint area in m\u00b2 using Shoelace formula
   calculateBuildingArea(coords) {
     if (!coords || coords.length < 3) return 0;
     const p = coords.map(([lon, lat]) => this._lonLatToMeters(lon, lat));
@@ -501,7 +501,7 @@ class Building25DRenderer {
       if (this.calculateBuildingArea(coords) < this.minArea) continue;
       const gp = coords.map(([lon, lat]) => this.lonLatToPixel(lon, lat));
       const rp = gp.map(([x, y]) => [x + Math.round(height * isoOffsetX), y - Math.round(height * isoOffsetY)]);
-      // Draw all wall faces (fill only, no stroke — color difference provides depth)
+      // Draw all wall faces (fill only, no stroke \u2014 color difference provides depth)
       ctx.fillStyle = wc;
       for (let i = 0; i < gp.length; i++) {
         const j = (i+1) % gp.length;
@@ -509,7 +509,7 @@ class Building25DRenderer {
         ctx.moveTo(gp[i][0],gp[i][1]); ctx.lineTo(gp[j][0],gp[j][1]); ctx.lineTo(rp[j][0],rp[j][1]); ctx.lineTo(rp[i][0],rp[i][1]); ctx.closePath();
         ctx.fill();
       }
-      // Draw roof on top (fill + stroke — outline provides building edge)
+      // Draw roof on top (fill + stroke \u2014 outline provides building edge)
       ctx.fillStyle = this.roofColor; ctx.strokeStyle = this.outlineColor; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(rp[0][0],rp[0][1]);
       for (let i = 1; i < rp.length; i++) ctx.lineTo(rp[i][0],rp[i][1]);
@@ -615,7 +615,7 @@ class Building25DRenderer {
 
   // Draw OSM tile background: find optimal zoom level, download tiles, composite and crop to bounds
   async _drawMapBackground(ctx) {
-    // Find highest zoom level where total tile count stays ≤ 64
+    // Find highest zoom level where total tile count stays \u2264 64
     let zoom = 17;
     for (let z = 18; z >= 10; z--) {
       const [minTX] = this._lonLatToTile(this.minLon, this.minLat, z);
@@ -715,13 +715,13 @@ function createBuildingJson(canvas, buildingPolygons, imageFilename, previousBui
         const buildingType = tags.building !== 'yes' ? tags.building || '' : '';
         const amenity = tags.amenity || '';
         const descParts = [];
-        if (buildingType) descParts.push('Gebäudetyp: ' + buildingType);
+        if (buildingType) descParts.push('Geb\u00e4udetyp: ' + buildingType);
         if (amenity) descParts.push('Nutzung: ' + amenity);
         if (tags.description) descParts.push(tags.description);
         return {
             id: 'building_' + p.index,
             nummer: nummer,
-            name: name || 'Gebäude ' + p.index,
+            name: name || 'Geb\u00e4ude ' + p.index,
             gruppe: '',
             beschreibung: descParts.join('\n'),
             highlightColor: palette[p.index % palette.length],
@@ -770,7 +770,7 @@ function createBuildingJson(canvas, buildingPolygons, imageFilename, previousBui
         }
         const migrated = used.size;
         const total = buildings.length;
-        console.log('[migration] ' + migrated + '/' + total + ' Gebäude wiedererkannt (Schwelle: ' + MIGRATION_THRESHOLD_M + ' m)');
+        console.log('[migration] ' + migrated + '/' + total + ' Geb\u00e4ude wiedererkannt (Schwelle: ' + MIGRATION_THRESHOLD_M + ' m)');
     }
 
     return {
@@ -956,14 +956,14 @@ function downloadImageFile(canvas, filename) { canvas.toBlob(b => _triggerDownlo
 class Pipeline {
     constructor(callbacks) { this.callbacks=callbacks; this.buildingsGeojson=null; this.canvas=null; this.buildingJson=null; }
 
-    /** Run full pipeline: download → render → extract → complete. */
+    /** Run full pipeline: download \u2192 render \u2192 extract \u2192 complete. */
     async run(geojsonData, params) {
         try {
             this.callbacks.onProgress(1, 'Downloading...');
             this.callbacks.onLog('[INFO] Starte Download von OpenStreetMap...');
             this.buildingsGeojson = await downloadBuildings(geojsonData);
-            PipelineDB.put('buildings_cache', 'osm', this.buildingsGeojson).catch(e => console.warn('[pipeline] Gebäude-Cache konnte nicht gespeichert werden:', e));
-            this.callbacks.onLog('[INFO] ' + this.buildingsGeojson.features.length + ' Gebäude gefunden');
+            PipelineDB.put('buildings_cache', 'osm', this.buildingsGeojson).catch(e => console.warn('[pipeline] Geb\u00e4ude-Cache konnte nicht gespeichert werden:', e));
+            this.callbacks.onLog('[INFO] ' + this.buildingsGeojson.features.length + ' Geb\u00e4ude gefunden');
             await this.renderAndExtract(geojsonData, params);
         } catch (error) { this.callbacks.onError(error.message); }
     }
@@ -984,7 +984,7 @@ class Pipeline {
         Building25DRenderer._tileProvider = params.tileProvider || 'osm';
         Building25DRenderer._tileCache.clear();
         this.canvas = await renderer.render();
-        this.callbacks.onLog('[INFO] ' + renderer.buildingPolygons.length + ' Gebäude gerendert');
+        this.callbacks.onLog('[INFO] ' + renderer.buildingPolygons.length + ' Geb\u00e4ude gerendert');
         this.callbacks.onProgress(3, 'Extracting...');
         this.callbacks.onLog('[INFO] Extrahiere Polygone...');
         // EditorModule is the single source of truth; fall back to pipeline cache
@@ -994,8 +994,8 @@ class Pipeline {
             : (this.buildingJson ? this.buildingJson.buildings : null);
         this.buildingJson = createBuildingJson(this.canvas, renderer.buildingPolygons, 'rendered.png', prevBuildings);
         if (prevBuildings) {
-            const migrated = this.buildingJson.buildings.filter(b => b.name && !b.name.startsWith('Gebäude ')).length;
-            this.callbacks.onLog('[INFO] ' + migrated + '/' + this.buildingJson.buildings.length + ' Gebäude-Metadaten migriert');
+            const migrated = this.buildingJson.buildings.filter(b => b.name && !b.name.startsWith('Geb\u00e4ude ')).length;
+            this.callbacks.onLog('[INFO] ' + migrated + '/' + this.buildingJson.buildings.length + ' Geb\u00e4ude-Metadaten migriert');
         }
         this.callbacks.onLog('[INFO] ' + this.buildingJson.buildings.length + ' klickbare Polygone extrahiert');
         const imageBlob = await canvasToBlob(this.canvas);
@@ -1007,7 +1007,7 @@ class Pipeline {
     }
 
     async rerender(geojsonData, params) {
-        if (!this.buildingsGeojson) { this.callbacks.onError('Keine gecachten Gebäudedaten. Bitte zuerst Pipeline ausführen.'); return; }
+        if (!this.buildingsGeojson) { this.callbacks.onError('Keine gecachten Geb\u00e4udedaten. Bitte zuerst Pipeline ausf\u00fchren.'); return; }
         try { await this.renderAndExtract(geojsonData, params); } catch (error) { this.callbacks.onError(error.message); }
     }
 
@@ -1050,7 +1050,7 @@ function renderViewerPreview(buildingJson) {
         imageContainerId: 'vpImageContainer',
         getBuildingsData: () => buildingJson,
         onBuildingClick: (b) => vpWidget.showPopup(b),
-        sidebarHeaderRenderer: (bd) => '<h3>' + escapeHtml(bd.title || 'Gebäudekarte') + '</h3><p>Interaktive Vorschau</p>',
+        sidebarHeaderRenderer: (bd) => '<h3>' + escapeHtml(bd.title || 'Geb\u00e4udekarte') + '</h3><p>Interaktive Vorschau</p>',
     });
     document.getElementById('viewerPreview').style.display = 'flex';
     vpWidget.renderSidebar(document.getElementById('vpSidebar'), buildingJson);
@@ -1206,7 +1206,7 @@ async function loadBuildingsCache() {
         if (!data) return;
         pipeline.buildingsGeojson = data;
         btnRerender.classList.remove('hidden'); btnRerender2.classList.remove('hidden');        document.getElementById('rerenderTip').classList.remove('hidden');
-    } catch(e) { console.warn('[pipeline] Gebäude-Cache konnte nicht geladen werden:', e.message); }
+    } catch(e) { console.warn('[pipeline] Geb\u00e4ude-Cache konnte nicht geladen werden:', e.message); }
 }
 
 async function loadResultCache() {
@@ -1298,7 +1298,7 @@ function handleFile(file) {
 function handleMetadataImport(metadata, file) {
     const buildingsData = EditorModule.getBuildingsData();
     if (!buildingsData || !buildingsData.buildings) {
-        alert('Kein Pipeline-Ergebnis vorhanden. Bitte zuerst die Pipeline ausführen oder eine HTML-Datei importieren.');
+        alert('Kein Pipeline-Ergebnis vorhanden. Bitte zuerst die Pipeline ausf\u00fchren oder eine HTML-Datei importieren.');
         return;
     }
     const target = buildingsData.buildings;
@@ -1306,7 +1306,7 @@ function handleMetadataImport(metadata, file) {
     const used = new Set();
     let merged = 0;
     // Track which source index each target building matched to (for reordering)
-    const matchMap = new Map(); // targetIndex → sourceIndex
+    const matchMap = new Map(); // targetIndex \u2192 sourceIndex
     // Check if source data has centroids for geo-matching
     const hasCentroids = source.some(b => b.centroid);
     for (let t = 0; t < target.length; t++) {
@@ -1374,17 +1374,17 @@ function handleMetadataImport(metadata, file) {
     buildingsData.buildings = indexed.map(e => e.building);
     // Re-init editor with updated data and persist
     EditorModule.init(buildingsData);
-    const msg = merged + ' aktualisiert' + (added ? ', ' + added + ' neu hinzugefügt' : '') + ' (' + source.length + ' in Quelldatei, ' + target.length + ' gesamt).';
+    const msg = merged + ' aktualisiert' + (added ? ', ' + added + ' neu hinzugef\u00fcgt' : '') + ' (' + source.length + ' in Quelldatei, ' + target.length + ' gesamt).';
     alert(msg);
 }
 
 function handleHtmlImport(text, file) {
     const match = text.match(/window\.__buildingsData\s*=\s*(\{[\s\S]*?\});\s*<\/script>/);
-    if (!match) { alert('Keine Gebäudedaten in der HTML-Datei gefunden.'); return; }
+    if (!match) { alert('Keine Geb\u00e4udedaten in der HTML-Datei gefunden.'); return; }
     let buildingsData;
-    try { buildingsData = JSON.parse(match[1]); } catch(e) { alert('Fehler beim Parsen der Gebäudedaten: ' + e.message); return; }
+    try { buildingsData = JSON.parse(match[1]); } catch(e) { alert('Fehler beim Parsen der Geb\u00e4udedaten: ' + e.message); return; }
     if (!buildingsData.image || !buildingsData.image.dataUrl) { alert('Kein eingebettetes Bild in der HTML-Datei gefunden.'); return; }
-    if (!buildingsData.image.dataUrl.startsWith('data:image/')) { alert('Ungültige Bilddaten in der HTML-Datei.'); return; }
+    if (!buildingsData.image.dataUrl.startsWith('data:image/')) { alert('Ung\u00fcltige Bilddaten in der HTML-Datei.'); return; }
     const img = new Image();
     img.onload = function() {
         const c = document.createElement('canvas');
@@ -1567,12 +1567,12 @@ async function renderProjectList() {
                 (thumbUrl ? '<img class="project-thumb" src="' + thumbUrl + '" alt="">' : '<div class="project-thumb"></div>') +
                 '<div class="project-meta">' +
                     '<div class="project-name" title="' + escapeHtml(p.name || 'Unbenannt') + '">' + escapeHtml(p.name || 'Unbenannt') + '</div>' +
-                    '<div class="project-info">' + p.buildingCount + ' Gebäude &middot; ' + dateStr + '</div>' +
+                    '<div class="project-info">' + p.buildingCount + ' Geb\u00e4ude &middot; ' + dateStr + '</div>' +
                 '</div>' +
-                '<button class="project-delete" title="Projekt löschen">&times;</button>';
+                '<button class="project-delete" title="Projekt l\u00f6schen">&times;</button>';
             item.querySelector('.project-delete').addEventListener('click', (e) => {
                 e.stopPropagation();
-                if (confirm('Projekt „' + (p.name || 'Unbenannt') + '" löschen?')) deleteProject(p.id);
+                if (confirm('Projekt \u201e' + (p.name || 'Unbenannt') + '" l\u00f6schen?')) deleteProject(p.id);
             });
             item.addEventListener('click', () => loadProject(p));
             projectsGrid.appendChild(item);
@@ -1586,7 +1586,7 @@ async function deleteProject(id) {
         await PipelineDB.remove('buildings_cache', 'project_' + id).catch(e => console.warn('[idb] Fehler:', e.message));
         if (activeProjectId === id) setActiveProjectId(null);
         await renderProjectList();
-    } catch(e) { console.warn('[projects] Projekt konnte nicht gelöscht werden:', e); }
+    } catch(e) { console.warn('[projects] Projekt konnte nicht gel\u00f6scht werden:', e); }
 }
 
 async function loadProject(project) {
@@ -1738,7 +1738,7 @@ function updateUndoRedoVisibility() {
 function updateEditorBadge(count) {
     const badge = document.getElementById('editorBadge');
     if (count > 0) {
-        badge.textContent = count + ' Gebäude';
+        badge.textContent = count + ' Geb\u00e4ude';
         badge.classList.remove('hidden');
     } else {
         badge.classList.add('hidden');
@@ -1747,7 +1747,7 @@ function updateEditorBadge(count) {
 function updatePipelineBadge(count) {
     const badge = document.getElementById('pipelineBadge');
     if (count > 0) {
-        badge.textContent = count + ' Gebäude';
+        badge.textContent = count + ' Geb\u00e4ude';
         badge.classList.remove('hidden');
     } else {
         badge.classList.add('hidden');
@@ -1755,7 +1755,7 @@ function updatePipelineBadge(count) {
 }
 
 // ==========================================================================
-// EditorModule — Building Editor (integrated)
+// EditorModule \u2014 Building Editor (integrated)
 // ==========================================================================
 /**
  * @namespace EditorModule
@@ -1832,7 +1832,7 @@ const EditorModule = (() => {
                     if (still) { selectBuilding(still); }
                     else {
                         currentBuilding = null;
-                        document.getElementById('edEditorContent').innerHTML = '<div class="ed-empty-state"><h3>Gebäude nicht mehr vorhanden</h3><p>Wählen Sie ein Gebäude aus der Liste.</p></div>';
+                        document.getElementById('edEditorContent').innerHTML = '<div class="ed-empty-state"><h3>Geb\u00e4ude nicht mehr vorhanden</h3><p>W\u00e4hlen Sie ein Geb\u00e4ude aus der Liste.</p></div>';
                     }
                 }
                 updateButtons();
@@ -1892,7 +1892,7 @@ const EditorModule = (() => {
 
         const img = document.createElement('img');
         img.src = dataUrl || filename;
-        img.alt = (buildingsData.title || 'Gebäudekarte') + ' Karte';
+        img.alt = (buildingsData.title || 'Geb\u00e4udekarte') + ' Karte';
         container.appendChild(img);
 
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -2072,7 +2072,7 @@ const EditorModule = (() => {
             group.className = 'ed-group';
             group.style.marginLeft = (level * 15) + 'px';
             const buildingIds = getAllBuildingIds(groupData);
-            // Check if a building shares the group name → merge into header
+            // Check if a building shares the group name \u2192 merge into header
             const nameMatch = groupData.buildings.find(b => b.name === groupName);
             const header = document.createElement('div');
             header.className = 'ed-group-header';
@@ -2165,7 +2165,7 @@ const EditorModule = (() => {
         restoreCollapsedGroups(collapsedState);
         document.getElementById('edSearchInput').value = '';
         // Update sidebar info
-        document.getElementById('edSidebarInfo').textContent = buildingsData.buildings.length + ' Gebäude geladen';
+        document.getElementById('edSidebarInfo').textContent = buildingsData.buildings.length + ' Geb\u00e4ude geladen';
         updateEditorBadge(buildingsData.buildings.length);
         updatePipelineBadge(buildingsData.buildings.length);
     }
@@ -2255,29 +2255,29 @@ const EditorModule = (() => {
     function renderEditor() {
         const container = document.getElementById('edEditorContent');
         container.innerHTML =
-            '<h2>Gebäude bearbeiten</h2>' +
+            '<h2>Geb\u00e4ude bearbeiten</h2>' +
             '<div class="ed-stats"><div class="ed-stats-row"><span class="ed-stats-label">ID:</span><span class="ed-stats-value">' + currentBuilding.id + '</span></div>' +
             '<div class="ed-stats-row"><span class="ed-stats-label">Polygon-Punkte:</span><span class="ed-stats-value">' + (currentBuilding.polygons || [currentBuilding.polygon]).reduce((s, p) => s + p.length, 0) + (currentBuilding.polygons && currentBuilding.polygons.length > 1 ? ' (' + currentBuilding.polygons.length + ' Polygone)' : '') + '</span></div></div>' +
-            '<div class="ed-form-group"><label class="ed-form-label" for="edNummer">Nummer <span class="info-tip" tabindex="0"><span class="info-tip-text">Optionale Gebäudenummer oder -kennzeichnung (z.B. „B3").</span></span></label>' +
+            '<div class="ed-form-group"><label class="ed-form-label" for="edNummer">Nummer <span class="info-tip" tabindex="0"><span class="info-tip-text">Optionale Geb\u00e4udenummer oder -kennzeichnung (z.B. \u201eB3").</span></span></label>' +
             '<div style="display:flex;align-items:center;gap:10px;"><input type="text" id="edNummer" class="ed-form-input" value="' + escapeHtml(currentBuilding.nummer || '') + '" placeholder="z.B. B3" style="width:100px;flex:none;">' +
             '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;color:#4b5320;white-space:nowrap;"><input type="checkbox" id="edVisible" ' + (!currentBuilding.disabled ? 'checked' : '') + ' style="width:14px;height:14px;accent-color:#4b5320;cursor:pointer;"> Sichtbar</label></div></div>' +
-            '<div class="ed-form-group"><label class="ed-form-label" for="edName">Name <span class="info-tip" tabindex="0"><span class="info-tip-text">Anzeigename des Gebäudes.</span></span></label>' +
-            '<input type="text" id="edName" class="ed-form-input" value="' + escapeHtml(currentBuilding.name) + '" placeholder="z.B. Hauptgebäude"></div>' +
-            '<div class="ed-form-group"><label class="ed-form-label" for="edGruppe">Gruppe <span class="info-tip" tabindex="0"><span class="info-tip-text">Ordnet das Gebäude einer Kategorie zu. Verschachtelte Gruppen mit &quot; &gt; &quot; trennen.</span></span></label>' +
-            '<input type="text" id="edGruppe" class="ed-form-input" value="' + escapeHtml(currentBuilding.gruppe) + '" placeholder="Verwaltung > Hauptgebäude"></div>' +
-            '<div class="ed-form-group"><label class="ed-form-label" for="edBeschreibung">Beschreibung <span class="info-tip" tabindex="0"><span class="info-tip-text">HTML wird unterstützt (z.B. &lt;b&gt;, &lt;i&gt;, &lt;a&gt;, &lt;ul&gt;). Wird beim Klick auf das Gebäude angezeigt.</span></span></label>' +
+            '<div class="ed-form-group"><label class="ed-form-label" for="edName">Name <span class="info-tip" tabindex="0"><span class="info-tip-text">Anzeigename des Geb\u00e4udes.</span></span></label>' +
+            '<input type="text" id="edName" class="ed-form-input" value="' + escapeHtml(currentBuilding.name) + '" placeholder="z.B. Hauptgeb\u00e4ude"></div>' +
+            '<div class="ed-form-group"><label class="ed-form-label" for="edGruppe">Gruppe <span class="info-tip" tabindex="0"><span class="info-tip-text">Ordnet das Geb\u00e4ude einer Kategorie zu. Verschachtelte Gruppen mit &quot; &gt; &quot; trennen.</span></span></label>' +
+            '<input type="text" id="edGruppe" class="ed-form-input" value="' + escapeHtml(currentBuilding.gruppe) + '" placeholder="Verwaltung > Hauptgeb\u00e4ude"></div>' +
+            '<div class="ed-form-group"><label class="ed-form-label" for="edBeschreibung">Beschreibung <span class="info-tip" tabindex="0"><span class="info-tip-text">HTML wird unterst\u00fctzt (z.B. &lt;b&gt;, &lt;i&gt;, &lt;a&gt;, &lt;ul&gt;). Wird beim Klick auf das Geb\u00e4ude angezeigt.</span></span></label>' +
             '<textarea id="edBeschreibung" class="ed-form-input" placeholder="Beschreibung (HTML erlaubt)">' + escapeHtml(currentBuilding.beschreibung) + '</textarea></div>' +
-            '<div class="ed-form-group"><label class="ed-form-label">Highlight-Farbe <span class="info-tip" tabindex="0"><span class="info-tip-text">Farbe für Hervorhebung beim Überfahren oder Auswählen.</span></span></label>' +
+            '<div class="ed-form-group"><label class="ed-form-label">Highlight-Farbe <span class="info-tip" tabindex="0"><span class="info-tip-text">Farbe f\u00fcr Hervorhebung beim \u00dcberfahren oder Ausw\u00e4hlen.</span></span></label>' +
             '<div class="ed-color-picker-group"><div class="ed-color-input-wrapper"><input type="color" id="edColor" value="' + (currentBuilding.highlightColor || '#FFC107') + '"></div>' +
             '<input type="text" id="edColorHex" class="ed-form-input ed-color-hex" value="' + (currentBuilding.highlightColor || '#FFC107') + '" placeholder="#FFC107">' +
-            '<button type="button" class="btn btn-sm" id="edRandomColor" title="Zufällige Farbe" style="padding:0;width:40px;height:40px;min-width:40px;font-size:18px;line-height:1;letter-spacing:0;">&#x1f3b2;</button></div></div>' +
+            '<button type="button" class="btn btn-sm" id="edRandomColor" title="Zuf\u00e4llige Farbe" style="padding:0;width:40px;height:40px;min-width:40px;font-size:18px;line-height:1;letter-spacing:0;">&#x1f3b2;</button></div></div>' +
             '<div style="margin-top:30px;padding-top:20px;border-top:1px solid #c0bda8;">' +
-            '<button class="btn btn-duplicate btn-sm" id="edDuplicate" style="width:100%;margin-bottom:10px;">Gebäude duplizieren</button>' +
-            '<span class="info-tip" tabindex="0" style="margin-bottom:10px;"><span class="info-tip-text">Erstellt eine Kopie dieses Gebäudes mit gleichem Polygon.</span></span>' +
-            '<button class="btn btn-primary btn-sm" id="edMerge" style="width:100%;margin-bottom:10px;">Zusammenführen</button>' +
-            '<span class="info-tip" tabindex="0" style="margin-bottom:10px;"><span class="info-tip-text">Führt ein anderes Gebäude in dieses zusammen (Multi-Polygon).</span></span>' +
-            '<button class="btn btn-danger btn-sm" id="edDelete" style="width:100%;">Gebäude löschen</button>' +
-            '<span class="info-tip" tabindex="0"><span class="info-tip-text">Entfernt das Gebäude. Kann mit Rückgängig (Strg+Z) wiederhergestellt werden.</span></span></div>';
+            '<button class="btn btn-duplicate btn-sm" id="edDuplicate" style="width:100%;margin-bottom:10px;">Geb\u00e4ude duplizieren</button>' +
+            '<span class="info-tip" tabindex="0" style="margin-bottom:10px;"><span class="info-tip-text">Erstellt eine Kopie dieses Geb\u00e4udes mit gleichem Polygon.</span></span>' +
+            '<button class="btn btn-primary btn-sm" id="edMerge" style="width:100%;margin-bottom:10px;">Zusammenf\u00fchren</button>' +
+            '<span class="info-tip" tabindex="0" style="margin-bottom:10px;"><span class="info-tip-text">F\u00fchrt ein anderes Geb\u00e4ude in dieses zusammen (Multi-Polygon).</span></span>' +
+            '<button class="btn btn-danger btn-sm" id="edDelete" style="width:100%;">Geb\u00e4ude l\u00f6schen</button>' +
+            '<span class="info-tip" tabindex="0"><span class="info-tip-text">Entfernt das Geb\u00e4ude. Kann mit R\u00fcckg\u00e4ngig (Strg+Z) wiederhergestellt werden.</span></span></div>';
 
         // Attach event listeners
         function autoEnable() { document.getElementById('edVisible').checked = true; }
@@ -2376,7 +2376,7 @@ const EditorModule = (() => {
         hint.id = 'ed-merge-hint';
         hint.className = 'ed-info-message';
         hint.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:500;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.2);';
-        hint.innerHTML = '<strong>Zusammenführen:</strong> Klicke auf das Gebäude, das zu \u201E' + escapeHtml(mergeTarget.name) + '\u201C hinzugefügt werden soll. <em>ESC</em> zum Abbrechen.';
+        hint.innerHTML = '<strong>Zusammenf\u00fchren:</strong> Klicke auf das Geb\u00e4ude, das zu \u201E' + escapeHtml(mergeTarget.name) + '\u201C hinzugef\u00fcgt werden soll. <em>ESC</em> zum Abbrechen.';
         document.body.appendChild(hint);
     }
 
@@ -2386,7 +2386,7 @@ const EditorModule = (() => {
         const hint = document.getElementById('ed-merge-hint');
         if (hint) hint.remove();
         const btn = document.getElementById('edMerge');
-        if (btn) { btn.textContent = 'Zusammenführen'; btn.classList.remove('btn-danger'); btn.classList.add('btn-primary'); }
+        if (btn) { btn.textContent = 'Zusammenf\u00fchren'; btn.classList.remove('btn-danger'); btn.classList.add('btn-primary'); }
     }
 
     function handleMergeClick(source) {
@@ -2434,7 +2434,7 @@ const EditorModule = (() => {
     // ---- Delete ----
     function deleteBuilding() {
         if (!currentBuilding) return;
-        if (!confirm('Möchten Sie das Gebäude "' + currentBuilding.name + '" (' + currentBuilding.id + ') wirklich löschen?')) return;
+        if (!confirm('M\u00f6chten Sie das Geb\u00e4ude "' + currentBuilding.name + '" (' + currentBuilding.id + ') wirklich l\u00f6schen?')) return;
         const idx = buildingsData.buildings.findIndex(b => b.id === currentBuilding.id);
         if (idx !== -1) {
             UndoManager.pushState();
@@ -2444,7 +2444,7 @@ const EditorModule = (() => {
             renderMap();
             setTimeout(() => {
                 renderSidebar();
-                document.getElementById('edEditorContent').innerHTML = '<div class="ed-empty-state"><h3>Gebäude gelöscht</h3><p>Wählen Sie ein anderes Gebäude aus der Liste.</p></div>';
+                document.getElementById('edEditorContent').innerHTML = '<div class="ed-empty-state"><h3>Geb\u00e4ude gel\u00f6scht</h3><p>W\u00e4hlen Sie ein anderes Geb\u00e4ude aus der Liste.</p></div>';
             }, 100);
         }
     }
@@ -2560,7 +2560,7 @@ const EditorModule = (() => {
             if (dropGroupName.startsWith(draggedGroupName + ' > ')) return false;
             if (dragParent !== dropParent) return false;
         }
-        // Building dragged on group header → valid if same parent
+        // Building dragged on group header \u2192 valid if same parent
         if (draggedBuildingId && dragParent !== dropParent) return false;
         e.preventDefault(); e.dataTransfer.dropEffect = 'move';
         target.classList.add('drag-over');
@@ -2624,7 +2624,7 @@ const EditorModule = (() => {
         });
         const btn = document.getElementById('edToggleAreasBtn');
         if (btn) {
-            btn.innerHTML = '&#x25A1; Flächen ' + (areasVisible ? 'ein' : 'aus');
+            btn.innerHTML = '&#x25A1; Fl\u00e4chen ' + (areasVisible ? 'ein' : 'aus');
             btn.style.background = areasVisible ? '#90CAF9' : '#e0e0e0';
             btn.style.color = areasVisible ? '#1565C0' : '#888';
         }
@@ -2657,7 +2657,7 @@ const EditorModule = (() => {
             svg.querySelectorAll('.ed-drawing-preview-point, .ed-drawing-preview-line').forEach(el => el.remove());
         }
         const btn = document.getElementById('edDrawAreaBtn');
-        if (btn) { btn.textContent = '\u25A1 Fläche'; btn.style.background = '#2196F3'; }
+        if (btn) { btn.textContent = '\u25A1 Fl\u00e4che'; btn.style.background = '#2196F3'; }
         const hint = document.getElementById('edDrawingHint');
         if (hint) hint.remove();
     }
@@ -2711,9 +2711,9 @@ const EditorModule = (() => {
         }, 0);
         const newArea = {
             id: 'building_' + (maxId + 1),
-            name: 'Neue Fläche',
+            name: 'Neue Fl\u00e4che',
             nummer: '',
-            gruppe: 'Flächen',
+            gruppe: 'Fl\u00e4chen',
             beschreibung: '',
             highlightColor: '#2196F3',
             polygon: drawingPoints.map(p => [p[0], p[1]]),
@@ -2730,7 +2730,7 @@ const EditorModule = (() => {
     // ---- Load JSON ----
     function loadJSONFromFile() {
         if (!buildingsData || !buildingsData.buildings) {
-            alert('Kein Pipeline-Ergebnis vorhanden. Bitte zuerst die Pipeline ausführen oder eine HTML-Datei importieren.');
+            alert('Kein Pipeline-Ergebnis vorhanden. Bitte zuerst die Pipeline ausf\u00fchren oder eine HTML-Datei importieren.');
             return;
         }
         document.getElementById('edLoadFileInput').click();
@@ -2742,7 +2742,7 @@ const EditorModule = (() => {
             try {
                 const metadata = JSON.parse(e.target.result);
                 if (!metadata.buildings || !Array.isArray(metadata.buildings)) {
-                    alert('Ungültige Datei: Kein buildings-Array gefunden.');
+                    alert('Ung\u00fcltige Datei: Kein buildings-Array gefunden.');
                     return;
                 }
                 handleMetadataImport(metadata, file);
@@ -2763,7 +2763,7 @@ const EditorModule = (() => {
 
     async function exportStandaloneFromEditor() {
         if (!buildingsData || !pipeline || !pipeline.canvas) {
-            alert('Kein gerendertes Bild vorhanden. Bitte zuerst die Pipeline ausführen.');
+            alert('Kein gerendertes Bild vorhanden. Bitte zuerst die Pipeline ausf\u00fchren.');
             return;
         }
         const exportData = JSON.parse(JSON.stringify(buildingsData));
@@ -2773,7 +2773,7 @@ const EditorModule = (() => {
 
     async function exportSharePoint() {
         if (!buildingsData || !pipeline || !pipeline.canvas) {
-            alert('Kein gerendertes Bild vorhanden. Bitte zuerst die Pipeline ausführen.');
+            alert('Kein gerendertes Bild vorhanden. Bitte zuerst die Pipeline ausf\u00fchren.');
             return;
         }
         const exportData = JSON.parse(JSON.stringify(buildingsData));
@@ -2792,7 +2792,7 @@ const EditorModule = (() => {
         // 1. ASPX page
         _triggerDownload(new Blob([aspx], {type:'application/octet-stream'}), 'building-map.aspx');
 
-        // 2. Image file (PNG) — must be in the same folder as the .aspx
+        // 2. Image file (PNG) \u2014 must be in the same folder as the .aspx
         setTimeout(() => _triggerDownload(imageBlob, imgFilename), 300);
     }
 
@@ -2812,7 +2812,7 @@ const EditorModule = (() => {
             imageContainerId: 'voImageContainer',
             getBuildingsData: () => buildingsData,
             onBuildingClick: (b) => voWidget.showPopup(b),
-            sidebarHeaderRenderer: (bd) => '<h3>' + escapeHtml(bd.title || 'Gebäudekarte') + '</h3><p>Interaktive Vorschau</p>',
+            sidebarHeaderRenderer: (bd) => '<h3>' + escapeHtml(bd.title || 'Geb\u00e4udekarte') + '</h3><p>Interaktive Vorschau</p>',
         });
         voWidget.renderSidebar(document.getElementById('voSidebar'), buildingsData);
         voWidget.renderMap(document.getElementById('voImageContainer'), buildingsData);
@@ -2950,7 +2950,7 @@ const EditorModule = (() => {
 
 // ---- Run buttons ----
 btnRun.addEventListener('click', () => { if (!geojsonData) return; resetUI(); btnRun.disabled=true; btnRerender.disabled=true; saveParams(); pipeline.run(geojsonData, getParams()); });
-btnRerender.addEventListener('click', () => { if (!geojsonData) return; resetUI(); btnRun.disabled=true; btnRerender.disabled=true; saveParams(); onLog('[INFO] Verwende gecachte Gebäudedaten, starte Neurendering...'); pipeline.rerender(geojsonData, getParams()); });
+btnRerender.addEventListener('click', () => { if (!geojsonData) return; resetUI(); btnRun.disabled=true; btnRerender.disabled=true; saveParams(); onLog('[INFO] Verwende gecachte Geb\u00e4udedaten, starte Neurendering...'); pipeline.rerender(geojsonData, getParams()); });
 btnRerender2.addEventListener('click', () => { btnRerender.click(); });
 
 function resetUI() {
@@ -2974,8 +2974,8 @@ btnReset.addEventListener('click', () => {
     resetUI();
     // Reset editor
     document.getElementById('edMapContainer').innerHTML = '<div class="ed-empty-state"><p>Noch keine Kartendaten vorhanden.</p></div>';
-    document.getElementById('edSidebarContent').innerHTML = '<div class="ed-empty-state"><p>Führen Sie zuerst die Pipeline aus, um Gebäude zu laden.</p></div>';
-    document.getElementById('edEditorContent').innerHTML = '<div class="ed-empty-state"><h3>Kein Gebäude ausgewählt</h3><p>Wählen Sie ein Gebäude aus der Liste oder klicken Sie auf ein Gebäude in der Karte.</p></div>';
+    document.getElementById('edSidebarContent').innerHTML = '<div class="ed-empty-state"><p>F\u00fchren Sie zuerst die Pipeline aus, um Geb\u00e4ude zu laden.</p></div>';
+    document.getElementById('edEditorContent').innerHTML = '<div class="ed-empty-state"><h3>Kein Geb\u00e4ude ausgew\u00e4hlt</h3><p>W\u00e4hlen Sie ein Geb\u00e4ude aus der Liste oder klicken Sie auf ein Geb\u00e4ude in der Karte.</p></div>';
     document.getElementById('accordionEditor').classList.add('collapsed');
     updateEditorBadge(0); updatePipelineBadge(0);
     updateUndoRedoVisibility();

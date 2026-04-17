@@ -1,5 +1,5 @@
 // ==========================================================================
-// ViewerWidget — shared viewer logic for sidebar, map overlay, popups
+// ViewerWidget \u2014 shared viewer logic for sidebar, map overlay, popups
 // ==========================================================================
 /**
  * @namespace ViewerWidget
@@ -231,7 +231,7 @@ const ViewerWidget = (function() {
             // Search bar
             const searchBar = document.createElement('div');
             searchBar.className = prefix + '-search-bar';
-            searchBar.innerHTML = '<input type="text" class="' + prefix + '-search-input" placeholder="Gebäude suchen...">';
+            searchBar.innerHTML = '<input type="text" class="' + prefix + '-search-input" placeholder="Geb\u00e4ude suchen...">';
             fragment.appendChild(searchBar);
 
             // Build group hierarchy (ungrouped buildings go into "Sonstige")
@@ -328,7 +328,7 @@ const ViewerWidget = (function() {
 
             const img = document.createElement('img');
             img.src = buildingsData.image.dataUrl || buildingsData.image.filename;
-            img.alt = (buildingsData.title || 'Gebäudekarte') + ' Karte';
+            img.alt = (buildingsData.title || 'Geb\u00e4udekarte') + ' Karte';
 
             const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
             svg.setAttribute('class', prefix + '-svg-overlay');

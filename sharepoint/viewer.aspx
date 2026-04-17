@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gebäudekarte</title>
+    <title>Geb&auml;udekarte</title>
     <style>
         *{margin:0;padding:0;box-sizing:border-box}
         body{font-family:"Segoe UI",system-ui,-apple-system,Arial,Helvetica,sans-serif;height:100vh;overflow:hidden;background:#d6d3c8}
@@ -64,11 +64,11 @@
     <div class="container">
         <aside class="sidebar">
             <div class="sidebar-header">
-                <h1 id="sidebar-title">Gebäudekarte</h1>
+                <h1 id="sidebar-title">Geb&auml;udekarte</h1>
                 <p>Interaktive Karte</p>
             </div>
-            <div class="search-bar"><input type="text" class="search-input" id="search-input" placeholder="Gebäude suchen..."></div>
-            <div id="sidebar-content" class="loading-state">Lade Gebäudedaten...</div>
+            <div class="search-bar"><input type="text" class="search-input" id="search-input" placeholder="Geb&#228;ude suchen..."></div>
+            <div id="sidebar-content" class="loading-state">Lade Geb&auml;udedaten...</div>
             <a id="edit-link" class="edit-link hidden" href="editor.aspx">Bearbeiten &rsaquo;</a>
         </aside>
         <main class="main-content">
@@ -86,14 +86,14 @@
         async function init(){
             try {
                 const r = await fetch('data/building.json' + CB, { cache: 'no-store' });
-                if (!r.ok) throw new Error('Karte noch nicht veröffentlicht (data/building.json fehlt).');
+                if (!r.ok) throw new Error('Karte noch nicht ver\u00f6ffentlicht (data/building.json fehlt).');
                 const ct = (r.headers.get('Content-Type') || '').toLowerCase();
-                if (!ct.includes('json')) throw new Error('Karte noch nicht veröffentlicht (data/building.json fehlt).');
+                if (!ct.includes('json')) throw new Error('Karte noch nicht ver\u00f6ffentlicht (data/building.json fehlt).');
                 buildingsData = await r.json();
                 // Image is an external file next to the JSON
                 buildingsData.image = buildingsData.image || {};
                 buildingsData.image.dataUrl = 'data/building.png' + CB;
-                const title = buildingsData.title || 'Gebäudekarte';
+                const title = buildingsData.title || 'Geb\u00e4udekarte';
                 document.getElementById('sidebar-title').textContent = title;
                 document.title = title;
                 renderImage();

@@ -1,5 +1,5 @@
 // ==========================================================================
-// SharePointIO — REST helpers for loading/saving building.json + building.png
+// SharePointIO \u2014 REST helpers for loading/saving building.json + building.png
 // ==========================================================================
 /**
  * @namespace SharePointIO
@@ -17,7 +17,7 @@ const SharePointIO = (function () {
 
     /** Server-relative URL of the folder that contains the current .aspx. */
     function currentFolderUrl() {
-        // e.g. /sites/x/MapApps/default/editor.aspx → /sites/x/MapApps/default
+        // e.g. /sites/x/MapApps/default/editor.aspx \u2192 /sites/x/MapApps/default
         return decodeURIComponent(location.pathname).replace(/\/[^/]+\.aspx$/i, '');
     }
 
@@ -33,7 +33,7 @@ const SharePointIO = (function () {
         const ct = (response.headers.get('Content-Type') || '').toLowerCase();
         const text = await response.text();
         if (ct.includes('json')) return JSON.parse(text);
-        // XML fallback — rarely needed for the few fields we access, but handle gracefully
+        // XML fallback \u2014 rarely needed for the few fields we access, but handle gracefully
         const xml = new DOMParser().parseFromString(text, 'application/xml');
         return { __xml: xml };
     }
@@ -82,7 +82,7 @@ const SharePointIO = (function () {
         // Last resort: page-embedded digest (present on Classic SP pages as <input id="__REQUESTDIGEST">)
         const embed = document.getElementById('__REQUESTDIGEST');
         if (embed && embed.value) return embed.value;
-        throw new Error('Kein Form-Digest verfügbar — REST-API nicht erreichbar?');
+        throw new Error('Kein Form-Digest verf\u00fcgbar \u2014 REST-API nicht erreichbar?');
     }
 
     // ---- Role detection ----
@@ -117,7 +117,7 @@ const SharePointIO = (function () {
 
     /**
      * Load building.json from ./data/. Returns null if the file is missing
-     * (first-time setup — Designer has not saved yet).
+     * (first-time setup \u2014 Designer has not saved yet).
      * @returns {Promise<Object|null>}
      */
     async function loadBuildingJson() {
@@ -172,7 +172,7 @@ const SharePointIO = (function () {
             try {
                 const t = await r.text();
                 const m = t.match(/<m:message[^>]*>([^<]+)<\/m:message>/) || t.match(/"message"\s*:\s*\{[^}]*"value"\s*:\s*"([^"]+)"/);
-                if (m) msg += ' — ' + m[1];
+                if (m) msg += ' \u2014 ' + m[1];
             } catch (_) {}
             throw new Error('Upload fehlgeschlagen: ' + msg);
         }
@@ -211,7 +211,7 @@ const SharePointIO = (function () {
      */
     async function saveAll(buildingJson, pngBlob) {
         await ensureDataFolder();
-        // Strip data URL from saved JSON — the image lives as a separate file
+        // Strip data URL from saved JSON \u2014 the image lives as a separate file
         const clean = JSON.parse(JSON.stringify(buildingJson));
         if (clean.image) delete clean.image.dataUrl;
         const jsonBlob = new Blob([JSON.stringify(clean, null, 2)], { type: 'application/json' });

@@ -1,12 +1,12 @@
 // ==========================================================================
-// SharePoint adapter — bootstraps the existing editor against SharePoint
+// SharePoint adapter \u2014 bootstraps the existing editor against SharePoint
 // ==========================================================================
 /**
  * Runs after app.js has defined Pipeline, EditorModule, etc.
  * Responsibilities:
  *  1. Load existing building.json + building.png from ./data/ on page open.
- *  2. Replace the "Save ▾" dropdown with a single "Auf SharePoint speichern" action.
- *  3. Detect role — viewers see a banner linking to viewer.aspx.
+ *  2. Replace the "Save \u25be" dropdown with a single "Auf SharePoint speichern" action.
+ *  3. Detect role \u2014 viewers see a banner linking to viewer.aspx.
  *
  * Designed as an overlay (not a rewrite) so app.js stays in lock-step with
  * the non-SharePoint version and we only patch what SharePoint-specific logic requires.
@@ -36,10 +36,10 @@
 
     async function bootstrapFromSharePoint() {
         const json = await SharePointIO.loadBuildingJson();
-        if (!json) return false; // first-time setup — user needs to run the pipeline
+        if (!json) return false; // first-time setup \u2014 user needs to run the pipeline
         const imageBlob = await SharePointIO.loadBuildingImage();
         if (!imageBlob) {
-            toast('building.json vorhanden, aber building.png fehlt — bitte Pipeline neu ausführen.', 'warn');
+            toast('building.json vorhanden, aber building.png fehlt \u2014 bitte Pipeline neu ausf\u00fchren.', 'warn');
             return false;
         }
         // Create a canvas from the PNG so that subsequent re-renders can match metadata
@@ -106,7 +106,7 @@
     async function saveToSharePoint(btn) {
         const buildingsData = EditorModule.getBuildingsData();
         if (!buildingsData) {
-            toast('Keine Gebäudedaten vorhanden — zuerst Pipeline ausführen.', 'error');
+            toast('Keine Geb\u00e4udedaten vorhanden \u2014 zuerst Pipeline ausf\u00fchren.', 'error');
             return;
         }
         // Need a canvas to produce the PNG. Prefer pipeline.canvas; fall back to re-rendering from dataUrl.
@@ -126,12 +126,12 @@
             } catch (e) { /* fall through */ }
         }
         if (!canvas) {
-            toast('Kein Bild zum Speichern vorhanden — bitte Pipeline ausführen.', 'error');
+            toast('Kein Bild zum Speichern vorhanden \u2014 bitte Pipeline ausf\u00fchren.', 'error');
             return;
         }
 
         const originalText = btn ? btn.textContent : '';
-        if (btn) { btn.disabled = true; btn.textContent = 'Speichere…'; }
+        if (btn) { btn.disabled = true; btn.textContent = 'Speichere\u2026'; }
         try {
             const pngBlob = await new Promise(res => canvas.toBlob(res, 'image/png'));
             if (!pngBlob) throw new Error('PNG-Erzeugung fehlgeschlagen');
@@ -143,7 +143,7 @@
                 if (stripped.image) delete stripped.image.dataUrl;
                 await PipelineDB.put('editor', 'buildingsData', stripped);
             } catch (_) {}
-            toast('Gespeichert — Änderungen in SharePoint übernommen.', 'success');
+            toast('Gespeichert \u2014 \u00c4nderungen in SharePoint \u00fcbernommen.', 'success');
         } catch (e) {
             console.error('[sp] save failed', e);
             toast('Speichern fehlgeschlagen: ' + e.message, 'error');
@@ -169,7 +169,7 @@
 
     async function startup() {
         if (typeof SharePointIO === 'undefined') {
-            console.warn('[sp] SharePointIO nicht geladen — SharePoint-Modus inaktiv.');
+            console.warn('[sp] SharePointIO nicht geladen \u2014 SharePoint-Modus inaktiv.');
             return;
         }
 
@@ -177,18 +177,14 @@
 
         const restOk = await SharePointIO.isRestAvailable();
         if (!restOk) {
-            toast('SharePoint-REST nicht erreichbar — im lokalen Test-Modus.', 'warn');
+            toast('SharePoint-REST nicht erreichbar \u2014 im lokalen Test-Modus.', 'warn');
             return;
         }
 
         const role = await SharePointIO.detectRole();
         document.body.dataset.role = role;
-        if (role === 'viewer') {
-            // No write access — redirect to the read-only viewer instead.
-            const viewerUrl = location.pathname.replace(/editor\.aspx$/i, 'viewer.aspx');
-            location.replace(viewerUrl);
-            return;
-        }
+        // Don't redirect: SharePoint folder permissions already control access.
+        // If the user can reach editor.aspx, they should be able to use it.
 
         // Designer: try to bootstrap with an existing map.
         try { await bootstrapFromSharePoint(); }
@@ -196,7 +192,7 @@
     }
 
     // Defer until app.js initApp() IIFE has a chance to attach its handlers.
-    // The initApp IIFE is synchronous up to `await PipelineDB.open()` — so we
+    // The initApp IIFE is synchronous up to `await PipelineDB.open()` \u2014 so we
     // defer one frame and then poll briefly for EditorModule readiness.
     function waitForApp() {
         return new Promise(resolve => {
