@@ -113,17 +113,21 @@
             }
         }
 
-        // Show "Bearbeiten" link only if the user has write permission on this folder.
+        // Show "Bearbeiten" link only if the user has write permission (site-level check).
         async function checkEditPermission() {
             try {
-                const folder = location.pathname.replace(/\/viewer\.aspx$/i, '').replace(/\/$/, '');
-                if (!folder) return;
-                const url = "/_api/web/GetFolderByServerRelativeUrl('" + encodeURIComponent(folder) + "')/ListItemAllFields/EffectiveBasePermissions";
-                const r = await fetch(url, { headers: { Accept: 'application/json;odata=verbose' }, credentials: 'same-origin' });
+                const r = await fetch('/_api/web/effectivebasepermissions', { headers: { Accept: 'application/json;odata=verbose' }, credentials: 'same-origin' });
                 if (!r.ok) return;
-                const j = await r.json();
-                const low = parseInt(j.d.EffectiveBasePermissions.Low, 10) || 0;
-                // PermissionKind.EditListItems = 0x4
+                const ct = (r.headers.get('Content-Type') || '').toLowerCase();
+                let low;
+                if (ct.includes('json')) {
+                    const j = await r.json();
+                    low = parseInt(j.d.Low, 10) || 0;
+                } else {
+                    const xml = new DOMParser().parseFromString(await r.text(), 'application/xml');
+                    const el = xml.querySelector('Low');
+                    low = parseInt(el ? el.textContent : '0', 10);
+                }
                 if (low & 0x4) document.getElementById('edit-link').classList.remove('hidden');
             } catch (e) { /* viewer-only, nothing to do */ }
         }

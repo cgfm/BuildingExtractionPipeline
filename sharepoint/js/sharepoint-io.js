@@ -86,16 +86,13 @@ const SharePointIO = (function () {
     }
 
     // ---- Role detection ----
-    // EffectiveBasePermissions is a pair of 32-bit ints (High, Low).
-    // EditListItems = 0x4 on the Low side — sufficient to determine "can write to this folder".
+    // Uses site-level EffectiveBasePermissions (/_api/web/effectivebasepermissions).
+    // This is more reliable than folder-level checks which can fail with 500 on
+    // empty folders or folders without a ListItem. EditListItems = bit 2 on Low.
 
     async function detectRole() {
         try {
-            const folder = dataFolderUrl();
-            if (!folder) return 'viewer';
-            const url = "/_api/web/GetFolderByServerRelativeUrl('" + encodeURIComponent(folder)
-                      + "')/ListItemAllFields/EffectiveBasePermissions";
-            const r = await fetch(url, {
+            const r = await fetch('/_api/web/effectivebasepermissions', {
                 headers: { Accept: 'application/json;odata=verbose' },
                 credentials: 'same-origin'
             });
@@ -104,7 +101,7 @@ const SharePointIO = (function () {
             let low;
             if (ct.includes('json')) {
                 const j = await r.json();
-                low = parseInt(j.d.EffectiveBasePermissions.Low, 10) || 0;
+                low = parseInt(j.d.Low, 10) || 0;
             } else {
                 const xml = new DOMParser().parseFromString(await r.text(), 'application/xml');
                 low = parseInt(xmlText(xml, 'Low') || '0', 10);
