@@ -1804,6 +1804,9 @@ const EditorModule = (() => {
     let drawingMode = false;
     let drawingPoints = [];
     let areasVisible = true;
+    // Active vertex drag for area shape editing.
+    // Shape: { handle, polyIdx, vertIdx, building, pointerId } | null
+    let _vertexDrag = null;
 
     // ---- UndoManager ----
     const UndoManager = (() => {
@@ -1933,13 +1936,14 @@ const EditorModule = (() => {
         const regular = buildingsData.buildings.filter(b => !b.isArea);
         [...areas, ...regular].forEach(building => {
             const polys = building.polygons || [building.polygon];
-            polys.forEach(poly => {
+            polys.forEach((poly, polyIdx) => {
                 if (!poly) return;
                 const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
                 const points = poly.map(([x, y]) => (x * width) + ',' + (y * height)).join(' ');
                 polygon.setAttribute('points', points);
                 polygon.setAttribute('class', 'ed-building-polygon' + (building.isArea ? ' ed-area-polygon' + (!areasVisible ? ' area-hidden' : '') : '') + (building.disabled ? ' ed-disabled-polygon' : ''));
                 polygon.setAttribute('data-building-id', building.id);
+                polygon.setAttribute('data-poly-index', polyIdx);
                 if (building.disabled) {
                     polygon.style.opacity = '0.3';
                 }
@@ -1968,6 +1972,13 @@ const EditorModule = (() => {
         svg.addEventListener('dblclick', (e) => {
             if (drawingMode && drawingPoints.length >= 3) { e.preventDefault(); finishDrawing(); }
         });
+
+        // Re-render shape-editing handles for the currently selected area, if any.
+        // Handles live as separate SVG elements on top of the polygons; renderMap
+        // rebuilds the SVG so we need to reattach them on every render.
+        if (currentBuilding && currentBuilding.isArea && !drawingMode && !mergeMode) {
+            renderAreaShapeHandles(currentBuilding, svg);
+        }
 
         container.appendChild(svg);
         mapContainer.innerHTML = '';
@@ -2275,16 +2286,26 @@ const EditorModule = (() => {
             circle.setAttribute('r', radius * Math.max(svgWidth, svgHeight));
             svg.appendChild(circle);
         }
+        // Show vertex handles when an area is selected so the user can reshape it.
+        if (building.isArea) renderAreaShapeHandles(building);
+        else clearAreaShapeHandles();
         renderEditor();
     }
 
     // ---- Editor form ----
     function renderEditor() {
         const container = document.getElementById('edEditorContent');
+        const isArea = !!currentBuilding.isArea;
         container.innerHTML =
-            '<h2>Geb\u00e4ude bearbeiten</h2>' +
+            '<h2>' + (isArea ? 'Fl\u00e4che bearbeiten' : 'Geb\u00e4ude bearbeiten') + '</h2>' +
             '<div class="ed-stats"><div class="ed-stats-row"><span class="ed-stats-label">ID:</span><span class="ed-stats-value">' + currentBuilding.id + '</span></div>' +
             '<div class="ed-stats-row"><span class="ed-stats-label">Polygon-Punkte:</span><span class="ed-stats-value">' + (currentBuilding.polygons || [currentBuilding.polygon]).reduce((s, p) => s + p.length, 0) + (currentBuilding.polygons && currentBuilding.polygons.length > 1 ? ' (' + currentBuilding.polygons.length + ' Polygone)' : '') + '</span></div></div>' +
+            (isArea
+                ? '<div class="ed-area-edit-hint">'
+                    + '<strong>Form bearbeiten:</strong> Punkte ziehen zum Verschieben &middot; '
+                    + 'kleine Zwischenpunkte klicken zum Hinzuf\u00fcgen &middot; Doppelklick auf einen Punkt zum Entfernen.'
+                  + '</div>'
+                : '') +
             '<div class="ed-form-group"><label class="ed-form-label" for="edNummer">Nummer <span class="info-tip" tabindex="0"><span class="info-tip-text">Optionale Geb\u00e4udenummer oder -kennzeichnung (z.B. \u201eB3").</span></span></label>' +
             '<div style="display:flex;align-items:center;gap:10px;"><input type="text" id="edNummer" class="ed-form-input" value="' + escapeHtml(currentBuilding.nummer || '') + '" placeholder="z.B. B3" style="width:100px;flex:none;">' +
             '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;color:#4b5320;white-space:nowrap;"><input type="checkbox" id="edVisible" ' + (!currentBuilding.disabled ? 'checked' : '') + ' style="width:14px;height:14px;accent-color:#4b5320;cursor:pointer;"> Sichtbar</label></div></div>' +
@@ -2396,6 +2417,7 @@ const EditorModule = (() => {
         if (!currentBuilding) return;
         if (mergeMode) { cancelMergeMode(); return; }
         mergeMode = true; mergeTarget = currentBuilding;
+        clearAreaShapeHandles();
         document.body.style.cursor = 'crosshair';
         const btn = document.getElementById('edMerge');
         if (btn) { btn.textContent = 'Abbrechen'; btn.classList.remove('btn-primary'); btn.classList.add('btn-danger'); }
@@ -2414,6 +2436,7 @@ const EditorModule = (() => {
         if (hint) hint.remove();
         const btn = document.getElementById('edMerge');
         if (btn) { btn.textContent = 'Zusammenf\u00fchren'; btn.classList.remove('btn-danger'); btn.classList.add('btn-primary'); }
+        if (currentBuilding && currentBuilding.isArea) renderAreaShapeHandles(currentBuilding);
     }
 
     function handleMergeClick(source) {
@@ -2663,6 +2686,7 @@ const EditorModule = (() => {
         if (mergeMode) return;
         drawingMode = true;
         drawingPoints = [];
+        clearAreaShapeHandles();
         const svg = document.querySelector('.ed-svg-overlay');
         if (svg) svg.classList.add('drawing-mode');
         const btn = document.getElementById('edDrawAreaBtn');
@@ -2687,6 +2711,7 @@ const EditorModule = (() => {
         if (btn) { btn.textContent = '\u25A1 Fl\u00e4che'; btn.style.background = '#2196F3'; }
         const hint = document.getElementById('edDrawingHint');
         if (hint) hint.remove();
+        if (currentBuilding && currentBuilding.isArea) renderAreaShapeHandles(currentBuilding);
     }
 
     function updateDrawingPreview() {
@@ -2752,6 +2777,195 @@ const EditorModule = (() => {
         cancelDrawingMode();
         renderMap();
         requestAnimationFrame(() => { renderSidebar(); selectBuilding(newArea); });
+    }
+
+    // ---- Area shape editing (vertex handles for isArea polygons) ----
+    // Selected areas show a small handle at every vertex and a smaller handle at
+    // every edge midpoint. Drag a vertex to move it, click a midpoint to insert
+    // a new vertex there, double-click a vertex to remove it (>= 3 vertices kept).
+    // Each gesture creates a single undo entry and persists to IDB on commit.
+
+    function _normalizedPointFromEvent(e) {
+        const svg = document.querySelector('.ed-svg-overlay');
+        if (!svg || !buildingsData || !buildingsData.image) return null;
+        const rect = svg.getBoundingClientRect();
+        const w = buildingsData.image.width, h = buildingsData.image.height;
+        if (rect.width <= 0 || rect.height <= 0) return null;
+        const scaleX = w / rect.width, scaleY = h / rect.height;
+        const x = (e.clientX - rect.left) * scaleX / w;
+        const y = (e.clientY - rect.top) * scaleY / h;
+        return [Math.max(0, Math.min(1, x)), Math.max(0, Math.min(1, y))];
+    }
+
+    function _updateAreaPolygonSvg(building, polyIdx) {
+        if (!buildingsData || !buildingsData.image) return;
+        const w = buildingsData.image.width, h = buildingsData.image.height;
+        const polys = building.polygons || [building.polygon];
+        const poly = polys[polyIdx];
+        if (!poly) return;
+        const sel = '.ed-svg-overlay polygon[data-building-id="' + building.id + '"][data-poly-index="' + polyIdx + '"]';
+        const el = document.querySelector(sel);
+        if (el) el.setAttribute('points', poly.map(([x, y]) => (x * w) + ',' + (y * h)).join(' '));
+    }
+
+    function clearAreaShapeHandles() {
+        document.querySelectorAll('.ed-svg-overlay .ed-area-vertex, .ed-svg-overlay .ed-area-midpoint').forEach(el => el.remove());
+    }
+
+    function renderAreaShapeHandles(building, svgArg) {
+        clearAreaShapeHandles();
+        if (!building || !building.isArea) return;
+        if (drawingMode || mergeMode) return;
+        if (!buildingsData || !buildingsData.image) return;
+        const svg = svgArg || document.querySelector('.ed-svg-overlay');
+        if (!svg) return;
+        const w = buildingsData.image.width, h = buildingsData.image.height;
+        const r = Math.max(4, Math.min(w, h) * 0.005);
+        const polys = building.polygons || [building.polygon];
+        polys.forEach((poly, polyIdx) => {
+            if (!poly || poly.length === 0) return;
+            // Midpoint handles first (drawn behind vertex handles)
+            for (let i = 0; i < poly.length; i++) {
+                const a = poly[i], b = poly[(i + 1) % poly.length];
+                const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+                const m = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                m.setAttribute('class', 'ed-area-midpoint');
+                m.setAttribute('cx', mx * w);
+                m.setAttribute('cy', my * h);
+                m.setAttribute('r', r * 0.7);
+                m.setAttribute('data-poly-index', polyIdx);
+                m.setAttribute('data-insert-after', i);
+                m.addEventListener('click', _onMidpointClick);
+                svg.appendChild(m);
+            }
+            // Vertex handles
+            poly.forEach((p, vertIdx) => {
+                const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                c.setAttribute('class', 'ed-area-vertex');
+                c.setAttribute('cx', p[0] * w);
+                c.setAttribute('cy', p[1] * h);
+                c.setAttribute('r', r);
+                c.setAttribute('data-poly-index', polyIdx);
+                c.setAttribute('data-vert-index', vertIdx);
+                c.addEventListener('pointerdown', _onVertexPointerDown);
+                c.addEventListener('dblclick', _onVertexDblClick);
+                c.addEventListener('contextmenu', (e) => e.preventDefault());
+                svg.appendChild(c);
+            });
+        });
+    }
+
+    function _onVertexPointerDown(e) {
+        if (e.button !== undefined && e.button !== 0) return; // primary button only
+        if (!currentBuilding || !currentBuilding.isArea) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const handle = e.currentTarget;
+        const polyIdx = parseInt(handle.getAttribute('data-poly-index'), 10);
+        const vertIdx = parseInt(handle.getAttribute('data-vert-index'), 10);
+        try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+        handle.classList.add('dragging');
+        UndoManager.pushState();
+        _vertexDrag = { handle, polyIdx, vertIdx, building: currentBuilding, pointerId: e.pointerId };
+        handle.addEventListener('pointermove', _onVertexPointerMove);
+        handle.addEventListener('pointerup', _onVertexPointerUp);
+        handle.addEventListener('pointercancel', _onVertexPointerUp);
+    }
+
+    function _onVertexPointerMove(e) {
+        if (!_vertexDrag) return;
+        const norm = _normalizedPointFromEvent(e);
+        if (!norm) return;
+        const b = _vertexDrag.building;
+        const polys = b.polygons || [b.polygon];
+        const poly = polys[_vertexDrag.polyIdx];
+        if (!poly) return;
+        poly[_vertexDrag.vertIdx] = norm;
+        if (!b.polygons) b.polygon = poly;
+
+        _updateAreaPolygonSvg(b, _vertexDrag.polyIdx);
+
+        const w = buildingsData.image.width, h = buildingsData.image.height;
+        _vertexDrag.handle.setAttribute('cx', norm[0] * w);
+        _vertexDrag.handle.setAttribute('cy', norm[1] * h);
+        // Reposition the two midpoint handles adjacent to this vertex
+        const len = poly.length;
+        const prevI = (_vertexDrag.vertIdx - 1 + len) % len;
+        const nextI = _vertexDrag.vertIdx;
+        const prevPt = poly[prevI];
+        const nextPt = poly[(nextI + 1) % len];
+        const polyIdx = _vertexDrag.polyIdx;
+        const moveMid = (afterIdx, ax, ay, bx, by) => {
+            const sel = '.ed-svg-overlay .ed-area-midpoint[data-poly-index="' + polyIdx + '"][data-insert-after="' + afterIdx + '"]';
+            const el = document.querySelector(sel);
+            if (el) {
+                el.setAttribute('cx', ((ax + bx) / 2) * w);
+                el.setAttribute('cy', ((ay + by) / 2) * h);
+            }
+        };
+        moveMid(prevI, prevPt[0], prevPt[1], norm[0], norm[1]);
+        moveMid(nextI, norm[0], norm[1], nextPt[0], nextPt[1]);
+    }
+
+    function _onVertexPointerUp(e) {
+        if (!_vertexDrag) return;
+        const handle = _vertexDrag.handle;
+        try { handle.releasePointerCapture(_vertexDrag.pointerId); } catch (_) {}
+        handle.classList.remove('dragging');
+        handle.removeEventListener('pointermove', _onVertexPointerMove);
+        handle.removeEventListener('pointerup', _onVertexPointerUp);
+        handle.removeEventListener('pointercancel', _onVertexPointerUp);
+        _vertexDrag = null;
+        hasChanges = true;
+        persistToIDB();
+        // Refresh the editor stats line (vertex count display)
+        if (currentBuilding) renderEditor();
+    }
+
+    function _onVertexDblClick(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!currentBuilding || !currentBuilding.isArea) return;
+        const handle = e.currentTarget;
+        const polyIdx = parseInt(handle.getAttribute('data-poly-index'), 10);
+        const vertIdx = parseInt(handle.getAttribute('data-vert-index'), 10);
+        const b = currentBuilding;
+        const polys = b.polygons || [b.polygon];
+        const poly = polys[polyIdx];
+        if (!poly) return;
+        if (poly.length <= 3) {
+            alert('Eine Fl\u00e4che muss mindestens 3 Punkte haben.');
+            return;
+        }
+        UndoManager.pushState();
+        poly.splice(vertIdx, 1);
+        if (!b.polygons) b.polygon = poly;
+        hasChanges = true; persistToIDB();
+        _updateAreaPolygonSvg(b, polyIdx);
+        renderAreaShapeHandles(b);
+        renderEditor();
+    }
+
+    function _onMidpointClick(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!currentBuilding || !currentBuilding.isArea) return;
+        const handle = e.currentTarget;
+        const polyIdx = parseInt(handle.getAttribute('data-poly-index'), 10);
+        const afterIdx = parseInt(handle.getAttribute('data-insert-after'), 10);
+        const b = currentBuilding;
+        const polys = b.polygons || [b.polygon];
+        const poly = polys[polyIdx];
+        if (!poly) return;
+        const a = poly[afterIdx], c = poly[(afterIdx + 1) % poly.length];
+        const newPt = [(a[0] + c[0]) / 2, (a[1] + c[1]) / 2];
+        UndoManager.pushState();
+        poly.splice(afterIdx + 1, 0, newPt);
+        if (!b.polygons) b.polygon = poly;
+        hasChanges = true; persistToIDB();
+        _updateAreaPolygonSvg(b, polyIdx);
+        renderAreaShapeHandles(b);
+        renderEditor();
     }
 
     // ---- Load JSON ----
