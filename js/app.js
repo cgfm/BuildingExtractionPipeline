@@ -764,7 +764,12 @@ function createBuildingJson(canvas, buildingPolygons, imageFilename, previousBui
                 bNew.gruppe = old.gruppe;
                 bNew.beschreibung = old.beschreibung;
                 bNew.highlightColor = old.highlightColor;
-                if (old.polygons) bNew.polygons = JSON.parse(JSON.stringify(old.polygons));
+                // Note: do NOT copy old.polygons. They are normalized to the OLD canvas/bbox.
+                // The new render's bNew.polygon (set by the OSM extractor for this run) is
+                // already correct for the new canvas. Copying old.polygons would override
+                // the correct geometry with stale coordinates and place polygons at wrong
+                // pixel positions when the map bbox/aspect ratio differs between runs.
+                // (Side effect: previous merge-history is dropped — user can re-merge if needed.)
                 if ('disabled' in old) bNew.disabled = old.disabled;
             }
         }
@@ -1339,19 +1344,33 @@ function handleMetadataImport(metadata, file) {
             bTarget.gruppe = sanitizeString(src.gruppe, 500);
             bTarget.beschreibung = sanitizeString(src.beschreibung, 5000);
             bTarget.highlightColor = sanitizeColor(src.highlightColor);
-            if (src.polygons) bTarget.polygons = JSON.parse(JSON.stringify(src.polygons));
+            // Note: do NOT copy src.polygons. They are normalized to the canvas/bbox of
+            // the source render. Copying them onto bTarget (whose own polygon is correct
+            // for the current render) would visibly misplace shapes when the bbox or
+            // aspect ratio differs. The current bTarget.polygon is the source of truth
+            // for geometry; only metadata is migrated here.
             if ('disabled' in src) bTarget.disabled = src.disabled;
             if (src.isArea) bTarget.isArea = true; else delete bTarget.isArea;
             merged++;
         }
     }
-    // Add unmatched source buildings (duplicates, hand-drawn areas, etc.)
+    // Add unmatched source buildings.
+    // - Hand-drawn areas (isArea): keep them so the user doesn't lose their work,
+    //   but warn that positions may be off if the map bbox changed (no re-projection
+    //   yet — needs explicit bbox in the JSON to be accurate).
+    // - Plain OSM-derived buildings that did not match anything in the current render:
+    //   most likely demolished, outside the new bbox, or moved >threshold. Their
+    //   normalized polygons would render at wrong pixel positions, so we skip them
+    //   rather than leaving phantom shapes on the map.
     let added = 0;
+    let skipped = 0;
+    let areasMaybeMisplaced = 0;
     for (let i = 0; i < source.length; i++) {
         if (used.has(i)) continue;
         const src = source[i];
-        // Only add if it has a polygon (valid building/area)
+        // Only consider entries that actually carry geometry.
         if (!src.polygon && !(src.polygons && src.polygons.length)) continue;
+        if (!src.isArea) { skipped++; continue; }
         let maxId = buildingsData.buildings.reduce((max, b) => {
             const m = b.id.match(/building_(\d+)/);
             return m ? Math.max(max, parseInt(m[1])) : max;
@@ -1366,6 +1385,7 @@ function handleMetadataImport(metadata, file) {
         target.push(newBuilding);
         matchMap.set(target.length - 1, i);
         added++;
+        areasMaybeMisplaced++;
     }
     // Reorder target buildings to match the source file order.
     // Matched buildings are sorted by their source index; unmatched go to the end.
@@ -1374,7 +1394,14 @@ function handleMetadataImport(metadata, file) {
     buildingsData.buildings = indexed.map(e => e.building);
     // Re-init editor with updated data and persist
     EditorModule.init(buildingsData);
-    const msg = merged + ' aktualisiert' + (added ? ', ' + added + ' neu hinzugefügt' : '') + ' (' + source.length + ' in Quelldatei, ' + target.length + ' gesamt).';
+    const parts = [merged + ' aktualisiert'];
+    if (added) parts.push(added + ' Fläche(n) übernommen');
+    if (skipped) parts.push(skipped + ' nicht zugeordnete (vermutlich abgerissen oder außerhalb)');
+    let msg = parts.join(', ') + ' \u2014 ' + source.length + ' in Quelldatei, ' + target.length + ' gesamt.';
+    if (areasMaybeMisplaced) {
+        msg += '\n\nHinweis: ' + areasMaybeMisplaced + ' hand-gezeichnete Fläche(n) wurden übernommen, '
+            + 'können aber bei geändertem Kartenausschnitt verschoben sein und müssen ggf. neu platziert werden.';
+    }
     alert(msg);
 }
 
