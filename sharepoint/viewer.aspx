@@ -124,7 +124,9 @@
                 let low;
                 if (ct.includes('json')) {
                     const j = await r.json();
-                    low = parseInt(j.d.Low, 10) || 0;
+                    // Response: { d: { EffectiveBasePermissions: { High: "...", Low: "..." } } }
+                    const perms = j.d && j.d.EffectiveBasePermissions;
+                    low = parseInt((perms && perms.Low) || '0', 10);
                 } else {
                     const xml = new DOMParser().parseFromString(await r.text(), 'application/xml');
                     const el = xml.querySelector('Low');
