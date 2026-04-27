@@ -9,15 +9,17 @@ const SharePointIO = (function () {
     // SharePoint injects _spPageContextInfo on every page it serves -- use it.
 
     function getWebUrl() {
-        // Primary: SharePoint's own page context (always correct)
+        // Primary: SharePoint's own page context (always correct, set by SP itself)
         if (window._spPageContextInfo && window._spPageContextInfo.webServerRelativeUrl) {
             return window._spPageContextInfo.webServerRelativeUrl.replace(/\/$/, '');
         }
-        // Fallback: parse pathname for common SP patterns
-        // /sites/x, /teams/x, /portals/x, /personal/<email>
-        const m = location.pathname.match(/^(\/(?:sites|teams|portals|personal)\/[^/]+)/i);
+        // Fallback: SharePoint sites always live exactly 2 path segments deep,
+        // e.g. /sites/<name>, /teams/<name>, /portale/<name> (German on-prem),
+        // /portals/<name>, /personal/<email>, or any custom managed path.
+        // Take the first two segments regardless of their literal names.
+        const m = location.pathname.match(/^(\/[^/]+\/[^/]+)/);
         if (m) return m[1];
-        // Root site collection
+        // Root site collection (rare)
         return '';
     }
 
