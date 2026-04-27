@@ -13,14 +13,45 @@ const SharePointIO = (function () {
         if (window._spPageContextInfo && window._spPageContextInfo.webServerRelativeUrl) {
             return window._spPageContextInfo.webServerRelativeUrl.replace(/\/$/, '');
         }
-        // Fallback: parse pathname for common SP patterns (/sites/x, /teams/x, /portals/x)
-        const m = location.pathname.match(/^(\/(?:sites|teams|portals)\/[^/]+)/i);
+        // Fallback: parse pathname for common SP patterns
+        // /sites/x, /teams/x, /portals/x, /personal/<email>
+        const m = location.pathname.match(/^(\/(?:sites|teams|portals|personal)\/[^/]+)/i);
         if (m) return m[1];
         // Root site collection
         return '';
     }
 
     function apiBase() { return getWebUrl() + '/_api'; }
+
+    // Diagnostic: dump everything we use to determine the API base.
+    // Call window.SharePointIO.debug() from the browser console.
+    function debug() {
+        const ctx = window._spPageContextInfo || null;
+        const info = {
+            href: location.href,
+            pathname: location.pathname,
+            spPageContext: ctx ? {
+                webServerRelativeUrl: ctx.webServerRelativeUrl,
+                siteServerRelativeUrl: ctx.siteServerRelativeUrl,
+                webAbsoluteUrl: ctx.webAbsoluteUrl,
+            } : '(_spPageContextInfo NOT available)',
+            getWebUrl: getWebUrl(),
+            apiBase: apiBase(),
+            currentFolderUrl: currentFolderUrl(),
+            dataFolderUrl: dataFolderUrl(),
+            requestDigestEmbed: !!document.getElementById('__REQUESTDIGEST'),
+        };
+        console.table(info);
+        return info;
+    }
+
+    // Log once at script load so we can see config without manual call
+    try {
+        console.log('[sp-io] init',
+            'webUrl=' + (getWebUrl() || '(root)'),
+            'apiBase=' + apiBase(),
+            'spCtx=' + (window._spPageContextInfo ? 'yes' : 'no'));
+    } catch (_) {}
 
     // ---- URL helpers ----
 
@@ -215,17 +246,23 @@ const SharePointIO = (function () {
     // ---- Availability probe ----
 
     async function isRestAvailable() {
+        const url = apiBase() + '/web/Title';
         try {
-            const r = await fetch(apiBase() + '/web/Title', {
+            const r = await fetch(url, {
                 headers: { Accept: 'application/json;odata=verbose' },
                 credentials: 'same-origin'
             });
+            console.log('[sp-io] isRestAvailable', url, '->', r.status, r.headers.get('Content-Type'));
             return r.ok;
-        } catch (_) { return false; }
+        } catch (e) {
+            console.warn('[sp-io] isRestAvailable failed', url, e.message);
+            return false;
+        }
     }
 
     return {
         getWebUrl,
+        apiBase,
         currentFolderUrl,
         dataFolderUrl,
         detectRole,
@@ -233,5 +270,6 @@ const SharePointIO = (function () {
         loadBuildingImage,
         saveAll,
         isRestAvailable,
+        debug,
     };
 })();
