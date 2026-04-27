@@ -83,18 +83,91 @@
         // Cache-buster: append folder ETag or just a timestamp to force fresh fetches
         const CB = '?t=' + Date.now();
 
+        // ---- URL resolution -------------------------------------------------
+        // SharePoint deployments live at custom paths (/sites/<n>/, /teams/<n>/,
+        // /daten/<n>/, ...). Build absolute server-relative URLs from the page's
+        // own location so a wrong-shaped relative fetch can't be misrouted.
+        function webUrl() {
+            if (window._spPageContextInfo && window._spPageContextInfo.webServerRelativeUrl) {
+                return window._spPageContextInfo.webServerRelativeUrl.replace(/\/$/, '');
+            }
+            const m = location.pathname.match(/^(\/[^/]+\/[^/]+)/);
+            return m ? m[1] : '';
+        }
+        function currentFolderUrl() {
+            return decodeURIComponent(location.pathname).replace(/\/[^/]+\.aspx$/i, '');
+        }
+        function dataFolderUrl() { return currentFolderUrl() + '/data'; }
+        function spStr(s) { return s.replace(/'/g, "''"); }
+
+        // Try a fetch and return the raw text if the response looks legitimate.
+        // Returns null on 404 or non-2xx; throws nothing.
+        async function _tryFetchText(url, label) {
+            try {
+                const r = await fetch(url, { cache: 'no-store', credentials: 'same-origin' });
+                const ct = r.headers.get('Content-Type') || '';
+                console.log('[viewer]', label, url, '->', r.status, ct);
+                if (!r.ok) return null;
+                const text = await r.text();
+                // Reject obvious HTML responses (SharePoint's friendly 404 page returns 200 + HTML)
+                if (text.length > 0 && text.trimStart().slice(0, 1) === '<') {
+                    console.warn('[viewer]', label, 'returned HTML (likely a SharePoint 404/login page). First 200 chars:', text.slice(0, 200));
+                    return null;
+                }
+                return text;
+            } catch (e) {
+                console.warn('[viewer]', label, 'failed:', e.message);
+                return null;
+            }
+        }
+
+        // Build SharePoint REST URL that streams a file's bytes regardless of MIME map.
+        function restFileUrl(serverRelPath) {
+            return webUrl() + "/_api/web/GetFileByServerRelativeUrl('" + spStr(serverRelPath) + "')/$value?t=" + Date.now();
+        }
+
+        // Load building.json: relative URL first, then SharePoint REST fallback.
+        async function loadJson() {
+            const directUrl = 'data/building.json' + CB;
+            let text = await _tryFetchText(directUrl, 'json/direct');
+            let usedRest = false;
+            if (text === null) {
+                text = await _tryFetchText(restFileUrl(dataFolderUrl() + '/building.json'), 'json/rest');
+                usedRest = true;
+            }
+            if (text === null) {
+                throw new Error('building.json nicht erreichbar. Direkt: ' + directUrl + ' | Folder: ' + dataFolderUrl());
+            }
+            try { return { data: JSON.parse(text), usedRest }; }
+            catch (e) {
+                console.warn('[viewer] JSON.parse failed. Body preview:', text.slice(0, 200));
+                throw new Error('data/building.json ist kein g\u00fcltiges JSON.');
+            }
+        }
+
+        // Image URL: prefer the same access path that worked for the JSON.
+        async function imageDataUrl(usedRest) {
+            const direct = 'data/building.png' + CB;
+            if (!usedRest) return direct;
+            // REST fallback: fetch as blob and turn into an object URL
+            const url = restFileUrl(dataFolderUrl() + '/building.png');
+            try {
+                const r = await fetch(url, { cache: 'no-store', credentials: 'same-origin' });
+                console.log('[viewer] png/rest', url, '->', r.status, r.headers.get('Content-Type'));
+                if (!r.ok) return direct; // best-effort fall-through
+                return URL.createObjectURL(await r.blob());
+            } catch (e) {
+                console.warn('[viewer] png/rest failed:', e.message);
+                return direct;
+            }
+        }
+
         async function init(){
             try {
-                const r = await fetch('data/building.json' + CB, { cache: 'no-store', credentials: 'same-origin' });
-                if (!r.ok) throw new Error('Karte noch nicht ver\u00f6ffentlicht (data/building.json fehlt).');
-                // Don't enforce Content-Type \u2014 SharePoint may serve .json as application/octet-stream
-                // when the MIME map for the library has no entry for .json. Just try to parse the body.
-                const text = await r.text();
-                try { buildingsData = JSON.parse(text); }
-                catch (_) { throw new Error('data/building.json ist nicht lesbar (kein g\u00fcltiges JSON).'); }
-                // Image is an external file next to the JSON
+                const { data, usedRest } = await loadJson();
+                buildingsData = data;
                 buildingsData.image = buildingsData.image || {};
-                buildingsData.image.dataUrl = 'data/building.png' + CB;
+                buildingsData.image.dataUrl = await imageDataUrl(usedRest);
                 const title = buildingsData.title || 'Geb\u00e4udekarte';
                 document.getElementById('sidebar-title').textContent = title;
                 document.title = title;
@@ -120,7 +193,7 @@
         // Show "Bearbeiten" link only if the user has write permission (site-level check).
         async function checkEditPermission() {
             try {
-                const r = await fetch('/_api/web/effectivebasepermissions', { headers: { Accept: 'application/json;odata=verbose' }, credentials: 'same-origin' });
+                const r = await fetch(webUrl() + '/_api/web/effectivebasepermissions', { headers: { Accept: 'application/json;odata=verbose' }, credentials: 'same-origin' });
                 if (!r.ok) return;
                 const ct = (r.headers.get('Content-Type') || '').toLowerCase();
                 let low;
