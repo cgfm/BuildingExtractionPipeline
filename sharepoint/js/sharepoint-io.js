@@ -1,133 +1,136 @@
 // ==========================================================================
-// SharePointIO \u2014 REST helpers for loading/saving building.json + building.png
+// SharePointIO -- REST helpers for loading/saving building.json + building.png
 // ==========================================================================
-/**
- * @namespace SharePointIO
- * Encapsulates SharePoint REST interaction:
- *  - Detect role (designer vs. viewer) via EffectiveBasePermissions
- *  - Load JSON + PNG from ./data/ folder relative to the current .aspx page
- *  - Save JSON + PNG back via Files/add (requires X-RequestDigest)
- *  - XML/JSON response auto-negotiation (falls back when OData=verbose disabled)
- *
- * Uses `credentials: 'same-origin'` so SharePoint's auth cookies are sent.
- */
 const SharePointIO = (function () {
+
+    // ---- API base URL ----
+    // SharePoint portals live at /sites/<name>/ or /teams/<name>/, never at /.
+    // All REST calls must be relative to the site web, not the domain root.
+    // SharePoint injects _spPageContextInfo on every page it serves -- use it.
+
+    function getWebUrl() {
+        // Primary: SharePoint's own page context (always correct)
+        if (window._spPageContextInfo && window._spPageContextInfo.webServerRelativeUrl) {
+            return window._spPageContextInfo.webServerRelativeUrl.replace(/\/$/, '');
+        }
+        // Fallback: parse pathname for common SP patterns (/sites/x, /teams/x, /portals/x)
+        const m = location.pathname.match(/^(\/(?:sites|teams|portals)\/[^/]+)/i);
+        if (m) return m[1];
+        // Root site collection
+        return '';
+    }
+
+    function apiBase() { return getWebUrl() + '/_api'; }
 
     // ---- URL helpers ----
 
-    /** Server-relative URL of the folder that contains the current .aspx. */
+    /** Server-relative path of the folder containing the current .aspx page. */
     function currentFolderUrl() {
-        // e.g. /sites/x/MapApps/default/editor.aspx \u2192 /sites/x/MapApps/default
         return decodeURIComponent(location.pathname).replace(/\/[^/]+\.aspx$/i, '');
     }
 
-    /** Server-relative URL of the data subfolder. */
+    /** Server-relative path of the ./data/ subfolder. */
     function dataFolderUrl() { return currentFolderUrl() + '/data'; }
 
-    /** Browser URL to a file in ./data/ with cache-buster. */
+    /** Relative browser URL to a file in ./data/ with cache-buster. */
     function dataFileUrl(name) { return 'data/' + name + '?t=' + Date.now(); }
 
-    // ---- Response helpers ----
+    // ---- OData string escaping ----
+    // Pass server-relative paths unencoded inside OData string literals.
+    // Only escape single quotes by doubling them.
+    function spStr(s) { return s.replace(/'/g, "''"); }
 
-    async function parseJsonOrXml(response) {
-        const ct = (response.headers.get('Content-Type') || '').toLowerCase();
-        const text = await response.text();
-        if (ct.includes('json')) return JSON.parse(text);
-        // XML fallback \u2014 rarely needed for the few fields we access, but handle gracefully
-        const xml = new DOMParser().parseFromString(text, 'application/xml');
-        return { __xml: xml };
-    }
-
+    // ---- XML helper ----
     function xmlText(xml, selector) {
         const el = xml.querySelector(selector);
         return el ? el.textContent : null;
     }
 
     // ---- Form Digest ----
-    // SharePoint requires a digest token for POSTs that modify state.
-    // We fetch it via /_api/contextinfo and cache until its lifetime expires.
-
-    let _digestCache = null; // { value, expiresAt }
+    let _digestCache = null;
 
     async function getFormDigest() {
         if (_digestCache && Date.now() < _digestCache.expiresAt) return _digestCache.value;
-        // Try JSON first
+
+        // Page-embedded digest (Classic SharePoint pages have this)
+        const embed = document.getElementById('__REQUESTDIGEST');
+        if (embed && embed.value) return embed.value;
+
+        // Fetch fresh digest from contextinfo
         try {
-            const r = await fetch('/_api/contextinfo', {
+            const r = await fetch(apiBase() + '/contextinfo', {
                 method: 'POST',
                 headers: { Accept: 'application/json;odata=verbose' },
                 credentials: 'same-origin'
             });
             if (r.ok) {
                 const ct = (r.headers.get('Content-Type') || '').toLowerCase();
+                let value, ttl;
                 if (ct.includes('json')) {
                     const j = await r.json();
                     const info = j.d.GetContextWebInformation;
-                    _digestCache = {
-                        value: info.FormDigestValue,
-                        expiresAt: Date.now() + (info.FormDigestTimeoutSeconds * 1000) - 60_000
-                    };
-                    return _digestCache.value;
+                    value = info.FormDigestValue;
+                    ttl   = info.FormDigestTimeoutSeconds;
+                } else {
+                    const xml = new DOMParser().parseFromString(await r.text(), 'application/xml');
+                    value = xmlText(xml, 'FormDigestValue');
+                    ttl   = parseInt(xmlText(xml, 'FormDigestTimeoutSeconds') || '1800', 10);
                 }
-                // XML fallback
-                const xml = new DOMParser().parseFromString(await r.text(), 'application/xml');
-                const value = xmlText(xml, 'FormDigestValue');
-                const ttl = parseInt(xmlText(xml, 'FormDigestTimeoutSeconds') || '1800', 10);
                 if (value) {
-                    _digestCache = { value, expiresAt: Date.now() + (ttl * 1000) - 60_000 };
+                    _digestCache = { value, expiresAt: Date.now() + (ttl * 1000) - 60000 };
                     return value;
                 }
             }
-        } catch (e) { /* fall through */ }
-        // Last resort: page-embedded digest (present on Classic SP pages as <input id="__REQUESTDIGEST">)
-        const embed = document.getElementById('__REQUESTDIGEST');
-        if (embed && embed.value) return embed.value;
-        throw new Error('Kein Form-Digest verf\u00fcgbar \u2014 REST-API nicht erreichbar?');
+        } catch (e) { console.warn('[sp-io] Form-Digest:', e.message); }
+
+        throw new Error('Kein Form-Digest verf\u00fcgbar. API-Basis: ' + apiBase());
     }
 
     // ---- Role detection ----
-    // Uses site-level EffectiveBasePermissions (/_api/web/effectivebasepermissions).
-    // This is more reliable than folder-level checks which can fail with 500 on
-    // empty folders or folders without a ListItem. EditListItems = bit 2 on Low.
+    // Uses effectivebasepermissions on the current web.
+    // EditListItems = bit 0x4 on the Low integer.
 
     async function detectRole() {
         try {
-            const r = await fetch('/_api/web/effectivebasepermissions', {
+            const url = apiBase() + '/web/effectivebasepermissions';
+            console.log('[sp-io] detectRole ->', url);
+            const r = await fetch(url, {
                 headers: { Accept: 'application/json;odata=verbose' },
                 credentials: 'same-origin'
             });
+            console.log('[sp-io] detectRole status', r.status, r.headers.get('Content-Type'));
             if (!r.ok) return 'viewer';
+
             const ct = (r.headers.get('Content-Type') || '').toLowerCase();
             let low;
             if (ct.includes('json')) {
                 const j = await r.json();
-                // Response: { d: { EffectiveBasePermissions: { High: "...", Low: "..." } } }
+                // { d: { EffectiveBasePermissions: { High: "...", Low: "..." } } }
                 const perms = j.d && j.d.EffectiveBasePermissions;
                 low = parseInt((perms && perms.Low) || '0', 10);
+                console.log('[sp-io] permissions Low =', low, 'raw =', perms);
             } else {
-                const xml = new DOMParser().parseFromString(await r.text(), 'application/xml');
+                const text = await r.text();
+                console.log('[sp-io] XML response (first 300):', text.slice(0, 300));
+                const xml = new DOMParser().parseFromString(text, 'application/xml');
                 low = parseInt(xmlText(xml, 'Low') || '0', 10);
             }
-            return (low & 0x4) ? 'designer' : 'viewer';
+            const role = (low & 0x4) ? 'designer' : 'viewer';
+            console.log('[sp-io] role =', role);
+            return role;
         } catch (e) {
-            console.warn('[sp-io] Rollenerkennung fehlgeschlagen:', e.message);
+            console.warn('[sp-io] detectRole fehlgeschlagen:', e.message);
             return 'viewer';
         }
     }
 
     // ---- Load ----
 
-    /**
-     * Load building.json from ./data/. Returns null if the file is missing
-     * (first-time setup \u2014 Designer has not saved yet).
-     * @returns {Promise<Object|null>}
-     */
     async function loadBuildingJson() {
         try {
             const r = await fetch(dataFileUrl('building.json'), { cache: 'no-store', credentials: 'same-origin' });
             if (r.status === 404) return null;
             if (!r.ok) throw new Error('HTTP ' + r.status);
-            // SharePoint may return 200 with an HTML error page instead of 404
             const ct = (r.headers.get('Content-Type') || '').toLowerCase();
             if (!ct.includes('json')) return null;
             return await r.json();
@@ -137,10 +140,6 @@ const SharePointIO = (function () {
         }
     }
 
-    /**
-     * Load building.png as a Blob, ready to be turned into a canvas.
-     * @returns {Promise<Blob|null>}
-     */
     async function loadBuildingImage() {
         try {
             const r = await fetch(dataFileUrl('building.png'), { cache: 'no-store', credentials: 'same-origin' });
@@ -155,14 +154,11 @@ const SharePointIO = (function () {
 
     // ---- Save ----
 
-    // SharePoint OData string literals use '' to escape a single quote.
-    // Do NOT use encodeURIComponent on server-relative paths — it breaks the slashes.
-    function spStr(s) { return s.replace(/'/g, "''"); }
-
     async function _uploadFile(folderServerRel, filename, body) {
         const digest = await getFormDigest();
-        const url = "/_api/web/GetFolderByServerRelativeUrl('" + spStr(folderServerRel)
+        const url = apiBase() + "/web/GetFolderByServerRelativeUrl('" + spStr(folderServerRel)
                   + "')/Files/add(url='" + spStr(filename) + "',overwrite=true)";
+        console.log('[sp-io] upload ->', url);
         const r = await fetch(url, {
             method: 'POST',
             credentials: 'same-origin',
@@ -177,47 +173,36 @@ const SharePointIO = (function () {
             let msg = 'HTTP ' + r.status;
             try {
                 const t = await r.text();
-                const m = t.match(/<m:message[^>]*>([^<]+)<\/m:message>/) || t.match(/"message"\s*:\s*\{[^}]*"value"\s*:\s*"([^"]+)"/);
-                if (m) msg += ' \u2014 ' + m[1];
+                const m = t.match(/<m:message[^>]*>([^<]+)<\/m:message>/)
+                       || t.match(/"message"\s*:\s*\{[^}]*"value"\s*:\s*"([^"]+)"/);
+                if (m) msg += ' -- ' + m[1];
             } catch (_) {}
             throw new Error('Upload fehlgeschlagen: ' + msg);
         }
         return true;
     }
 
-    /** Ensure ./data/ exists before first save. Safe to call repeatedly. */
     async function ensureDataFolder() {
-        const digest = await getFormDigest();
         const folder = dataFolderUrl();
-        // Check existence first (avoids noisy error)
         try {
-            const r = await fetch("/_api/web/GetFolderByServerRelativeUrl('" + spStr(folder) + "')",
+            const r = await fetch(apiBase() + "/web/GetFolderByServerRelativeUrl('" + spStr(folder) + "')",
                 { headers: { Accept: 'application/json;odata=verbose' }, credentials: 'same-origin' });
-            if (r.ok) return;
+            if (r.ok) return; // already exists
         } catch (_) {}
-        // Create it
-        const r2 = await fetch("/_api/web/Folders/add('" + spStr(folder) + "')", {
+        // Create
+        const digest = await getFormDigest();
+        const r2 = await fetch(apiBase() + "/web/Folders/add('" + spStr(folder) + "')", {
             method: 'POST',
             credentials: 'same-origin',
-            headers: {
-                Accept: 'application/json;odata=verbose',
-                'X-RequestDigest': digest
-            }
+            headers: { Accept: 'application/json;odata=verbose', 'X-RequestDigest': digest }
         });
-        if (!r2.ok && r2.status !== 409 /* already exists */) {
+        if (!r2.ok && r2.status !== 409) {
             throw new Error('Konnte data/-Ordner nicht anlegen (HTTP ' + r2.status + ')');
         }
     }
 
-    /**
-     * Save building.json and building.png to ./data/.
-     * Both files are overwritten atomically in sequence.
-     * @param {Object} buildingJson - The metadata payload (image.dataUrl will be stripped before write)
-     * @param {Blob} pngBlob - The rendered map as PNG
-     */
     async function saveAll(buildingJson, pngBlob) {
         await ensureDataFolder();
-        // Strip data URL from saved JSON \u2014 the image lives as a separate file
         const clean = JSON.parse(JSON.stringify(buildingJson));
         if (clean.image) delete clean.image.dataUrl;
         const jsonBlob = new Blob([JSON.stringify(clean, null, 2)], { type: 'application/json' });
@@ -228,11 +213,10 @@ const SharePointIO = (function () {
     }
 
     // ---- Availability probe ----
-    // Lets callers decide whether to show REST-backed UI or fall back to download mode.
 
     async function isRestAvailable() {
         try {
-            const r = await fetch('/_api/web/Title', {
+            const r = await fetch(apiBase() + '/web/Title', {
                 headers: { Accept: 'application/json;odata=verbose' },
                 credentials: 'same-origin'
             });
@@ -241,6 +225,7 @@ const SharePointIO = (function () {
     }
 
     return {
+        getWebUrl,
         currentFolderUrl,
         dataFolderUrl,
         detectRole,
