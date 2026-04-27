@@ -3256,6 +3256,29 @@ drawMap.addLayer(drawnItems);
 const uploadedLayer = new L.FeatureGroup();
 drawMap.addLayer(uploadedLayer);
 
+// Convert any (single-polygon) GeoJSON into an editable Leaflet polygon on
+// `drawnItems` so the leaflet-draw edit toolbar can move/insert/delete vertices.
+// Falls back to read-only display via `uploadedLayer` for non-polygon data.
+function _addAsEditablePolygon(data) {
+    let coords;
+    try { coords = extractPolygonCoords(data); } catch (_) { return false; }
+    if (!coords || coords.length < 4) return false;
+    // GeoJSON rings are closed (first === last). L.polygon auto-closes, so drop the duplicate.
+    const closed = coords[0][0] === coords[coords.length - 1][0]
+                && coords[0][1] === coords[coords.length - 1][1];
+    const ring = closed ? coords.slice(0, -1) : coords;
+    if (ring.length < 3) return false;
+    const latlngs = ring.map(c => L.latLng(c[1], c[0]));
+    const polygon = L.polygon(latlngs, { color: '#6b7530', weight: 2, fillColor: '#6b7530', fillOpacity: 0.15 });
+    drawnItems.addLayer(polygon);
+    drawMap.fitBounds(polygon.getBounds().pad(0.2));
+    drawInfo.textContent = 'Polygon mit ' + latlngs.length + ' Punkten (bearbeitbar)';
+    drawInfo.classList.remove('hidden');
+    btnClearPolygon.classList.remove('hidden');
+    btnDownloadPolygon.classList.remove('hidden');
+    return true;
+}
+
 function showGeojsonOnMap(data) {
     uploadedLayer.clearLayers();
     drawnItems.clearLayers();
@@ -3263,13 +3286,16 @@ function showGeojsonOnMap(data) {
     btnClearPolygon.classList.add('hidden');
     btnDownloadPolygon.classList.add('hidden');
     try {
-        const layer = L.geoJSON(data, {
-            style: { color: '#6b7530', weight: 2, fillColor: '#6b7530', fillOpacity: 0.15 }
-        });
-        uploadedLayer.addLayer(layer);
-        const bounds = uploadedLayer.getBounds();
-        if (bounds.isValid()) {
-            drawMap.fitBounds(bounds.pad(0.2));
+        if (!_addAsEditablePolygon(data)) {
+            // Fallback: complex/non-polygon geojson — show but not editable
+            const layer = L.geoJSON(data, {
+                style: { color: '#6b7530', weight: 2, fillColor: '#6b7530', fillOpacity: 0.15 }
+            });
+            uploadedLayer.addLayer(layer);
+            const bounds = uploadedLayer.getBounds();
+            if (bounds.isValid()) {
+                drawMap.fitBounds(bounds.pad(0.2));
+            }
         }
         // Switch to map tab to show the result
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -3328,19 +3354,17 @@ drawMap.on(L.Draw.Event.DELETED, function() {
 
 function clearDrawnPolygon() {
     drawnItems.clearLayers();
+    uploadedLayer.clearLayers();
     drawInfo.classList.add('hidden');
     btnClearPolygon.classList.add('hidden');
     btnDownloadPolygon.classList.add('hidden');
-    // Only clear geojsonData if it came from the map
-    PipelineDB.get('meta', 'geojson_source').then(source => {
-        if (source === 'drawn') {
-            geojsonData = null;
-            btnRun.disabled = true;
-            PipelineDB.remove('geojson', 'input').catch(e => console.warn('[idb] Fehler:', e.message));
-            PipelineDB.remove('meta', 'geojson_name').catch(e => console.warn('[idb] Fehler:', e.message));
-            PipelineDB.remove('meta', 'geojson_source').catch(e => console.warn('[idb] Fehler:', e.message));
-        }
-    }).catch(e => console.warn('[idb] Fehler:', e.message));
+    // Both drawn and uploaded polygons are cleared together, since uploads are
+    // now placed onto the editable layer too.
+    geojsonData = null;
+    btnRun.disabled = true;
+    PipelineDB.remove('geojson', 'input').catch(e => console.warn('[idb] Fehler:', e.message));
+    PipelineDB.remove('meta', 'geojson_name').catch(e => console.warn('[idb] Fehler:', e.message));
+    PipelineDB.remove('meta', 'geojson_source').catch(e => console.warn('[idb] Fehler:', e.message));
 }
 
 btnClearPolygon.addEventListener('click', () => {
@@ -3372,12 +3396,15 @@ async function restoreMapState() {
             btnClearPolygon.classList.remove('hidden');
             btnDownloadPolygon.classList.remove('hidden');
         } else if (source === 'upload') {
-            const layer = L.geoJSON(data, {
-                style: { color: '#6b7530', weight: 2, fillColor: '#6b7530', fillOpacity: 0.15 }
-            });
-            uploadedLayer.addLayer(layer);
-            const bounds = uploadedLayer.getBounds();
-            if (bounds.isValid()) drawMap.fitBounds(bounds.pad(0.2));
+            // Try to make uploaded polygon editable (same as showGeojsonOnMap).
+            if (!_addAsEditablePolygon(data)) {
+                const layer = L.geoJSON(data, {
+                    style: { color: '#6b7530', weight: 2, fillColor: '#6b7530', fillOpacity: 0.15 }
+                });
+                uploadedLayer.addLayer(layer);
+                const bounds = uploadedLayer.getBounds();
+                if (bounds.isValid()) drawMap.fitBounds(bounds.pad(0.2));
+            }
         }
     } catch(e) { console.warn('[map] Kartenstatus konnte nicht wiederhergestellt werden:', e.message); }
 }

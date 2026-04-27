@@ -164,9 +164,14 @@ const SharePointIO = (function () {
             const r = await fetch(dataFileUrl('building.json'), { cache: 'no-store', credentials: 'same-origin' });
             if (r.status === 404) return null;
             if (!r.ok) throw new Error('HTTP ' + r.status);
-            const ct = (r.headers.get('Content-Type') || '').toLowerCase();
-            if (!ct.includes('json')) return null;
-            return await r.json();
+            // Don't enforce Content-Type -- SharePoint may serve .json as application/octet-stream
+            // when the library's MIME map has no entry for .json. Try to parse the body anyway.
+            const text = await r.text();
+            try { return JSON.parse(text); }
+            catch (e) {
+                console.warn('[sp-io] building.json ist kein g\u00fcltiges JSON:', e.message);
+                return null;
+            }
         } catch (e) {
             console.warn('[sp-io] building.json laden fehlgeschlagen:', e.message);
             return null;
@@ -237,7 +242,11 @@ const SharePointIO = (function () {
     async function saveAll(buildingJson, pngBlob) {
         await ensureDataFolder();
         const clean = JSON.parse(JSON.stringify(buildingJson));
-        if (clean.image) delete clean.image.dataUrl;
+        // Normalize image metadata: file is always saved as building.png in this folder.
+        // The pipeline default 'rendered.png' is misleading once we land in SharePoint.
+        clean.image = clean.image || {};
+        clean.image.filename = 'building.png';
+        delete clean.image.dataUrl;
         const jsonBlob = new Blob([JSON.stringify(clean, null, 2)], { type: 'application/json' });
         const folder = dataFolderUrl();
         await _uploadFile(folder, 'building.json', jsonBlob);

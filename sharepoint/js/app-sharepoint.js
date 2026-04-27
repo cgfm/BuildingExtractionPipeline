@@ -66,6 +66,27 @@
         json.image = json.image || {};
         json.image.dataUrl = imgUrl;
 
+        // Restore the source polygon (geojson area-of-interest) so other designers can
+        // re-run the pipeline without having to re-upload the original geojson file.
+        // `geojsonData` in app.js is a script-scoped `let`, shared between classic scripts
+        // in the same realm -- a bare assignment here writes the same binding.
+        if (json.sourcePolygon) {
+            try {
+                geojsonData = json.sourcePolygon;
+                if (typeof saveGeojson === 'function') {
+                    saveGeojson(json.sourcePolygon, 'building.json (SharePoint)');
+                }
+                if (typeof PipelineDB !== 'undefined') {
+                    await PipelineDB.put('meta', 'geojson_source', 'upload');
+                }
+                if (typeof showGeojsonOnMap === 'function') {
+                    showGeojsonOnMap(json.sourcePolygon);
+                }
+                const btnRun = document.getElementById('btnRun');
+                if (btnRun) btnRun.disabled = false;
+            } catch (e) { console.warn('[sp] sourcePolygon restore failed:', e.message); }
+        }
+
         // Persist to IDB so EditorModule.initFromIDB() picks it up on next reload
         try {
             await PipelineDB.put('images', 'rendered_map', imageBlob);
@@ -109,6 +130,17 @@
             toast('Keine Geb\u00e4udedaten vorhanden \u2014 zuerst Pipeline ausf\u00fchren.', 'error');
             return;
         }
+        // Embed the geojson area-of-interest into building.json so other designers can
+        // re-run the pipeline against the same area without re-uploading the file.
+        try {
+            if (typeof geojsonData !== 'undefined' && geojsonData) {
+                buildingsData.sourcePolygon = geojsonData;
+            } else {
+                // Fallback: read from IDB if the global wasn't populated yet
+                const fromIdb = await PipelineDB.get('geojson', 'input');
+                if (fromIdb) buildingsData.sourcePolygon = fromIdb;
+            }
+        } catch (_) {}
         // Need a canvas to produce the PNG. Prefer pipeline.canvas; fall back to re-rendering from dataUrl.
         let canvas = (typeof pipeline !== 'undefined' && pipeline) ? pipeline.canvas : null;
         if (!canvas && buildingsData.image && buildingsData.image.dataUrl) {

@@ -85,11 +85,13 @@
 
         async function init(){
             try {
-                const r = await fetch('data/building.json' + CB, { cache: 'no-store' });
+                const r = await fetch('data/building.json' + CB, { cache: 'no-store', credentials: 'same-origin' });
                 if (!r.ok) throw new Error('Karte noch nicht ver\u00f6ffentlicht (data/building.json fehlt).');
-                const ct = (r.headers.get('Content-Type') || '').toLowerCase();
-                if (!ct.includes('json')) throw new Error('Karte noch nicht ver\u00f6ffentlicht (data/building.json fehlt).');
-                buildingsData = await r.json();
+                // Don't enforce Content-Type \u2014 SharePoint may serve .json as application/octet-stream
+                // when the MIME map for the library has no entry for .json. Just try to parse the body.
+                const text = await r.text();
+                try { buildingsData = JSON.parse(text); }
+                catch (_) { throw new Error('data/building.json ist nicht lesbar (kein g\u00fcltiges JSON).'); }
                 // Image is an external file next to the JSON
                 buildingsData.image = buildingsData.image || {};
                 buildingsData.image.dataUrl = 'data/building.png' + CB;
