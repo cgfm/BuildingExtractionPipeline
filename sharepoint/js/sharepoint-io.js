@@ -155,10 +155,14 @@ const SharePointIO = (function () {
 
     // ---- Save ----
 
+    // SharePoint OData string literals use '' to escape a single quote.
+    // Do NOT use encodeURIComponent on server-relative paths — it breaks the slashes.
+    function spStr(s) { return s.replace(/'/g, "''"); }
+
     async function _uploadFile(folderServerRel, filename, body) {
         const digest = await getFormDigest();
-        const url = "/_api/web/GetFolderByServerRelativeUrl('" + encodeURIComponent(folderServerRel)
-                  + "')/Files/add(url='" + encodeURIComponent(filename) + "',overwrite=true)";
+        const url = "/_api/web/GetFolderByServerRelativeUrl('" + spStr(folderServerRel)
+                  + "')/Files/add(url='" + spStr(filename) + "',overwrite=true)";
         const r = await fetch(url, {
             method: 'POST',
             credentials: 'same-origin',
@@ -187,12 +191,12 @@ const SharePointIO = (function () {
         const folder = dataFolderUrl();
         // Check existence first (avoids noisy error)
         try {
-            const r = await fetch("/_api/web/GetFolderByServerRelativeUrl('" + encodeURIComponent(folder) + "')",
+            const r = await fetch("/_api/web/GetFolderByServerRelativeUrl('" + spStr(folder) + "')",
                 { headers: { Accept: 'application/json;odata=verbose' }, credentials: 'same-origin' });
             if (r.ok) return;
         } catch (_) {}
         // Create it
-        const r2 = await fetch("/_api/web/Folders/add('" + encodeURIComponent(folder) + "')", {
+        const r2 = await fetch("/_api/web/Folders/add('" + spStr(folder) + "')", {
             method: 'POST',
             credentials: 'same-origin',
             headers: {
