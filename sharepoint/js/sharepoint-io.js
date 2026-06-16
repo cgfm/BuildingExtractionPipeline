@@ -68,6 +68,12 @@ const SharePointIO = (function () {
     /** Relative browser URL to a file in ./data/ with cache-buster. */
     function dataFileUrl(name) { return 'data/' + name + '?t=' + Date.now(); }
 
+    /** SharePoint REST URL that streams a file's bytes regardless of MIME map / routing. */
+    function restFileUrl(name) {
+        return apiBase() + "/web/GetFileByServerRelativeUrl('"
+             + spStr(dataFolderUrl() + '/' + name) + "')/$value?t=" + Date.now();
+    }
+
     // ---- OData string escaping ----
     // Pass server-relative paths unencoded inside OData string literals.
     // Only escape single quotes by doubling them.
@@ -158,36 +164,71 @@ const SharePointIO = (function () {
     }
 
     // ---- Load ----
+    // On portals with a custom-managed path (e.g. /daten/<n>/ instead of /sites/<n>/),
+    // or when the .aspx lives in a Site Pages library, the relative `data/...` fetch can
+    // be misrouted to SharePoint's 200+HTML "friendly 404" page. We therefore try the
+    // relative URL first, detect HTML-shaped responses, and fall back to the REST API
+    // (GetFileByServerRelativeUrl/$value), which always streams the real file bytes.
+
+    function _looksLikeHtml(text) {
+        return text.length > 0 && text.trimStart().slice(0, 1) === '<';
+    }
+
+    /** Returns the raw response text of a data file, or null if unreachable. */
+    async function _fetchDataText(name) {
+        // 1) Direct relative fetch
+        try {
+            const r = await fetch(dataFileUrl(name), { cache: 'no-store', credentials: 'same-origin' });
+            console.log('[sp-io]', name, 'direct ->', r.status, r.headers.get('Content-Type'));
+            if (r.ok) {
+                const text = await r.text();
+                if (!_looksLikeHtml(text)) return text;
+                console.warn('[sp-io]', name, 'direct returned HTML (SharePoint 404/login?) -- trying REST');
+            }
+        } catch (e) { console.warn('[sp-io]', name, 'direct failed:', e.message); }
+        // 2) REST fallback
+        try {
+            const url = restFileUrl(name);
+            const r = await fetch(url, { cache: 'no-store', credentials: 'same-origin' });
+            console.log('[sp-io]', name, 'REST ->', r.status, r.headers.get('Content-Type'));
+            if (r.ok) {
+                const text = await r.text();
+                if (!_looksLikeHtml(text)) return text;
+                console.warn('[sp-io]', name, 'REST returned HTML. First 200:', text.slice(0, 200));
+            }
+        } catch (e) { console.warn('[sp-io]', name, 'REST failed:', e.message); }
+        return null;
+    }
 
     async function loadBuildingJson() {
-        try {
-            const r = await fetch(dataFileUrl('building.json'), { cache: 'no-store', credentials: 'same-origin' });
-            if (r.status === 404) return null;
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            // Don't enforce Content-Type -- SharePoint may serve .json as application/octet-stream
-            // when the library's MIME map has no entry for .json. Try to parse the body anyway.
-            const text = await r.text();
-            try { return JSON.parse(text); }
-            catch (e) {
-                console.warn('[sp-io] building.json ist kein g\u00fcltiges JSON:', e.message);
-                return null;
-            }
-        } catch (e) {
-            console.warn('[sp-io] building.json laden fehlgeschlagen:', e.message);
+        const text = await _fetchDataText('building.json');
+        if (text === null) return null;
+        try { return JSON.parse(text); }
+        catch (e) {
+            console.warn('[sp-io] building.json ist kein g\u00fcltiges JSON:', e.message);
             return null;
         }
     }
 
     async function loadBuildingImage() {
+        // 1) Direct relative fetch (skip if it returns HTML)
         try {
             const r = await fetch(dataFileUrl('building.png'), { cache: 'no-store', credentials: 'same-origin' });
-            if (r.status === 404) return null;
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            return await r.blob();
-        } catch (e) {
-            console.warn('[sp-io] building.png laden fehlgeschlagen:', e.message);
-            return null;
-        }
+            console.log('[sp-io] building.png direct ->', r.status, r.headers.get('Content-Type'));
+            if (r.ok) {
+                const ct = (r.headers.get('Content-Type') || '').toLowerCase();
+                if (!ct.includes('html')) return await r.blob();
+                console.warn('[sp-io] building.png direct returned HTML -- trying REST');
+            }
+        } catch (e) { console.warn('[sp-io] building.png direct failed:', e.message); }
+        // 2) REST fallback
+        try {
+            const url = restFileUrl('building.png');
+            const r = await fetch(url, { cache: 'no-store', credentials: 'same-origin' });
+            console.log('[sp-io] building.png REST ->', r.status, r.headers.get('Content-Type'));
+            if (r.ok) return await r.blob();
+        } catch (e) { console.warn('[sp-io] building.png REST failed:', e.message); }
+        return null;
     }
 
     // ---- Save ----
