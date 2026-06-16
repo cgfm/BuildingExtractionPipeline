@@ -683,7 +683,11 @@ body {
     font-size: 11px;
     color: #b0ad98;
     transition: transform 0.3s;
+    padding: 6px 10px;
+    margin: -6px -10px;
+    border-radius: 4px;
 }
+.viewer-preview .vp-group-toggle:hover { color: #4b5320; background: rgba(75,83,32,0.12); }
 .viewer-preview .vp-group.collapsed .vp-group-toggle {
     transform: rotate(-90deg);
 }
@@ -1265,7 +1269,8 @@ textarea.ed-form-input { min-height: 100px; resize: vertical; }
     text-transform: uppercase; letter-spacing: 0.03em; margin: 0;
 }
 .viewer-overlay .vo-group-header-building h4 { text-decoration: underline; text-decoration-color: #b0ad98; text-underline-offset: 3px; }
-.viewer-overlay .vo-group-toggle { font-size: 12px; color: #b0ad98; transition: transform 0.3s; }
+.viewer-overlay .vo-group-toggle { font-size: 12px; color: #b0ad98; transition: transform 0.3s; padding: 6px 10px; margin: -6px -10px; border-radius: 4px; }
+.viewer-overlay .vo-group-toggle:hover { color: #4b5320; background: rgba(75,83,32,0.12); }
 .viewer-overlay .vo-group.collapsed .vo-group-toggle { transform: rotate(-90deg); }
 .viewer-overlay .vo-group-buildings { max-height: 1000px; overflow: hidden; transition: max-height 0.3s ease; }
 .viewer-overlay .vo-group.collapsed .vo-group-buildings { max-height: 0; }

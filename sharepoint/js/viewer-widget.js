@@ -275,8 +275,9 @@ const ViewerWidget = (function() {
                 h.style.paddingLeft = (16 - level * 4) + 'px';
                 h.setAttribute('data-search-text', nameMatch ? [nameMatch.name, nameMatch.nummer, nameMatch.gruppe].filter(Boolean).join(' ').toLowerCase() : '');
                 h.innerHTML = '<h4>' + escapeHtml(groupName) + '</h4><span class="' + prefix + '-group-toggle">\u25BC</span>';
-                h.addEventListener('click', () => {
+                h.addEventListener('click', (e) => {
                     g.classList.toggle('collapsed');
+                    if (e.target.closest('.' + prefix + '-group-toggle')) return;
                     if (nameMatch && onBuildingClick) onBuildingClick(nameMatch);
                 });
                 h.addEventListener('mouseenter', () => bids.forEach(id => highlight(id)));
