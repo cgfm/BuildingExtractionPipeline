@@ -18,7 +18,8 @@
         .group-header:hover{background:#e8e6df}
         .group-header h2{font-size:0.85rem;font-weight:700;color:#4b5320;text-transform:uppercase;letter-spacing:0.03em;flex:1}
         .group-header-building h2{text-decoration:underline;text-decoration-color:#b0ad98;text-underline-offset:3px}
-        .group-toggle{font-size:12px;color:#b0ad98;transition:transform 0.3s}
+        .group-toggle{font-size:12px;color:#b0ad98;transition:transform 0.3s;padding:6px 10px;margin:-6px -10px;border-radius:4px}
+        .group-toggle:hover{color:#4b5320;background:rgba(75,83,32,0.12)}
         .group.collapsed .group-toggle{transform:rotate(-90deg)}
         .group-buildings{max-height:1000px;overflow:hidden;transition:max-height 0.3s ease}
         .group.collapsed .group-buildings{max-height:0}
@@ -229,7 +230,7 @@
                 const h=document.createElement('div');h.className='group-header'+(nameMatch?' group-header-building':'');h.style.paddingLeft=(20-l*5)+'px';
                 if(nameMatch)h.setAttribute('data-search-text',[nameMatch.name,nameMatch.nummer,nameMatch.gruppe].filter(Boolean).join(' ').toLowerCase());
                 h.innerHTML='<h2>'+esc(gn)+'</h2><span class="group-toggle">\u25BC</span>';
-                h.addEventListener('click',()=>{g.classList.toggle('collapsed');if(nameMatch)showPopup(nameMatch)});
+                h.addEventListener('click',e=>{if(e.target.closest('.group-toggle')){g.classList.toggle('collapsed');return}g.classList.toggle('collapsed');if(nameMatch)showPopup(nameMatch)});
                 h.addEventListener('mouseenter',()=>bids.forEach(id=>highlightBuilding(id)));
                 h.addEventListener('mouseleave',()=>bids.forEach(id=>unhighlightBuilding(id)));
                 g.appendChild(h);
