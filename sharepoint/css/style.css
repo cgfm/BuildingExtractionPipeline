@@ -962,6 +962,13 @@ body {
 }
 .accordion-body > * { overflow: hidden; }
 .accordion.collapsed .accordion-body { grid-template-rows: 0fr; }
+/* The editor layout uses overflow:visible, which would otherwise let its content
+   spill out and defeat the grid-row collapse above. Re-clip collapsed bodies so
+   the editor accordion can actually fold shut. */
+.accordion.collapsed .accordion-body > * { overflow: hidden; }
+/* The editor layout has margin + border that would otherwise leave a visible
+   sliver when collapsed; drop them so it folds away completely. */
+.accordion.collapsed .editor-layout { margin: 0; border-width: 0; }
 .accordion-badge {
     display: inline-flex; align-items: center; justify-content: center;
     min-width: 22px; height: 22px; padding: 0 6px;
@@ -992,6 +999,10 @@ body {
     display: flex; align-items: stretch;
     border: 1px solid #c0bda8; border-radius: 2px;
     overflow: visible; margin: 12px 0; background: #d6d3c8;
+    /* Bound the editor to the viewport so the building list scrolls inside the
+       sidebar instead of stretching the whole page (which made selecting a
+       building jump the page far down). */
+    max-height: calc(100vh - 120px);
 }
 .editor-sidebar {
     width: 350px; min-width: 350px;
@@ -1053,7 +1064,7 @@ body {
 }
 .ed-search-input:focus { outline: none; border-color: #4b5320; }
 .editor-main {
-    flex: 1; overflow: visible; background: #d6d3c8;
+    flex: 1; overflow-y: auto; background: #d6d3c8;
     display: flex; flex-direction: column; gap: 20px; padding: 0 20px;
 }
 
@@ -1350,6 +1361,6 @@ textarea.ed-form-input { min-height: 100px; resize: vertical; }
     .header-card h1 { font-size: 1.2rem; }
     .viewer-preview { height: 400px; flex-direction: column; }
     .viewer-preview .vp-sidebar { width: 100%; min-width: 100%; height: 150px; border-right: none; border-bottom: 1px solid #c0bda8; }
-    .editor-layout { flex-direction: column; min-height: 0; }
+    .editor-layout { flex-direction: column; min-height: 0; max-height: none; }
     .editor-sidebar { width: 100%; min-width: 100%; border-right: none; border-bottom: 1px solid #c0bda8; }
 }
