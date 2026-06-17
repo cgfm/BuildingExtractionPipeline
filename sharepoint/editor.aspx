@@ -323,19 +323,10 @@
                         <p id="edSidebarInfo">Interaktiver Geb&auml;ude-Editor</p>
                     </div>
                     <div class="editor-toolbar">
-                        <button class="btn btn-secondary btn-sm" id="edLoadBtn" data-tooltip="L&auml;dt eine zuvor gespeicherte JSON-Datei und &uuml;bernimmt Bezeichnungen, Beschreibungen und Gruppen.">Laden</button>
+                        <button class="btn btn-secondary btn-sm" id="edLoadBtn" data-tooltip="Importiert eine zuvor gespeicherte JSON-Datei und &uuml;bernimmt Bezeichnungen, Beschreibungen und Gruppen.">Import</button>
                         <input type="file" id="edLoadFileInput" accept=".json" style="display:none">
-                        <button class="btn btn-success btn-sm" id="edSaveBtn" data-tooltip="Speichert direkt auf SharePoint.">Auf SharePoint speichern</button>
-                        <button class="btn btn-primary btn-sm" id="edPreviewBtn" data-tooltip="Vorschau (in SharePoint-Modus deaktiviert).">Vorschau</button>
-                    </div>
-                    <div class="editor-toolbar editor-toolbar-save hidden" id="edSaveMenu">
-                        <button class="btn btn-sm" id="edSaveJson">Geb&auml;ude-<br>daten</button>
-                        <button class="btn btn-sm" id="edSaveHtml">Standalone HTML</button>
-                        <button class="btn btn-sm" id="edSaveSharePoint">SharePoint</button>
-                    </div>
-                    <div class="editor-toolbar editor-toolbar-secondary">
                         <button class="btn btn-sm" id="edDrawAreaBtn" style="background:#2196F3;color:#fff;" data-tooltip="Zeichnet eine neue Fl&auml;che/Zone durch Klicken von Punkten auf der Karte.">&#x25A1; Fl&auml;che zeichnen</button>
-                        <button class="btn btn-sm" id="edToggleAreasBtn" style="background:#90CAF9;color:#1565C0;font-size:11px;" data-tooltip="Fl&auml;chen auf der Karte ein-/ausblenden.">&#x25A1; Fl&auml;chen ein</button>
+                        <button class="btn btn-primary btn-sm" id="edPreviewBtn" data-tooltip="Vorschau (in SharePoint-Modus deaktiviert).">Vorschau</button>
                     </div>
                     <div class="ed-search-bar">
                         <input type="text" class="ed-search-input" id="edSearchInput" placeholder="Geb&#228;ude suchen...">

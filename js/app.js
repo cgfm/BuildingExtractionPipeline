@@ -1888,6 +1888,13 @@ const EditorModule = (() => {
 
     // ---- Persist to IDB (debounced) ----
     let _persistTimer = null;
+    // Editor change listeners (used by the SharePoint adapter for auto-save).
+    let _changeListeners = [];
+    function _notifyChange() {
+        for (const fn of _changeListeners) {
+            try { fn(buildingsData); } catch (e) { console.warn('[editor] change listener failed:', e.message); }
+        }
+    }
     function persistToIDB() {
         clearTimeout(_persistTimer);
         _persistTimer = setTimeout(async () => {
@@ -1906,6 +1913,7 @@ const EditorModule = (() => {
                     }
                 }
             } catch(e) { console.warn('[editor] IDB-Speicherung fehlgeschlagen:', e.message); }
+            _notifyChange();
         }, 1500);
     }
 
@@ -3090,19 +3098,17 @@ const EditorModule = (() => {
     function bindEvents() {
         document.getElementById('edLoadBtn').addEventListener('click', loadJSONFromFile);
         document.getElementById('edLoadFileInput').addEventListener('change', (e) => { if (e.target.files[0]) { handleLoadedFile(e.target.files[0]); e.target.value = ''; } });
-        document.getElementById('edSaveBtn').addEventListener('click', () => {
-            const menu = document.getElementById('edSaveMenu');
-            menu.classList.toggle('hidden');
+        document.getElementById('edSaveBtn')?.addEventListener('click', () => {
+            document.getElementById('edSaveMenu')?.classList.toggle('hidden');
         });
-        document.getElementById('edSaveJson').addEventListener('click', () => { saveJSONToFile(); document.getElementById('edSaveMenu').classList.add('hidden'); });
-        document.getElementById('edSaveHtml').addEventListener('click', () => { exportStandaloneFromEditor(); document.getElementById('edSaveMenu').classList.add('hidden'); });
-        document.getElementById('edSaveSharePoint').addEventListener('click', () => { exportSharePoint(); document.getElementById('edSaveMenu').classList.add('hidden'); });
+        document.getElementById('edSaveJson')?.addEventListener('click', () => { saveJSONToFile(); document.getElementById('edSaveMenu')?.classList.add('hidden'); });
+        document.getElementById('edSaveHtml')?.addEventListener('click', () => { exportStandaloneFromEditor(); document.getElementById('edSaveMenu')?.classList.add('hidden'); });
+        document.getElementById('edSaveSharePoint')?.addEventListener('click', () => { exportSharePoint(); document.getElementById('edSaveMenu')?.classList.add('hidden'); });
         document.getElementById('edPreviewBtn').addEventListener('click', () => { if (buildingsData) showViewerOverlay(); });
         document.getElementById('edDrawAreaBtn').addEventListener('click', () => {
             if (!buildingsData || !buildingsData.image) return;
             if (drawingMode) cancelDrawingMode(); else startDrawingMode();
         });
-        document.getElementById('edToggleAreasBtn').addEventListener('click', toggleAreas);
         document.getElementById('voCloseBtn').addEventListener('click', hideViewerOverlay);
         document.getElementById('undoBtn').addEventListener('click', () => UndoManager.undo());
         document.getElementById('redoBtn').addEventListener('click', () => UndoManager.redo());
@@ -3171,7 +3177,8 @@ const EditorModule = (() => {
         initFromIDB,
         isActive() { return !document.getElementById('accordionEditor').classList.contains('collapsed'); },
         hasUnsavedChanges() { return hasChanges; },
-        getBuildingsData() { return buildingsData; }
+        getBuildingsData() { return buildingsData; },
+        onChange(fn) { if (typeof fn === 'function') _changeListeners.push(fn); }
     };
 })();
 

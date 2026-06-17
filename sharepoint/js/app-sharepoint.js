@@ -122,14 +122,45 @@
         return true;
     }
 
-    // ---- Save to SharePoint ----
+    // ---- Auto-save to SharePoint ----
+    // The editor calls EditorModule.onChange after every change has been persisted to
+    // IndexedDB (debounced ~1.5s). We mirror that state straight to SharePoint, so there
+    // is no manual "save" button. A small status pill in the sidebar header reflects the
+    // current save state.
 
-    async function saveToSharePoint(btn) {
-        const buildingsData = EditorModule.getBuildingsData();
-        if (!buildingsData) {
-            toast('Keine Geb\u00e4udedaten vorhanden \u2014 zuerst Pipeline ausf\u00fchren.', 'error');
-            return;
+    let _saveInFlight = false;
+    let _savePending = false;
+
+    function setSaveStatus(state, detail) {
+        const el = document.getElementById('spSaveStatus');
+        if (!el) return;
+        const labels = {
+            saving: '\u2026 Speichere',
+            saved: '\u2713 Gespeichert',
+            error: '\u26a0 Speichern fehlgeschlagen'
+        };
+        el.textContent = labels[state] || '';
+        el.dataset.state = state || '';
+        el.title = detail || '';
+        el.classList.toggle('visible', !!labels[state]);
+        clearTimeout(setSaveStatus._t);
+        if (state === 'saved') {
+            setSaveStatus._t = setTimeout(() => el.classList.remove('visible'), 2500);
         }
+    }
+
+    function installSaveStatus() {
+        if (document.getElementById('spSaveStatus')) return;
+        const el = document.createElement('span');
+        el.id = 'spSaveStatus';
+        el.className = 'sp-save-status';
+        const host = document.querySelector('.editor-sidebar-header') || document.body;
+        host.appendChild(el);
+    }
+
+    async function performSharePointSave() {
+        const buildingsData = EditorModule.getBuildingsData();
+        if (!buildingsData) return;
         // Embed the geojson area-of-interest into building.json so other designers can
         // re-run the pipeline against the same area without re-uploading the file.
         try {
@@ -141,7 +172,7 @@
                 if (fromIdb) buildingsData.sourcePolygon = fromIdb;
             }
         } catch (_) {}
-        // Need a canvas to produce the PNG. Prefer pipeline.canvas; fall back to re-rendering from dataUrl.
+        // Need a canvas to produce the PNG. Prefer pipeline.canvas; fall back to the dataUrl.
         let canvas = (typeof pipeline !== 'undefined' && pipeline) ? pipeline.canvas : null;
         if (!canvas && buildingsData.image && buildingsData.image.dataUrl) {
             try {
@@ -157,44 +188,35 @@
                 canvas.getContext('2d').drawImage(img, 0, 0);
             } catch (e) { /* fall through */ }
         }
-        if (!canvas) {
-            toast('Kein Bild zum Speichern vorhanden \u2014 bitte Pipeline ausf\u00fchren.', 'error');
-            return;
-        }
-
-        const originalText = btn ? btn.textContent : '';
-        if (btn) { btn.disabled = true; btn.textContent = 'Speichere\u2026'; }
+        if (!canvas) throw new Error('Kein Bild zum Speichern vorhanden');
+        const pngBlob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+        if (!pngBlob) throw new Error('PNG-Erzeugung fehlgeschlagen');
+        await SharePointIO.saveAll(buildingsData, pngBlob);
+        // Sync local IDB caches so a reload shows the freshly-saved state
         try {
-            const pngBlob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-            if (!pngBlob) throw new Error('PNG-Erzeugung fehlgeschlagen');
-            await SharePointIO.saveAll(buildingsData, pngBlob);
-            // Sync local IDB caches so a reload shows the freshly-saved state
-            try {
-                await PipelineDB.put('images', 'rendered_map', pngBlob);
-                const stripped = JSON.parse(JSON.stringify(buildingsData));
-                if (stripped.image) delete stripped.image.dataUrl;
-                await PipelineDB.put('editor', 'buildingsData', stripped);
-            } catch (_) {}
-            toast('Gespeichert \u2014 \u00c4nderungen in SharePoint \u00fcbernommen.', 'success');
-        } catch (e) {
-            console.error('[sp] save failed', e);
-            toast('Speichern fehlgeschlagen: ' + e.message, 'error');
-        } finally {
-            if (btn) { btn.disabled = false; btn.textContent = originalText; }
-        }
+            await PipelineDB.put('images', 'rendered_map', pngBlob);
+            const stripped = JSON.parse(JSON.stringify(buildingsData));
+            if (stripped.image) delete stripped.image.dataUrl;
+            await PipelineDB.put('editor', 'buildingsData', stripped);
+        } catch (_) {}
     }
 
-    // ---- Button wiring ----
-
-    function wireSaveButton() {
-        const saveBtn = document.getElementById('edSaveBtn');
-        if (!saveBtn) return;
-        // Replace the dropdown behavior: direct SharePoint save.
-        const fresh = saveBtn.cloneNode(true);
-        fresh.textContent = 'Auf SharePoint speichern';
-        fresh.setAttribute('data-tooltip', 'Speichert building.json und building.png direkt in data/ dieser SharePoint-Seite.');
-        saveBtn.parentNode.replaceChild(fresh, saveBtn);
-        fresh.addEventListener('click', () => saveToSharePoint(fresh));
+    async function autoSaveToSharePoint() {
+        // Collapse overlapping requests: if a save is already running, queue one more.
+        if (_saveInFlight) { _savePending = true; return; }
+        _saveInFlight = true;
+        setSaveStatus('saving');
+        try {
+            await performSharePointSave();
+            setSaveStatus('saved');
+        } catch (e) {
+            console.error('[sp] auto-save failed', e);
+            setSaveStatus('error', e.message);
+            toast('Speichern fehlgeschlagen: ' + e.message, 'error');
+        } finally {
+            _saveInFlight = false;
+            if (_savePending) { _savePending = false; autoSaveToSharePoint(); }
+        }
     }
 
     // ---- Startup ----
@@ -205,7 +227,7 @@
             return;
         }
 
-        wireSaveButton();
+        installSaveStatus();
 
         const restOk = await SharePointIO.isRestAvailable();
         if (!restOk) {
@@ -219,8 +241,27 @@
         // If the user can reach editor.aspx, they should be able to use it.
 
         // Designer: try to bootstrap with an existing map.
-        try { await bootstrapFromSharePoint(); }
+        let loaded = false;
+        try { loaded = await bootstrapFromSharePoint(); }
         catch (e) { console.warn('[sp] Bootstrap:', e.message); }
+
+        // Auto-save: mirror every editor change to SharePoint (replaces the manual button).
+        if (typeof EditorModule !== 'undefined' && typeof EditorModule.onChange === 'function') {
+            EditorModule.onChange(() => autoSaveToSharePoint());
+        }
+
+        // First-time setup (no existing map yet): once the user runs the pipeline and the
+        // editor receives data, perform one initial save so the raw result lands in SharePoint.
+        if (!loaded) {
+            const poll = setInterval(() => {
+                const d = (typeof EditorModule !== 'undefined') ? EditorModule.getBuildingsData() : null;
+                if (d && d.buildings && d.buildings.length) {
+                    clearInterval(poll);
+                    autoSaveToSharePoint();
+                }
+            }, 1500);
+            setTimeout(() => clearInterval(poll), 600000);
+        }
     }
 
     // Defer until app.js initApp() IIFE has a chance to attach its handlers.
